@@ -97,8 +97,8 @@ function fare(distance){
     else return {adult:340,child:170};
 }
 
-// --- 路線判定（前路線履歴考慮でnull回避） ---
-function getLine(from,to,lastLine){
+// --- 路線判定（駅間ペアで一意に決定） ---
+function getLine(from,to){
     const candidates=[];
     for(const [line, stations] of Object.entries(stationLines)){
         for(let i=0;i<stations.length-1;i++){
@@ -108,22 +108,21 @@ function getLine(from,to,lastLine){
         }
     }
     if(candidates.length===0) return null;
-    if(candidates.length===1) return candidates[0];
-    if(lastLine && candidates.includes(lastLine)) return lastLine;
-    return candidates[0];
+    return candidates[0]; // 複数あっても最初の1つを選択
 }
 
 // --- BFS探索（短距離・少ない乗換優先） ---
 function findBestPaths(start,goal){
-    const heap=[[ [start],0,[] ]]; // path,distance,linesUsed
+    const queue=[[ [start],0,[] ]]; // path,distance,linesUsed
     const results=[];
-    while(heap.length>0){
-        heap.sort((a,b)=>{
+    const visited={};
+    while(queue.length>0){
+        queue.sort((a,b)=>{
             const [pa,da,la]=a; const [pb,db,lb]=b;
             if(da!==db) return da-db;
             return la.length - lb.length;
         });
-        const [path,distance,linesUsed]=heap.shift();
+        const [path,distance,linesUsed]=queue.shift();
         const last=path[path.length-1];
         if(last===goal){
             results.push({path,distance});
@@ -131,10 +130,13 @@ function findBestPaths(start,goal){
         }
         for(const next in graph[last]){
             if(path.includes(next)) continue;
-            const line=getLine(last,next,linesUsed.length>0?linesUsed[linesUsed.length-1]:null);
+            const line=getLine(last,next);
             const newLinesUsed=[...linesUsed];
             if(linesUsed.length===0 || linesUsed[linesUsed.length-1]!==line) newLinesUsed.push(line);
-            heap.push([[...path,next],distance+graph[last][next],newLinesUsed]);
+            const key=path.concat(next).join(">");
+            if(visited[key]) continue;
+            visited[key]=true;
+            queue.push([[...path,next],distance+graph[last][next],newLinesUsed]);
         }
     }
     results.sort((a,b)=>{
@@ -179,7 +181,7 @@ function showAllRoutes(){
         let display=[];
         let lastLine=null;
         for(let i=0;i<p.length-1;i++){
-            const line=getLine(p[i],p[i+1],lastLine);
+            const line=getLine(p[i],p[i+1]);
             if(i===0 || line!==lastLine) display.push({station:p[i],line:line});
             lastLine=line;
         }
@@ -187,7 +189,7 @@ function showAllRoutes(){
         // 表示：発駅 路線 乗換駅 路線 着駅
         let html="";
         for(let i=0;i<display.length-1;i++){
-            const curr=display[i], next=display[i+1];
+            const curr=display[i];
             html+=curr.station;
             html+=` <span class="route-line" style="background:${lineColors[curr.line]}">新里鉄道 ${curr.line}</span> `;
         }
