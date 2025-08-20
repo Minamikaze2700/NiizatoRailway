@@ -189,10 +189,10 @@ function showAllRoutes(){
     let html="";
     for(let i=0;i<display.length-1;i++){
         const curr=display[i];
-        html+=curr.station+"<br>";
+        html+=curr.station+" ";
         html+=`<span class="route-line" style="background:${lineColors[curr.line]}">新里鉄道 ${curr.line}</span><br>`;
     }
-    html+=display[display.length-1].station+"<br><br>"; // 総距離の前に改行
+    html+=display[display.length-1].station+"<br><br>"; // 総距離前の改行
 
     const f=fare(best.distance);
     html+=`総距離: ${best.distance.toFixed(1)} km<br>`;
