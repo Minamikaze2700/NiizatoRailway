@@ -107,60 +107,8 @@ function getLine(from,to){
     return null;
 }
 
-// --- 湯の浜線 ↔ 燠野線 乗換処理 ---
-function isSpecialTransfer(start,goal){
-    const yHamaLine = stationLines["湯の浜線"];
-    const atanoLine = stationLines["燠野線"];
-    const startIndexY = yHamaLine.indexOf(start);
-    const goalIndexY = yHamaLine.indexOf(goal);
-    const startIndexA = atanoLine.indexOf(start);
-    const goalIndexA = atanoLine.indexOf(goal);
-
-    // 豊町～西新里までの区間（新里含まず）
-    const yHamaPreShinri = yHamaLine.slice(0,yHamaLine.indexOf("新里"));
-    const yHamaShinriToHama = yHamaLine.slice(yHamaLine.indexOf("新里"));
-    const atanoPreShinri = atanoLine.slice(0,atanoLine.indexOf("新里"));
-    const atanoShinriToEnd = atanoLine.slice(atanoLine.indexOf("新里"));
-
-    // 出発
-    if(yHamaPreShinri.includes(start) && atanoShinriToEnd.includes(goal)){
-        return "viaShinri";
-    }
-    if(yHamaShinriToHama.includes(start) && atanoShinriToEnd.includes(goal)){
-        return "startOnAtano";
-    }
-    if(atanoShinriToEnd.includes(start) && yHamaPreShinri.includes(goal)){
-        return "goalOnYhama";
-    }
-    if(atanoShinriToEnd.includes(start) && yHamaShinriToHama.includes(goal)){
-        return "startOnAtanoGoalOnYhama";
-    }
-    return null;
-}
-
 // --- BFS探索 ---
 function findBestPath(start,goal){
-    const special = isSpecialTransfer(start,goal);
-    if(special==="viaShinri"){
-        // 豊町～西新里→新里→燠野線
-        const firstPath = findBestPathNormal(start,"新里");
-        const secondPath = findBestPathNormal("新里",goal);
-        return {path:firstPath.path.concat(secondPath.path.slice(1)),distance:firstPath.distance+secondPath.distance};
-    } else if(special==="startOnAtano"){
-        return findBestPathNormal(start,goal);
-    } else if(special==="goalOnYhama"){
-        const firstPath = findBestPathNormal(start,"新里");
-        const secondPath = findBestPathNormal("新里",goal);
-        return {path:firstPath.path.concat(secondPath.path.slice(1)),distance:firstPath.distance+secondPath.distance};
-    } else if(special==="startOnAtanoGoalOnYhama"){
-        return findBestPathNormal(start,goal);
-    } else {
-        return findBestPathNormal(start,goal);
-    }
-}
-
-// --- 通常BFS ---
-function findBestPathNormal(start,goal){
     const queue=[[ [start],0 ]];
     const visited={};
     let best=null;
@@ -226,6 +174,28 @@ Object.keys(stationLines).forEach(l=>{
 });
 updateStations("start"); updateStations("goal");
 
+// --- 湯の浜線 ↔ 燠野線 特殊ルール ---
+function isSpecialTransfer(start,goal){
+    const yLine = "湯の浜線";
+    const nLine = "燠野線";
+    const startIndexY = stationLines[yLine].indexOf(start);
+    const goalIndexY = stationLines[yLine].indexOf(goal);
+    const startIndexN = stationLines[nLine].indexOf(start);
+    const goalIndexN = stationLines[nLine].indexOf(goal);
+
+    // 豊町～西新里から燠野線へ行く場合
+    if(startIndexY >=0 && startIndexY < stationLines[yLine].indexOf("新里") &&
+       goalIndexN > stationLines[nLine].indexOf("新里")){
+        return true;
+    }
+    // 燠野線→湯の浜線の場合
+    if(startIndexN > stationLines[nLine].indexOf("新里") &&
+       goalIndexY >=0 && goalIndexY < stationLines[yLine].indexOf("新里")){
+        return true;
+    }
+    return false;
+}
+
 // --- 表示 ---
 function showAllRoutes(){
     const start=document.getElementById("start").value;
@@ -234,24 +204,33 @@ function showAllRoutes(){
     resultDiv.innerHTML="";
     if(start===goal){ resultDiv.innerHTML="発駅と着駅が同じです"; return; }
 
-    const best=findBestPath(start,goal);
-    if(!best){ resultDiv.innerHTML="ルートが見つかりません"; return; }
+    let best=null;
+    if(isSpecialTransfer(start,goal)){
+        // 新里経由に分割
+        const shinri="新里";
+        const part1 = findBestPath(start,shinri);
+        const part2 = findBestPath(shinri,goal);
+        if(!part1 || !part2){ resultDiv.innerHTML="ルートが見つかりません"; return; }
+        best = {path: part1.path.concat(part2.path.slice(1)), distance: part1.distance + part2.distance};
+    } else {
+        best = findBestPath(start,goal);
+        if(!best){ resultDiv.innerHTML="ルートが見つかりません"; return; }
+    }
 
     const display=processDisplayPath(best.path);
-
     let html="";
     for(let i=0;i<display.length;i++){
         const curr=display[i];
         html+=curr.station;
         if(i < display.length-1){
             html+=" <span class='route-line' style='background:"+lineColors[curr.line]+"'>新里鉄道 "+curr.line+"</span> ";
-        } else { html+=" "; }
+        } else {
+            html+=" ";
+        }
     }
-
     html+=`<br>\n総距離: ${best.distance.toFixed(1)} km<br>`;
     const f=fare(best.distance);
     html+=`運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
-
     const div=document.createElement("div"); div.className="route"; div.innerHTML=html;
     resultDiv.appendChild(div);
 }
