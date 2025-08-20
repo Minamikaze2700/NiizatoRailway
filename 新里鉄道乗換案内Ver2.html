@@ -160,7 +160,7 @@ function updateStations(type){
 
     stationLines[line].forEach(st=>{
         // 燠野線で湯の浜線区間（新里～湯の浜海岸）は表示しない
-        if(line==="燠野線" && ["河岸","新里海浜公園","湯の浜海岸","湯の浜"].includes(st)) return;
+        if(line==="燠野線" && ["新里","河岸","新里海浜公園","湯の浜海岸","湯の浜"].includes(st)) return;
 
         const opt = document.createElement("option");
         opt.value = st;
