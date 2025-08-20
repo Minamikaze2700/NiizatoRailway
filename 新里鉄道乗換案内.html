@@ -111,29 +111,34 @@ function getLine(from,to){
 function findBestPaths(start,goal){
     const startLines = Object.keys(stationLines).filter(l=>stationLines[l].includes(start));
     const goalLines = Object.keys(stationLines).filter(l=>stationLines[l].includes(goal));
-    const restrictSingleLine = startLines.some(sl=>goalLines.includes(sl));
+    const sameLineOnly = startLines.some(sl=>goalLines.includes(sl));
+
     const queue=[[ [start],0 ]];
     const results=[];
     const visited={};
+
     while(queue.length>0){
         queue.sort((a,b)=>a[1]-b[1]);
         const [path,distance]=queue.shift();
         const last=path[path.length-1];
         if(last===goal){ results.push({path,distance}); continue; }
+
         for(const next in graph[last]){
             if(path.includes(next)) continue;
-            if(restrictSingleLine){
-                // 同一路線のみ
+
+            if(sameLineOnly){
                 const line=getLine(last,next);
-                const startLine=getLine(path[0],path[1]);
-                if(line!==startLine) continue;
+                const lineStart=getLine(path[0],path[1]);
+                if(line!==lineStart) continue; // 同一路線のみ
             }
+
             const key=path.concat(next).join(">");
             if(visited[key]) continue;
             visited[key]=true;
             queue.push([path.concat(next),distance+graph[last][next]]);
         }
     }
+
     results.sort((a,b)=>{
         if(a.distance!==b.distance) return a.distance-b.distance;
         return a.path.length-b.path.length;
@@ -161,10 +166,9 @@ Object.keys(stationLines).forEach(l=>{
 });
 updateStations("start"); updateStations("goal");
 
-// --- 乗換判定（経由路線に依存） ---
+// --- 乗換判定 ---
 function shouldShowTransfer(prevLine,currLine){
-    if(prevLine===currLine) return false;
-    return true;
+    return prevLine!==currLine;
 }
 
 // --- 表示 ---
@@ -174,6 +178,7 @@ function showAllRoutes(){
     const resultDiv=document.getElementById("result");
     resultDiv.innerHTML="";
     if(start===goal){ resultDiv.innerHTML="発駅と着駅が同じです"; return; }
+
     const paths=findBestPaths(start,goal);
     if(paths.length===0){ resultDiv.innerHTML="ルートが見つかりません"; return; }
 
@@ -190,6 +195,7 @@ function showAllRoutes(){
             lastLine=line;
         }
         display.push({station:p[p.length-1],line:lastLine});
+
         let html="";
         for(let i=0;i<display.length-1;i++){
             const curr=display[i];
@@ -197,8 +203,10 @@ function showAllRoutes(){
             html+=` <span class="route-line" style="background:${lineColors[curr.line]}">新里鉄道 ${curr.line}</span> `;
         }
         html+=display[display.length-1].station;
+
         const f=fare(r.distance);
         html+=` （距） 運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
+
         const div=document.createElement("div"); div.className="route"; div.innerHTML=html;
         resultDiv.appendChild(div);
     });
