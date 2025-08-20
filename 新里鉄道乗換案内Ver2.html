@@ -107,7 +107,7 @@ function getLine(from,to){
     return null;
 }
 
-// --- BFS探索（湯の浜乗換制限付き） ---
+// BFS探索（制限なし）
 function findBestPath(start,goal){
     const queue=[[ [start],0 ]];
     const visited={};
@@ -124,20 +124,9 @@ function findBestPath(start,goal){
 
         for(const next in graph[last]){
             if(path.includes(next)) continue;
-            const line = getLine(last,next);
-
-            // 湯の浜駅での乗換制限
-            if(last==="湯の浜" || next==="湯の浜"){
-                // 湯の浜駅で湯の浜線に乗れるのは北鶴宮方面のみ
-                if(line==="湯の浜線" && next!=="北鶴宮") continue;
-                // 湯の浜駅で燠野線に乗れるのは新里～新里大学前方面のみ
-                if(line==="燠野線" && !["新里","河岸","新里海浜公園","湯の浜海岸","新里大学前"].includes(next)) continue;
-            }
-
             const key=path.concat(next).join(">");
             if(visited[key]) continue;
             visited[key]=true;
-
             queue.push([path.concat(next),distance+graph[last][next]]);
         }
     }
@@ -168,8 +157,6 @@ function updateStations(type){
     const line = lineSelect.value;
 
     stationLines[line].forEach(st=>{
-        // 燠野線で湯の浜線区間（新里～湯の浜海岸）は表示しない
-        if(line==="燠野線" && ["新里","河岸","新里海浜公園","湯の浜海岸"].includes(st)) return;
         const opt = document.createElement("option");
         opt.value = st;
         opt.text = st;
