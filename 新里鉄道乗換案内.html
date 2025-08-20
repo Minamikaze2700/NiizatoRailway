@@ -152,17 +152,9 @@ Object.keys(stationLines).forEach(l=>{
 });
 updateStations("start"); updateStations("goal");
 
-// --- 乗換判定（経由路線依存） ---
-function shouldShowTransfer(prevLine,currLine,prevStation,currStation){
+// --- 乗換判定（経由路線に依存） ---
+function shouldShowTransfer(prevLine,currLine){
     if(prevLine===currLine) return false;
-    if((prevLine==="新里線" && currLine==="鶴宮線")||(prevLine==="鶴宮線" && currLine==="新里線")){
-        if(currStation==="田ノ原"||prevStation==="田ノ原") return true;
-        return false;
-    }
-    if((prevLine==="鶴宮線" && currLine==="燠野線")||(prevLine==="燠野線" && currLine==="鶴宮線")){
-        if(currStation==="燠野"||prevStation==="燠野") return true;
-        return false;
-    }
     return true;
 }
 
@@ -183,7 +175,7 @@ function showAllRoutes(){
         display.push({station:p[0],line:lastLine});
         for(let i=1;i<p.length-1;i++){
             const line=getLine(p[i],p[i+1]);
-            if(shouldShowTransfer(lastLine,line,p[i],p[i+1])){
+            if(shouldShowTransfer(lastLine,line)){
                 display.push({station:p[i],line:line});
             }
             lastLine=line;
