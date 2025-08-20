@@ -97,28 +97,6 @@ function fare(distance){
     else return {adult:340,child:170};
 }
 
-// --- 湯の浜線区間（豊町～湯の浜海岸） ---
-const yunoHamaZone = ["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城",
-                      "須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里",
-                      "河岸","新里海浜公園","湯の浜海岸"];
-
-// 駅名から路線
-function stationLine(station){
-    for(const [line,stations] of Object.entries(stationLines)){
-        if(stations.includes(station)) return line;
-    }
-    return null;
-}
-
-// 距離計算
-function calcDistance(path){
-    let d = 0;
-    for(let i=0;i<path.length-1;i++){
-        d += graph[path[i]][path[i+1]] || 0;
-    }
-    return d;
-}
-
 // --- 路線判定 ---
 function getLine(from,to){
     for(const [line,stations] of Object.entries(stationLines)){
@@ -129,19 +107,60 @@ function getLine(from,to){
     return null;
 }
 
+// --- 湯の浜線 ↔ 燠野線 乗換処理 ---
+function isSpecialTransfer(start,goal){
+    const yHamaLine = stationLines["湯の浜線"];
+    const atanoLine = stationLines["燠野線"];
+    const startIndexY = yHamaLine.indexOf(start);
+    const goalIndexY = yHamaLine.indexOf(goal);
+    const startIndexA = atanoLine.indexOf(start);
+    const goalIndexA = atanoLine.indexOf(goal);
+
+    // 豊町～西新里までの区間（新里含まず）
+    const yHamaPreShinri = yHamaLine.slice(0,yHamaLine.indexOf("新里"));
+    const yHamaShinriToHama = yHamaLine.slice(yHamaLine.indexOf("新里"));
+    const atanoPreShinri = atanoLine.slice(0,atanoLine.indexOf("新里"));
+    const atanoShinriToEnd = atanoLine.slice(atanoLine.indexOf("新里"));
+
+    // 出発
+    if(yHamaPreShinri.includes(start) && atanoShinriToEnd.includes(goal)){
+        return "viaShinri";
+    }
+    if(yHamaShinriToHama.includes(start) && atanoShinriToEnd.includes(goal)){
+        return "startOnAtano";
+    }
+    if(atanoShinriToEnd.includes(start) && yHamaPreShinri.includes(goal)){
+        return "goalOnYhama";
+    }
+    if(atanoShinriToEnd.includes(start) && yHamaShinriToHama.includes(goal)){
+        return "startOnAtanoGoalOnYhama";
+    }
+    return null;
+}
+
 // --- BFS探索 ---
 function findBestPath(start,goal){
-    // 湯の浜線 ↔ 燠野線 の場合は新里経由
-    if(yunoHamaZone.includes(start) && stationLine(goal)==="燠野線"){
-        const path = [start,"新里",goal];
-        return {path,distance:calcDistance(path)};
+    const special = isSpecialTransfer(start,goal);
+    if(special==="viaShinri"){
+        // 豊町～西新里→新里→燠野線
+        const firstPath = findBestPathNormal(start,"新里");
+        const secondPath = findBestPathNormal("新里",goal);
+        return {path:firstPath.path.concat(secondPath.path.slice(1)),distance:firstPath.distance+secondPath.distance};
+    } else if(special==="startOnAtano"){
+        return findBestPathNormal(start,goal);
+    } else if(special==="goalOnYhama"){
+        const firstPath = findBestPathNormal(start,"新里");
+        const secondPath = findBestPathNormal("新里",goal);
+        return {path:firstPath.path.concat(secondPath.path.slice(1)),distance:firstPath.distance+secondPath.distance};
+    } else if(special==="startOnAtanoGoalOnYhama"){
+        return findBestPathNormal(start,goal);
+    } else {
+        return findBestPathNormal(start,goal);
     }
-    if(stationLine(start)==="燠野線" && yunoHamaZone.includes(goal)){
-        const path = [start,"新里",goal];
-        return {path,distance:calcDistance(path)};
-    }
+}
 
-    // 通常BFS
+// --- 通常BFS ---
+function findBestPathNormal(start,goal){
     const queue=[[ [start],0 ]];
     const visited={};
     let best=null;
@@ -174,7 +193,6 @@ function processDisplayPath(path){
     display.push({station:path[0],line:lastLine});
     for(let i=1;i<path.length-1;i++){
         const line=getLine(path[i],path[i+1]);
-        if(path[i]==="新里" && lastLine==="湯の浜線" && line==="燠野線") continue;
         if(line!==lastLine){
             display.push({station:path[i],line:line});
         }
@@ -192,9 +210,6 @@ function updateStations(type){
     const line = lineSelect.value;
 
     stationLines[line].forEach(st=>{
-        // 燠野線で湯の浜線区間（新里～湯の浜海岸）は表示しない
-        if(line==="燠野線" && ["新里","河岸","新里海浜公園","湯の浜海岸"].includes(st)) return;
-
         const opt = document.createElement("option");
         opt.value = st;
         opt.text = st;
@@ -228,9 +243,9 @@ function showAllRoutes(){
     for(let i=0;i<display.length;i++){
         const curr=display[i];
         html+=curr.station;
-        if(i<display.length-1){
+        if(i < display.length-1){
             html+=" <span class='route-line' style='background:"+lineColors[curr.line]+"'>新里鉄道 "+curr.line+"</span> ";
-        } else html+=" ";
+        } else { html+=" "; }
     }
 
     html+=`<br>\n総距離: ${best.distance.toFixed(1)} km<br>`;
