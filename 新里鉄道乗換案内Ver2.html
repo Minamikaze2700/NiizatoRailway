@@ -38,7 +38,7 @@ button { padding: 2px 6px; }
 // --- 駅・路線データ ---
 const stationLines = {
 "湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
-"燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
+"燠野線":["新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
 "鶴宮線":["鶴宮","南鶴宮","あずさ台","橘町","燠野山口","白枝","燠野","紅葉台","桐山","湊川","彩山親水公園","彩山","蓮華寺","星宮","田ノ原"],
 "新里線":["新里","南新里","田ノ原","北玖川","玖川","中野原"],
 "彩山線":["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"]
@@ -75,12 +75,13 @@ const rawGraph = {
 };
 
 // 双方向化
-const graph={};
+const graph = {};
 for(const [from,targets] of Object.entries(rawGraph)){
     if(!graph[from]) graph[from]={};
     for(const [to,d] of Object.entries(targets)){
         graph[from][to]=d;
         if(!graph[to]) graph[to]={};
+        graph[to][from]=d;
     }
 }
 
@@ -140,6 +141,8 @@ function processDisplayPath(path){
     display.push({station:path[0],line:lastLine});
     for(let i=1;i<path.length-1;i++){
         const line=getLine(path[i],path[i+1]);
+        // 湯の浜経由で新里が重複する場合を省略
+        if(path[i]==="新里" && lastLine==="湯の浜線" && line==="燠野線") continue;
         if(line!==lastLine){
             display.push({station:path[i],line:line});
         }
@@ -157,8 +160,8 @@ function updateStations(type){
     const line = lineSelect.value;
 
     stationLines[line].forEach(st=>{
-        // 燠野線で新里～湯の浜海岸区間は表示しない。ただし湯の浜駅は残す
-        if(line==="燠野線" && ["新里","河岸","新里海浜公園","湯の浜海岸"].includes(st)) return;
+        // 燠野線で湯の浜線区間（新里～湯の浜海岸）は表示しない
+        if(line==="燠野線" && ["新里","河岸","新里海浜公園","湯の浜海岸","湯の浜"].includes(st)) return;
 
         const opt = document.createElement("option");
         opt.value = st;
