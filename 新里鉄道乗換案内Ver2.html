@@ -161,7 +161,7 @@ function updateStations(type){
 
     stationLines[line].forEach(st=>{
         // 燠野線で湯の浜線区間（新里～湯の浜海岸）は表示しない
-        if(line==="燠野線" && ["新里","河岸","新里海浜公園","湯の浜海岸","湯の浜"].includes(st)) return;
+        if(line==="燠野線" && ["新里","河岸","新里海浜公園","湯の浜海岸"].includes(st)) return;
 
         const opt = document.createElement("option");
         opt.value = st;
@@ -193,10 +193,15 @@ function showAllRoutes(){
     const display=processDisplayPath(best.path);
 
     let html="";
-    for(let i=0;i<display.length;i++){
-        const curr=display[i];
-        html+=curr.station+" <span class='route-line' style='background:"+lineColors[curr.line]+"'>新里鉄道 "+curr.line+"</span> ";
+for(let i=0;i<display.length;i++){
+    const curr=display[i];
+    html+=curr.station;
+    if(i < display.length-1){  // 最後の駅でなければ路線名を表示
+        html+=" <span class='route-line' style='background:"+lineColors[curr.line]+"'>新里鉄道 "+curr.line+"</span> ";
+    } else {
+        html+=" ";
     }
+}
 
     html+=`<br>\n総距離: ${best.distance.toFixed(1)} km<br>`;
     const f=fare(best.distance);
