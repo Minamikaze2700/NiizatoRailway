@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>新里鉄道 乗換案内＋運賃</title>
+<title>新里鉄道 乗換案内＋運賃（最適化）</title>
 <style>
 body { font-family: sans-serif; padding: 20px; max-width: 950px; }
 h2 { margin-bottom: 10px; }
@@ -30,7 +30,7 @@ button { padding: 2px 6px; }
 <select id="goal"></select>
 </label>
 <br><br>
-<button onclick="showRoute()">検索</button>
+<button onclick="showAllRoutes()">検索</button>
 
 <div id="result"></div>
 
@@ -52,20 +52,20 @@ const lineColors = {
 "彩山線":"#7dca22"
 };
 
-// --- 駅間距離（双方向化） ---
+// --- 駅間距離 ---
 const rawGraph = {
 "豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},
 "安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},"栃原":{"宇城":2.2},
 "宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},
 "御浜":{"伊坂":2.5},"伊坂":{"垳下":2.6},"垳下":{"北浜":2.3},"北浜":{"西新里":1.4},
-"西新里":{"新里":1.7},"新里":{"河岸":0.9,"田ノ原":2.0},"河岸":{"新里海浜公園":1.7},
-"新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5,"新里大学前":1.5},"湯の浜":{"七浦":2.5},
+"西新里":{"新里":1.7},"新里":{"河岸":0.9,"南新里":2.5},"河岸":{"新里海浜公園":1.7},
+"新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5},"湯の浜":{"七浦":2.5,"新里大学前":1.5},
 "七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},
-"伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.1,"彩山":2.0,"燠野":2.0},
+"伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.1,"南鶴宮":2.0},
 "田ノ原":{"彩山":2.0},"新里大学前":{"綾原":1.5},"綾原":{"福来":1.5},"福来":{"燠野":1.8},
 "燠野":{"湯川":1.5},"湯川":{"温泉口":1.8},"温泉口":{"燠野温泉":1.5},
 "南鶴宮":{"あずさ台":1.2},"あずさ台":{"橘町":1.3},"橘町":{"燠野山口":1.2},
-"燠野山口":{"白枝":1.4},"白枝":{"紅葉台":1.5},"紅葉台":{"桐山":1.6},
+"燠野山口":{"白枝":1.4},"白枝":{"燠野":1.5},"紅葉台":{"桐山":1.6},
 "桐山":{"湊川":1.4},"湊川":{"彩山親水公園":1.2},"彩山親水公園":{"彩山":0.8},
 "彩山":{"蓮華寺":1.5},"蓮華寺":{"星宮":1.6},"星宮":{"田ノ原":1.7},
 "南新里":{"田ノ原":1.8},"田ノ原":{"北玖川":2.0},"北玖川":{"玖川":1.5},"玖川":{"中野原":1.7},
@@ -84,7 +84,6 @@ for(const [from,targets] of Object.entries(rawGraph)){
         graph[to][from]=d;
     }
 }
-
 // --- 運賃 ---
 function fare(distance){
     if(distance<=3) return {adult:130,child:70};
@@ -107,24 +106,42 @@ function getLine(from,to){
     return null;
 }
 
-// --- BFS探索（距離・少ない乗換優先） ---
-function findPath(start,goal){
-    const queue=[[ [start],0,[] ]];
+// --- BFS探索（距離・乗換少なめ優先） ---
+function findBestPath(start,goal){
+    const queue=[[ [start],0 ]];
     const visited={};
+    let best=null;
+
     while(queue.length>0){
         queue.sort((a,b)=>a[1]-b[1]);
-        const [path,distance,lines]=queue.shift();
+        const [path,distance]=queue.shift();
         const last=path[path.length-1];
-        if(last===goal) return {path,distance}; // 最短ルート1件
+        if(last===goal){
+            if(!best || distance<best.distance) best={path,distance};
+            continue;
+        }
+
         for(const next in graph[last]){
             if(path.includes(next)) continue;
             const key=path.concat(next).join(">");
             if(visited[key]) continue;
             visited[key]=true;
-            queue.push([path.concat(next),distance+graph[last][next],lines]);
+
+            // 乗換駅隣接確認
+            let allow=true;
+            const prevLine=getLine(last,next);
+            const prevStation=path[path.length-2] || null;
+            if(prevStation && transferNeighbors[last]){
+                for(const dirs of Object.values(transferNeighbors[last])){
+                    if(dirs.includes(next)) allow=true;
+                }
+            }
+
+            if(allow) queue.push([path.concat(next),distance+graph[last][next]]);
         }
     }
-    return null;
+
+    return best;
 }
 
 // --- 路線選択による駅更新 ---
@@ -148,23 +165,25 @@ Object.keys(stationLines).forEach(l=>{
 updateStations("start"); updateStations("goal");
 
 // --- 表示 ---
-function showRoute(){
+function showAllRoutes(){
     const start=document.getElementById("start").value;
     const goal=document.getElementById("goal").value;
     const resultDiv=document.getElementById("result");
     resultDiv.innerHTML="";
     if(start===goal){ resultDiv.innerHTML="発駅と着駅が同じです"; return; }
 
-    const route=findPath(start,goal);
-    if(!route){ resultDiv.innerHTML="ルートが見つかりません"; return; }
+    const best=findBestPath(start,goal);
+    if(!best){ resultDiv.innerHTML="ルートが見つかりません"; return; }
 
-    const p=route.path;
-    let display=[];
+    const p=best.path;
+    let display=[]; 
     let lastLine=getLine(p[0],p[1]);
     display.push({station:p[0],line:lastLine});
     for(let i=1;i<p.length-1;i++){
         const line=getLine(p[i],p[i+1]);
-        if(line!==lastLine) display.push({station:p[i],line:line});
+        if(line!==lastLine){
+            display.push({station:p[i],line:line});
+        }
         lastLine=line;
     }
     display.push({station:p[p.length-1],line:lastLine});
@@ -177,7 +196,7 @@ function showRoute(){
     }
     html+=display[display.length-1].station;
 
-    const f=fare(route.distance);
+    const f=fare(best.distance);
     html+=` （距） 運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
 
     const div=document.createElement("div"); div.className="route"; div.innerHTML=html;
