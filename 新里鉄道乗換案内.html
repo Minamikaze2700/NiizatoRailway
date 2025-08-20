@@ -109,6 +109,9 @@ function getLine(from,to){
 
 // --- BFS探索（距離・少ない乗換優先） ---
 function findBestPaths(start,goal){
+    const startLines = Object.keys(stationLines).filter(l=>stationLines[l].includes(start));
+    const goalLines = Object.keys(stationLines).filter(l=>stationLines[l].includes(goal));
+    const restrictSingleLine = startLines.some(sl=>goalLines.includes(sl));
     const queue=[[ [start],0 ]];
     const results=[];
     const visited={};
@@ -119,6 +122,12 @@ function findBestPaths(start,goal){
         if(last===goal){ results.push({path,distance}); continue; }
         for(const next in graph[last]){
             if(path.includes(next)) continue;
+            if(restrictSingleLine){
+                // 同一路線のみ
+                const line=getLine(last,next);
+                const startLine=getLine(path[0],path[1]);
+                if(line!==startLine) continue;
+            }
             const key=path.concat(next).join(">");
             if(visited[key]) continue;
             visited[key]=true;
