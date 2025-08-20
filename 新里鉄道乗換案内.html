@@ -75,6 +75,7 @@ const rawGraph = {
 "深江":{"三栗谷":1.7},"三栗谷":{"桜川公園":1.6},"桜川公園":{"桜川":1.5}
 };
 
+// 双方向化
 const graph={};
 for(const [from,targets] of Object.entries(rawGraph)){
     if(!graph[from]) graph[from]={};
@@ -85,6 +86,7 @@ for(const [from,targets] of Object.entries(rawGraph)){
     }
 }
 
+// 運賃
 function fare(distance){
     if(distance<=3) return {adult:130,child:70};
     else if(distance<=6) return {adult:160,child:80};
@@ -105,41 +107,29 @@ function getLine(from,to){
     return null;
 }
 
+// BFSで最短距離ルート（路線名も保持）
 function findRoute(start,goal){
-    // 発着駅同一路線の場合は直通のみ
-    const startLines = Object.keys(stationLines).filter(l=>stationLines[l].includes(start));
-    const goalLines = Object.keys(stationLines).filter(l=>stationLines[l].includes(goal));
-    const commonLine = startLines.find(l=>goalLines.includes(l));
-    if(commonLine){
-        // 同一路線での距離計算
-        let distance=0;
-        const stations=stationLines[commonLine];
-        const idxStart=stations.indexOf(start);
-        const idxGoal=stations.indexOf(goal);
-        const step = idxStart<idxGoal?1:-1;
-        for(let i=idxStart;i!=idxGoal;i+=step) distance+=graph[stations[i]][stations[i+step]];
-        return {path:[start,goal],distance,lines:[commonLine]};
-    }
-
-    // BFS探索
-    const queue=[[ [start],0 ]];
-    const visited={};
+    const queue=[[ [start],0,getLine(start,start) ]];
+    const visited={start:true};
     while(queue.length>0){
-        const [path,distance]=queue.shift();
+        const [path,distance,lastLine]=queue.shift();
         const last=path[path.length-1];
-        if(last===goal) return {path,distance};
+        if(last===goal) return {path,distance,lines:path.map((v,i)=>{
+            if(i<path.length-1) return getLine(path[i],path[i+1]);
+            else return null;
+        })};
         for(const next in graph[last]){
             if(path.includes(next)) continue;
             const key=path.concat(next).join(">");
             if(visited[key]) continue;
             visited[key]=true;
-            queue.push([path.concat(next),distance+graph[last][next]]);
+            queue.push([path.concat(next),distance+graph[last][next],getLine(last,next)]);
         }
     }
     return null;
 }
 
-// --- 路線選択で駅更新 ---
+// 路線選択で駅更新
 function updateStations(type){
     const lineSelect=document.getElementById(type+"Line");
     const stationSelect=document.getElementById(type);
@@ -150,7 +140,7 @@ function updateStations(type){
     });
 }
 
-// --- 初期化 ---
+// 初期化
 const startLine=document.getElementById("startLine");
 const goalLine=document.getElementById("goalLine");
 Object.keys(stationLines).forEach(l=>{
@@ -159,7 +149,7 @@ Object.keys(stationLines).forEach(l=>{
 });
 updateStations("start"); updateStations("goal");
 
-// --- 表示 ---
+// 表示
 function showRoute(){
     const start=document.getElementById("start").value;
     const goal=document.getElementById("goal").value;
@@ -170,16 +160,15 @@ function showRoute(){
     const r=findRoute(start,goal);
     if(!r){ resultDiv.innerHTML="ルートが見つかりません"; return; }
 
-    // 路線判定と表示用配列作成
-    const display=[{station:r.path[0],line:getLine(r.path[0],r.path[1])}];
+    const display=[{station:r.path[0],line:r.lines[0]}];
     for(let i=1;i<r.path.length-1;i++){
-        const prevLine=getLine(r.path[i-1],r.path[i]);
-        const nextLine=getLine(r.path[i],r.path[i+1]);
+        const prevLine=r.lines[i-1];
+        const nextLine=r.lines[i];
         if(prevLine!==nextLine && transferStations.includes(r.path[i])){
             display.push({station:r.path[i],line:nextLine});
         }
     }
-    display.push({station:r.path[r.path.length-1],line:getLine(r.path[r.path.length-2],r.path[r.path.length-1])});
+    display.push({station:r.path[r.path.length-1],line:r.lines[r.lines.length-1]});
 
     // HTML生成
     let html=display[0].station;
@@ -190,6 +179,7 @@ function showRoute(){
     }
     const f=fare(r.distance);
     html+=` （距） 運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
+
     const div=document.createElement("div"); div.className="route"; div.innerHTML=html;
     resultDiv.appendChild(div);
 }
