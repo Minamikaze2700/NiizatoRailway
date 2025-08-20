@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>新里鉄道 乗換案内＋運賃（修正版 8/20(16:00)）</title>
+<title>新里鉄道 乗換案内＋運賃（修正版 8/20(14:05)）</title>
 <style>
 body { font-family: sans-serif; padding: 20px; max-width: 950px; }
 h2 { margin-bottom: 10px; }
@@ -28,10 +28,6 @@ button { padding: 2px 6px; }
 </label>
 <label>着駅:
 <select id="goal"></select>
-</label>
-<br><br>
-<label>経由駅（複数可、Ctrl+クリックで選択）:
-<select id="via" multiple size="5"></select>
 </label>
 <br><br>
 <button onclick="showAllRoutes()">検索</button>
@@ -113,8 +109,8 @@ function getLine(from,to){
     return null;
 }
 
-// --- BFS 全ルート探索（経由駅対応） ---
-function findAllPaths(start, goal, viaStations){
+// --- BFS 全ルート探索 ---
+function findAllPaths(start, goal){
     const results=[];
     const queue=[[ [start],0 ]];
     while(queue.length>0){
@@ -126,9 +122,7 @@ function findAllPaths(start, goal, viaStations){
             const newPath=[...path,n];
             const newDist=dist+graph[last][n];
             if(n===goal){
-                if(viaStations.every(v => newPath.includes(v))){
-                    results.push({path:newPath,distance:newDist});
-                }
+                results.push({path:newPath,distance:newDist});
             } else {
                 queue.push([newPath,newDist]);
             }
@@ -146,20 +140,51 @@ function updateStations(type){
     stationLines[line].forEach(st=>{
         const opt=document.createElement("option"); opt.value=st; opt.text=st; stationSelect.appendChild(opt);
     });
-    updateVia();
-}
-
-// --- 経由駅リスト更新 ---
-function updateVia(){
-    const viaSelect=document.getElementById("via");
-    viaSelect.innerHTML="";
-    Object.values(stationLines).flat().forEach(st=>{
-        const opt=document.createElement("option"); opt.value=st; opt.text=st; viaSelect.appendChild(opt);
-    });
 }
 
 // --- 初期化 ---
 const startLine=document.getElementById("startLine");
 const goalLine=document.getElementById("goalLine");
 Object.keys(stationLines).forEach(l=>{
-    const opt1=document.createElement("option"); o
+    const opt1=document.createElement("option"); opt1.value=l; opt1.text=l; startLine.appendChild(opt1);
+    const opt2=document.createElement("option"); opt2.value=l; opt2.text=l; goalLine.appendChild(opt2);
+});
+updateStations("start"); updateStations("goal");
+
+// --- 表示 ---
+function showAllRoutes(){
+    const start=document.getElementById("start").value;
+    const goal=document.getElementById("goal").value;
+    const resultDiv=document.getElementById("result");
+    resultDiv.innerHTML="";
+    if(start===goal){ resultDiv.innerHTML="発着駅が同じです"; return; }
+
+    const allPaths=findAllPaths(start,goal);
+    if(allPaths.length===0){ resultDiv.innerHTML="ルートが見つかりません"; return; }
+
+    allPaths.forEach(r=>{
+        const path=r.path, distance=r.distance;
+        let html=`<span>${path[0]}</span> `;
+        let prevLine=null;
+        for(let i=0;i<path.length-1;i++){
+            const from=path[i], to=path[i+1];
+            const line=getLine(from,to);
+            if(prevLine!==line){
+                if(i>0) html+=`<span>${from}</span> `;
+                if(line) html+=`<span class="route-line" style="background-color:${lineColors[line]}">新里鉄道 ${line}</span> `;
+            }
+            prevLine=line;
+        }
+        html+=`<span>${path[path.length-1]}</span> `;
+        html+=`<span>（距）</span> `;
+        const f=fare(distance);
+        html+=`<span>運賃: 大人 ${f.adult}円／小児 ${f.child}円</span>`;
+        const div=document.createElement("div");
+        div.className="route";
+        div.innerHTML=html;
+        resultDiv.appendChild(div);
+    });
+}
+</script>
+</body>
+</html>
