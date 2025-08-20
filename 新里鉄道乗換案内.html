@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>新里鉄道 乗換案内＋運賃（全ルート）</title>
+<title>新里鉄道 乗換案内＋運賃（双方向対応）</title>
 <style>
 body { font-family: sans-serif; padding: 20px; max-width: 900px; }
 h2 { margin-bottom: 10px; }
@@ -19,7 +19,7 @@ button { padding: 2px 6px; }
 </style>
 </head>
 <body>
-<h2>新里鉄道 乗換案内＋運賃（全ルート探索）</h2>
+<h2>新里鉄道 乗換案内＋運賃（双方向対応）</h2>
 
 <label>発駅:
 <select id="start"></select>
@@ -60,8 +60,8 @@ const lineColors = {
 "彩山線":"#7dca22"
 };
 
-// --- 駅間距離グラフ ---
-const graph = {
+// --- 駅間距離グラフ（双方向対応） ---
+const rawGraph = {
 "豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},
 "安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},"栃原":{"宇城":2.2},
 "宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},
@@ -82,7 +82,18 @@ const graph = {
 "深江":{"三栗谷":1.7},"三栗谷":{"桜川公園":1.6},"桜川公園":{"桜川":1.5}
 };
 
-// --- 運賃表 ---
+// 双方向化
+const graph = {};
+for(const [from,targets] of Object.entries(rawGraph)){
+    if(!graph[from]) graph[from]={};
+    for(const [to,d] of Object.entries(targets)){
+        graph[from][to]=d;
+        if(!graph[to]) graph[to]={};
+        graph[to][from]=d;
+    }
+}
+
+// --- 運賃 ---
 function fare(distance){
 if(distance<=3) return {adult:130,child:70};
 else if(distance<=6) return {adult:160,child:80};
@@ -94,16 +105,16 @@ else if(distance<=30) return {adult:310,child:160};
 else return {adult:340,child:170};
 }
 
-// --- BFS で全ルート探索（同じ駅通らず） ---
+// --- BFS 全ルート探索 ---
 function findAllPaths(start, goal){
     const results=[];
-    const queue=[[ [start],0 ]]; // [path, distance]
+    const queue=[[ [start],0 ]]; // path,distance
     while(queue.length>0){
-        const [path, dist]=queue.shift();
+        const [path,dist]=queue.shift();
         const last=path[path.length-1];
         const neighbors=graph[last]?Object.keys(graph[last]):[];
         for(const n of neighbors){
-            if(path.includes(n)) continue; // 同じ駅を再度通らない
+            if(path.includes(n)) continue;
             const newPath=[...path,n];
             const newDist=dist+graph[last][n];
             if(n===goal) results.push({path:newPath,distance:newDist});
@@ -113,7 +124,7 @@ function findAllPaths(start, goal){
     return results;
 }
 
-// --- 路線判定 ---
+// --- 路線判定（駅間1路線） ---
 function getLine(from,to){
     for(const [line,stations] of Object.entries(stationLines)){
         if(stations.includes(from)&&stations.includes(to)) return line;
