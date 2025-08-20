@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>新里鉄道 乗換案内＋運賃（発着乗換駅のみ表示）</title>
+<title>新里鉄道 乗換案内＋運賃（発着・乗換駅のみ表示）</title>
 <style>
 body { font-family: sans-serif; padding: 20px; max-width: 950px; }
 h2 { margin-bottom: 10px; }
@@ -14,7 +14,7 @@ button { padding: 2px 6px; }
 </style>
 </head>
 <body>
-<h2>新里鉄道 乗換案内＋運賃（発着乗換駅のみ表示）</h2>
+<h2>新里鉄道 乗換案内＋運賃（発着・乗換駅のみ表示）</h2>
 
 <label>発路線:
 <select id="startLine" onchange="updateStations('start')"></select>
@@ -59,7 +59,7 @@ const rawGraph = {
 "宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},
 "御浜":{"伊坂":2.5},"伊坂":{"垳下":2.6},"垳下":{"北浜":2.3},"北浜":{"西新里":1.4},
 "西新里":{"新里":1.7},"新里":{"河岸":0.9,"田ノ原":2.0},"河岸":{"新里海浜公園":1.7},
-"新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5},"湯の浜":{"七浦":2.5,"新里大学前":1.5},
+"新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5,"新里大学前":1.5},"湯の浜":{"七浦":2.5},
 "七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},
 "伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.1,"彩山":2.0,"燠野":2.0},
 "田ノ原":{"彩山":2.0},"新里大学前":{"綾原":1.5},"綾原":{"福来":1.5},"福来":{"燠野":1.8},
@@ -97,46 +97,32 @@ function fare(distance){
     else return {adult:340,child:170};
 }
 
-// --- 路線判定（駅間ペアで一意に決定） ---
+// --- 路線判定 ---
 function getLine(from,to){
-    const candidates=[];
-    for(const [line, stations] of Object.entries(stationLines)){
+    for(const [line,stations] of Object.entries(stationLines)){
         for(let i=0;i<stations.length-1;i++){
-            if((stations[i]===from && stations[i+1]===to) || (stations[i]===to && stations[i+1]===from)){
-                candidates.push(line);
-            }
+            if((stations[i]===from && stations[i+1]===to)||(stations[i]===to && stations[i+1]===from)) return line;
         }
     }
-    if(candidates.length===0) return null;
-    return candidates[0]; // 複数あっても最初の1つを選択
+    return null;
 }
 
 // --- BFS探索（短距離・少ない乗換優先） ---
 function findBestPaths(start,goal){
-    const queue=[[ [start],0,[] ]]; // path,distance,linesUsed
+    const queue=[[ [start],0 ]]; // path, distance
     const results=[];
     const visited={};
     while(queue.length>0){
-        queue.sort((a,b)=>{
-            const [pa,da,la]=a; const [pb,db,lb]=b;
-            if(da!==db) return da-db;
-            return la.length - lb.length;
-        });
-        const [path,distance,linesUsed]=queue.shift();
+        queue.sort((a,b)=>a[1]-b[1]);
+        const [path,distance]=queue.shift();
         const last=path[path.length-1];
-        if(last===goal){
-            results.push({path,distance});
-            continue;
-        }
+        if(last===goal){ results.push({path,distance}); continue; }
         for(const next in graph[last]){
             if(path.includes(next)) continue;
-            const line=getLine(last,next);
-            const newLinesUsed=[...linesUsed];
-            if(linesUsed.length===0 || linesUsed[linesUsed.length-1]!==line) newLinesUsed.push(line);
             const key=path.concat(next).join(">");
             if(visited[key]) continue;
             visited[key]=true;
-            queue.push([[...path,next],distance+graph[last][next],newLinesUsed]);
+            queue.push([path.concat(next),distance+graph[last][next]]);
         }
     }
     results.sort((a,b)=>{
@@ -166,6 +152,22 @@ Object.keys(stationLines).forEach(l=>{
 });
 updateStations("start"); updateStations("goal");
 
+// --- 乗換判定（経由路線に依存） ---
+function shouldShowTransfer(prevLine,currLine,prevStation,currStation){
+    if(prevLine===currLine) return false;
+    // 新里線 ⇔ 鶴宮線のみ田ノ原
+    if((prevLine==="新里線" && currLine==="鶴宮線") || (prevLine==="鶴宮線" && currLine==="新里線")){
+        if(currStation==="田ノ原" || prevStation==="田ノ原") return true;
+        return false;
+    }
+    // 鶴宮線 ⇔ 燠野線のみ燠野
+    if((prevLine==="鶴宮線" && currLine==="燠野線") || (prevLine==="燠野線" && currLine==="鶴宮線")){
+        if(currStation==="燠野" || prevStation==="燠野") return true;
+        return false;
+    }
+    return true;
+}
+
 // --- 表示 ---
 function showAllRoutes(){
     const start=document.getElementById("start").value;
@@ -179,14 +181,16 @@ function showAllRoutes(){
     paths.forEach(r=>{
         const p=r.path;
         let display=[];
-        let lastLine=null;
-        for(let i=0;i<p.length-1;i++){
+        let lastLine=getLine(p[0],p[1]);
+        display.push({station:p[0],line:lastLine});
+        for(let i=1;i<p.length-1;i++){
             const line=getLine(p[i],p[i+1]);
-            if(i===0 || line!==lastLine) display.push({station:p[i],line:line});
+            if(shouldShowTransfer(lastLine,line,p[i],p[i+1])){
+                display.push({station:p[i],line:line});
+            }
             lastLine=line;
         }
         display.push({station:p[p.length-1],line:lastLine});
-        // 表示：発駅 路線 乗換駅 路線 着駅
         let html="";
         for(let i=0;i<display.length-1;i++){
             const curr=display[i];
@@ -194,7 +198,6 @@ function showAllRoutes(){
             html+=` <span class="route-line" style="background:${lineColors[curr.line]}">新里鉄道 ${curr.line}</span> `;
         }
         html+=display[display.length-1].station;
-        // 運賃計算
         const f=fare(r.distance);
         html+=` （距） 運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
         const div=document.createElement("div"); div.className="route"; div.innerHTML=html;
@@ -204,4 +207,3 @@ function showAllRoutes(){
 </script>
 </body>
 </html>
-
