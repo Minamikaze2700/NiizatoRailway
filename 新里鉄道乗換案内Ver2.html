@@ -107,7 +107,7 @@ function getLine(from,to){
     return null;
 }
 
-// --- BFS探索 ---
+// --- BFS探索（湯の浜線→燠野線は新里経由を優先）---
 function findBestPath(start,goal){
     const queue=[[ [start],0 ]];
     const visited={};
@@ -124,6 +124,14 @@ function findBestPath(start,goal){
 
         for(const next in graph[last]){
             if(path.includes(next)) continue;
+
+            // ★優先ルール: 湯の浜線側の駅から燠野線駅へ向かうときは新里を経由させる
+            if(path.length===1 && stationLines["湯の浜線"].includes(start) && stationLines["燠野線"].includes(goal)){
+                if(next!=="東豊町" && next!=="新里"){ // 最初の分岐で強制的に湯の浜線沿い or 新里へ
+                    continue;
+                }
+            }
+
             const key=path.concat(next).join(">");
             if(visited[key]) continue;
             visited[key]=true;
@@ -141,7 +149,6 @@ function processDisplayPath(path){
     display.push({station:path[0],line:lastLine});
     for(let i=1;i<path.length-1;i++){
         const line=getLine(path[i],path[i+1]);
-        // 湯の浜経由で新里が重複する場合を省略
         if(path[i]==="新里" && lastLine==="湯の浜線" && line==="燠野線") continue;
         if(line!==lastLine){
             display.push({station:path[i],line:line});
@@ -160,9 +167,7 @@ function updateStations(type){
     const line = lineSelect.value;
 
     stationLines[line].forEach(st=>{
-        // 燠野線で湯の浜線区間（新里～湯の浜海岸）は表示しない
         if(line==="燠野線" && ["新里","河岸","新里海浜公園","湯の浜海岸"].includes(st)) return;
-
         const opt = document.createElement("option");
         opt.value = st;
         opt.text = st;
@@ -193,15 +198,15 @@ function showAllRoutes(){
     const display=processDisplayPath(best.path);
 
     let html="";
-for(let i=0;i<display.length;i++){
-    const curr=display[i];
-    html+=curr.station;
-    if(i < display.length-1){  // 最後の駅でなければ路線名を表示
-        html+=" <span class='route-line' style='background:"+lineColors[curr.line]+"'>新里鉄道 "+curr.line+"</span> ";
-    } else {
-        html+=" ";
+    for(let i=0;i<display.length;i++){
+        const curr=display[i];
+        html+=curr.station;
+        if(i < display.length-1){
+            html+=" <span class='route-line' style='background:"+lineColors[curr.line]+"'>新里鉄道 "+curr.line+"</span> ";
+        } else {
+            html+=" ";
+        }
     }
-}
 
     html+=`<br>\n総距離: ${best.distance.toFixed(1)} km<br>`;
     const f=fare(best.distance);
