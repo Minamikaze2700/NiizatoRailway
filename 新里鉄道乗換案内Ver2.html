@@ -38,7 +38,7 @@ button { padding: 2px 6px; }
 // --- 駅・路線データ ---
 const stationLines = {
 "湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
-"燠野線":["新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
+"燠野線":["新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
 "鶴宮線":["鶴宮","南鶴宮","あずさ台","橘町","燠野山口","白枝","燠野","紅葉台","桐山","湊川","彩山親水公園","彩山","蓮華寺","星宮","田ノ原"],
 "新里線":["新里","南新里","田ノ原","北玖川","玖川","中野原"],
 "彩山線":["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"]
@@ -60,10 +60,10 @@ const rawGraph = {
 "御浜":{"伊坂":2.5},"伊坂":{"垳下":2.6},"垳下":{"北浜":2.3},"北浜":{"西新里":1.4},
 "西新里":{"新里":1.7},"新里":{"河岸":0.9,"南新里":2.5},"河岸":{"新里海浜公園":1.7},
 "新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5},
-"湯の浜":{"新里大学前":0.8,"七浦":2.5},"七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},
+"湯の浜":{"七浦":2.5},"七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},
 "伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.1,"南鶴宮":1.7},
 "新里大学前":{"綾原":0.7},"綾原":{"福来":1.2},"福来":{"燠野":1.4},
-"燠野":{"湯川":2.6,"紅葉台":1.1},"湯川":{"温泉口":1.6},"温泉口":{"燠野温泉":1.9},
+"燠野":{"湯川":2.6},"湯川":{"温泉口":1.6},"温泉口":{"燠野温泉":1.9},
 "南鶴宮":{"あずさ台":1.4},"あずさ台":{"橘町":1.8},"橘町":{"燠野山口":1.1},
 "燠野山口":{"白枝":1.2},"白枝":{"燠野":1.1},"紅葉台":{"桐山":0.8},
 "桐山":{"湊川":0.8},"湊川":{"彩山親水公園":1.1},"彩山親水公園":{"彩山":1.2},
@@ -74,7 +74,7 @@ const rawGraph = {
 "深江":{"三栗谷":1.3},"三栗谷":{"桜川公園":1.5},"桜川公園":{"桜川":2.2}
 };
 
-// 双方向化
+// --- 双方向化 ---
 const graph = {};
 for(const [from,targets] of Object.entries(rawGraph)){
     if(!graph[from]) graph[from]={};
@@ -85,7 +85,7 @@ for(const [from,targets] of Object.entries(rawGraph)){
     }
 }
 
-// 運賃
+// --- 運賃 ---
 function fare(distance){
     if(distance<=3) return {adult:130,child:70};
     else if(distance<=6) return {adult:160,child:80};
@@ -97,7 +97,7 @@ function fare(distance){
     else return {adult:340,child:170};
 }
 
-// 路線判定
+// --- 路線判定 ---
 function getLine(from,to){
     for(const [line,stations] of Object.entries(stationLines)){
         for(let i=0;i<stations.length-1;i++){
@@ -107,7 +107,7 @@ function getLine(from,to){
     return null;
 }
 
-// BFS探索（制限なし）
+// --- BFS探索 ---
 function findBestPath(start,goal){
     const queue=[[ [start],0 ]];
     const visited={};
@@ -127,13 +127,14 @@ function findBestPath(start,goal){
             const key=path.concat(next).join(">");
             if(visited[key]) continue;
             visited[key]=true;
+
             queue.push([path.concat(next),distance+graph[last][next]]);
         }
     }
     return best;
 }
 
-// 表示用パス生成
+// --- 表示用パス生成 ---
 function processDisplayPath(path){
     let display=[]; 
     let lastLine=getLine(path[0],path[1]);
@@ -149,7 +150,7 @@ function processDisplayPath(path){
     return display;
 }
 
-// 路線選択による駅更新
+// --- 路線選択による駅更新 ---
 function updateStations(type){
     const lineSelect = document.getElementById(type+"Line");
     const stationSelect = document.getElementById(type);
@@ -157,6 +158,7 @@ function updateStations(type){
     const line = lineSelect.value;
 
     stationLines[line].forEach(st=>{
+        if(line==="燠野線" && ["新里","河岸","新里海浜公園","湯の浜海岸"].includes(st)) return;
         const opt = document.createElement("option");
         opt.value = st;
         opt.text = st;
@@ -164,7 +166,7 @@ function updateStations(type){
     });
 }
 
-// 初期化
+// --- 初期化 ---
 const startLine=document.getElementById("startLine");
 const goalLine=document.getElementById("goalLine");
 Object.keys(stationLines).forEach(l=>{
@@ -173,7 +175,7 @@ Object.keys(stationLines).forEach(l=>{
 });
 updateStations("start"); updateStations("goal");
 
-// 表示
+// --- 表示 ---
 function showAllRoutes(){
     const start=document.getElementById("start").value;
     const goal=document.getElementById("goal").value;
@@ -190,11 +192,14 @@ function showAllRoutes(){
     for(let i=0;i<display.length;i++){
         const curr=display[i];
         html+=curr.station;
-        if(i<display.length-1){
+        if(i < display.length-1){ 
             html+=" <span class='route-line' style='background:"+lineColors[curr.line]+"'>新里鉄道 "+curr.line+"</span> ";
+        } else {
+            html+=" ";
         }
     }
-    html+=`<br>総距離: ${best.distance.toFixed(1)} km<br>`;
+
+    html+=`<br>\n総距離: ${best.distance.toFixed(1)} km<br>`;
     const f=fare(best.distance);
     html+=`運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
 
