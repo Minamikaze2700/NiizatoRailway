@@ -164,14 +164,15 @@ function showAllRoutes(){
         let html=`<span>${path[0]}</span> `;
         let prevLine=null;
         for(let i=0;i<path.length-1;i++){
-            const from=path[i],to=path[i+1];
+            const from=path[i], to=path[i+1];
             const line=getLine(from,to);
-            if(prevLine && prevLine!==line) html+=`<span>${from}</span> `;
-            html+=`<span class="route-line" style="background-color:${lineColors[line]}">${line}</span> `;
+            if(prevLine!==line){
+                if(i>0) html+=`<span>${from}</span> `;
+                html+=`<span class="route-line" style="background-color:${lineColors[line]}">新里鉄道 ${line}</span> `;
+            }
             prevLine=line;
         }
         html+=`<span>${path[path.length-1]}</span> `;
-
         let info="（距）";
         if(path.includes("豊町")&&path.includes("彩山")) info="（距）（楽）";
         html+=`<span>${info}</span> `;
@@ -186,5 +187,3 @@ function showAllRoutes(){
 </script>
 </body>
 </html>
-
-
