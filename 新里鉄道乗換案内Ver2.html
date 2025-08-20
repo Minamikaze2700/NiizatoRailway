@@ -113,6 +113,8 @@ function findBestPath(start,goal){
     const visited={};
     let best=null;
 
+    const forbiddenFrom = ["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里"];
+
     while(queue.length>0){
         queue.sort((a,b)=>a[1]-b[1]);
         const [path,distance]=queue.shift();
@@ -128,6 +130,13 @@ function findBestPath(start,goal){
             if(visited[key]) continue;
             visited[key]=true;
 
+            const lastLineName = getLine(last,next);
+
+            // 豊町～西新里から燠野線には直接行かない
+            if(forbiddenFrom.includes(last) && lastLineName==="湯の浜線"){
+                if(getLine(last,next)==="燠野線") continue;
+            }
+
             queue.push([path.concat(next),distance+graph[last][next]]);
         }
     }
@@ -135,7 +144,7 @@ function findBestPath(start,goal){
     return best;
 }
 
-// --- 表示用パス生成（直通省略処理） ---
+// --- 表示用パス生成（省略処理） ---
 function processDisplayPath(path){
     let display=[]; 
     let lastLine=getLine(path[0],path[1]);
@@ -143,8 +152,9 @@ function processDisplayPath(path){
 
     for(let i=1;i<path.length-1;i++){
         const line=getLine(path[i],path[i+1]);
+        // 湯の浜直通ルール
         if(lastLine==="湯の浜線" && line==="燠野線" && (path[i]==="湯の浜" || path[i]==="湯の浜海岸")){
-            // 湯の浜駅・湯の浜線を省略
+            // 省略
         } else {
             if(line!==lastLine){
                 display.push({station:path[i],line:line});
@@ -193,14 +203,14 @@ function showAllRoutes(){
     let html="";
     for(let i=0;i<display.length-1;i++){
         const curr=display[i];
-        html+=curr.station+" ";
-        html+=`<span class="route-line" style="background:${lineColors[curr.line]}">新里鉄道 ${curr.line}</span> `;
+        html+=curr.station+"<br>";
+        html+=`<span class="route-line" style="background:${lineColors[curr.line]}">新里鉄道 ${curr.line}</span><br>`;
     }
-    html+=display[display.length-1].station;
+    html+=display[display.length-1].station+"<br><br>"; // 総距離の前に改行
 
-    html+="<br>総距離: "+best.distance.toFixed(1)+" km<br>";
     const f=fare(best.distance);
-    html+="運賃: 大人 "+f.adult+"円／小児 "+f.child+"円";
+    html+=`総距離: ${best.distance.toFixed(1)} km<br>`;
+    html+=`運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
 
     const div=document.createElement("div"); div.className="route"; div.innerHTML=html;
     resultDiv.appendChild(div);
