@@ -97,6 +97,28 @@ function fare(distance){
     else return {adult:340,child:170};
 }
 
+// --- 湯の浜線区間（豊町～湯の浜海岸） ---
+const yunoHamaZone = ["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城",
+                      "須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里",
+                      "河岸","新里海浜公園","湯の浜海岸"];
+
+// 駅名から路線
+function stationLine(station){
+    for(const [line,stations] of Object.entries(stationLines)){
+        if(stations.includes(station)) return line;
+    }
+    return null;
+}
+
+// 距離計算
+function calcDistance(path){
+    let d = 0;
+    for(let i=0;i<path.length-1;i++){
+        d += graph[path[i]][path[i+1]] || 0;
+    }
+    return d;
+}
+
 // --- 路線判定 ---
 function getLine(from,to){
     for(const [line,stations] of Object.entries(stationLines)){
@@ -107,13 +129,19 @@ function getLine(from,to){
     return null;
 }
 
-// 湯の浜線区間（豊町～湯の浜海岸）
-const yunoHamaZone = ["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城",
-                      "須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里",
-                      "河岸","新里海浜公園","湯の浜海岸"];
-
 // --- BFS探索 ---
 function findBestPath(start,goal){
+    // 湯の浜線 ↔ 燠野線 の場合は新里経由
+    if(yunoHamaZone.includes(start) && stationLine(goal)==="燠野線"){
+        const path = [start,"新里",goal];
+        return {path,distance:calcDistance(path)};
+    }
+    if(stationLine(start)==="燠野線" && yunoHamaZone.includes(goal)){
+        const path = [start,"新里",goal];
+        return {path,distance:calcDistance(path)};
+    }
+
+    // 通常BFS
     const queue=[[ [start],0 ]];
     const visited={};
     let best=null;
@@ -136,24 +164,7 @@ function findBestPath(start,goal){
             queue.push([path.concat(next),distance+graph[last][next]]);
         }
     }
-
-    // ===== 湯の浜線 ↔ 燠野線 の新里経由補正 =====
-    if(yunoHamaZone.includes(start) && stationLine(goal)==="燠野線"){
-        return {path:["start","新里","goal"].map(s=>s==="start"?start:s==="goal"?goal:s), distance:null};
-    }
-    if(stationLine(start)==="燠野線" && yunoHamaZone.includes(goal)){
-        return {path:["start","新里","goal"].map(s=>s==="start"?start:s==="goal"?goal:s), distance:null};
-    }
-
     return best;
-}
-
-// 駅名から路線
-function stationLine(station){
-    for(const [line,stations] of Object.entries(stationLines)){
-        if(stations.includes(station)) return line;
-    }
-    return null;
 }
 
 // --- 表示用パス生成 ---
@@ -181,7 +192,9 @@ function updateStations(type){
     const line = lineSelect.value;
 
     stationLines[line].forEach(st=>{
+        // 燠野線で湯の浜線区間（新里～湯の浜海岸）は表示しない
         if(line==="燠野線" && ["新里","河岸","新里海浜公園","湯の浜海岸"].includes(st)) return;
+
         const opt = document.createElement("option");
         opt.value = st;
         opt.text = st;
@@ -217,11 +230,11 @@ function showAllRoutes(){
         html+=curr.station;
         if(i<display.length-1){
             html+=" <span class='route-line' style='background:"+lineColors[curr.line]+"'>新里鉄道 "+curr.line+"</span> ";
-        } else { html+=" "; }
+        } else html+=" ";
     }
 
-    html+=`<br>\n総距離: ${best.distance ? best.distance.toFixed(1) + " km" : "乗換距離自動補正"}<br>`;
-    const f=fare(best.distance || 0);
+    html+=`<br>\n総距離: ${best.distance.toFixed(1)} km<br>`;
+    const f=fare(best.distance);
     html+=`運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
 
     const div=document.createElement("div"); div.className="route"; div.innerHTML=html;
