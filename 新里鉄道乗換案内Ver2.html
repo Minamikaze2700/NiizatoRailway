@@ -113,8 +113,6 @@ function findBestPath(start,goal){
     const visited={};
     let best=null;
 
-    const forbiddenFrom = ["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里"];
-
     while(queue.length>0){
         queue.sort((a,b)=>a[1]-b[1]);
         const [path,distance]=queue.shift();
@@ -130,13 +128,6 @@ function findBestPath(start,goal){
             if(visited[key]) continue;
             visited[key]=true;
 
-            const lastLineName = getLine(last,next);
-
-            // 豊町～西新里から燠野線には直接行かない
-            if(forbiddenFrom.includes(last) && lastLineName==="湯の浜線"){
-                if(getLine(last,next)==="燠野線") continue;
-            }
-
             queue.push([path.concat(next),distance+graph[last][next]]);
         }
     }
@@ -144,7 +135,7 @@ function findBestPath(start,goal){
     return best;
 }
 
-// --- 表示用パス生成（省略処理） ---
+// --- 表示用パス生成 ---
 function processDisplayPath(path){
     let display=[]; 
     let lastLine=getLine(path[0],path[1]);
@@ -152,13 +143,8 @@ function processDisplayPath(path){
 
     for(let i=1;i<path.length-1;i++){
         const line=getLine(path[i],path[i+1]);
-        // 湯の浜直通ルール
-        if(lastLine==="湯の浜線" && line==="燠野線" && (path[i]==="湯の浜" || path[i]==="湯の浜海岸")){
-            // 省略
-        } else {
-            if(line!==lastLine){
-                display.push({station:path[i],line:line});
-            }
+        if(line!==lastLine){
+            display.push({station:path[i],line:line});
         }
         lastLine=line;
     }
