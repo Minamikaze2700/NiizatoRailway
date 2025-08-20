@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>新里鉄道 乗換案内＋運賃</title>
+<style>
+body { font-family: sans-serif; padding: 20px; max-width: 900px; }
+h2 { margin-bottom: 10px; }
+.route-line { color: white; padding: 2px 6px; border-radius: 4px; margin: 0 4px; }
+.湯の浜線 { background-color: #07b5f7; }
+.燠野線 { background-color: #fd5062; }
+.新里線 { background-color: #0cab5e; }
+.鶴宮線 { background-color: #feac2c; }
+.彩山線 { background-color: #7dca22; }
+.route { margin: 6px 0; }
+select { margin: 0 10px 0 0; padding: 2px; }
+button { padding: 2px 6px; }
+#result { margin-top: 12px; }
+</style>
+</head>
+<body>
+<h2>新里鉄道 乗換案内＋運賃（5路線対応）</h2>
+
+<label>発駅:
+<select id="start"></select>
+</label>
+<label>着駅:
+<select id="goal"></select>
+</label>
+<button onclick="showRoute()">検索</button>
+
+<div id="result"></div>
+
+<script>
+// --- 駅一覧 ---
+const allStations = [
+"北鶴宮","鶴宮","鶴宮神社","伊奈崎","宇多野","那珂町","七浦","湯の浜","湯の浜海岸",
+"新里海浜公園","河岸","新里","西新里","北浜","垳下","伊坂","御浜","御浜埼公園","須川",
+"宇城","栃原","南栃原","安田町","清水浜","東豊町","豊町",
+"新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉",
+"南鶴宮","あずさ台","橘町","燠野山口","白枝","紅葉台","桐山","湊川","彩山親水公園",
+"彩山","蓮華寺","星宮","田ノ原",
+"南新里","北玖川","玖川","中野原",
+"彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"
+];
+
+// --- 路線ごとの駅 ---
+const stationLines = {
+"湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜"],
+"燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
+"鶴宮線":["鶴宮","南鶴宮","あずさ台","橘町","燠野山口","白枝","紅葉台","桐山","湊川","彩山親水公園","彩山","蓮華寺","星宮","田ノ原"],
+"新里線":["新里","南新里","田ノ原","北玖川","玖川","中野原"],
+"彩山線":["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"]
+};
+
+// --- 路線カラー ---
+const lineColors = {
+"湯の浜線":"#07b5f7",
+"燠野線":"#fd5062",
+"新里線":"#0cab5e",
+"鶴宮線":"#feac2c",
+"彩山線":"#7dca22"
+};
+
+// --- 駅間距離（km） ---
+// 5路線全駅対応
+const graph = {
+"豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},
+"安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},"栃原":{"宇城":2.2},
+"宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},
+"御浜":{"伊坂":2.5},"伊坂":{"垳下":2.6},"垳下":{"北浜":2.3},"北浜":{"西新里":1.4},
+"西新里":{"新里":1.7},"新里":{"河岸":0.9,"田ノ原":2.0},"河岸":{"新里海浜公園":1.7},
+"新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5},"湯の浜":{"七浦":2.5,"新里大学前":1.5},
+"七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},
+"伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.1,"彩山":2.0},
+"田ノ原":{"彩山":2.0},"新里大学前":{"綾原":1.5},"綾原":{"福来":1.5},"福来":{"燠野":1.8},
+"燠野":{"湯川":1.5},"湯川":{"温泉口":1.8},"温泉口":{"燠野温泉":1.5},
+"南鶴宮":{"あずさ台":1.2},"あずさ台":{"橘町":1.3},"橘町":{"燠野山口":1.2},
+"燠野山口":{"白枝":1.4},"白枝":{"紅葉台":1.5},"紅葉台":{"桐山":1.6},
+"桐山":{"湊川":1.4},"湊川":{"彩山親水公園":1.2},"彩山親水公園":{"彩山":0.8},
+"彩山":{"蓮華寺":1.5},"蓮華寺":{"星宮":1.6},"星宮":{"田ノ原":1.7},
+"南新里":{"田ノ原":1.8},"田ノ原":{"北玖川":2.0},"北玖川":{"玖川":1.5},"玖川":{"中野原":1.7},
+"彩山":{"彩山口":1.6},"彩山口":{"新里国際スキー場":1.8},"新里国際スキー場":{"鷹見台":1.5},
+"鷹見台":{"久我原":1.6},"久我原":{"浪原":1.5},"浪原":{"深江":1.8},
+"深江":{"三栗谷":1.7},"三栗谷":{"桜川公園":1.6},"桜川公園":{"桜川":1.5}
+};
+
+// --- 運賃表 ---
+function fare(distance){
+if(distance<=3) return {adult:130,child:70};
+else if(distance<=6) return {adult:160,child:80};
+else if(distance<=10) return {adult:190,child:100};
+else if(distance<=15) return {adult:220,child:110};
+else if(distance<=20) return {adult:250,child:130};
+else if(distance<=25) return {adult:280,child:140};
+else if(distance<=30) return {adult:310,child:160};
+else return {adult:340,child:170};
+}
+
+// --- Dijkstra ---
+function dijkstra(start,goal){
+const distances={}, prev={}, q=new Set();
+allStations.forEach(s=>{distances[s]=Infinity; prev[s]=null; q.add(s);});
+distances[start]=0;
+while(q.size>0){
+let u=Array.from(q).reduce((a,b)=>distances[a]<distances[b]?a:b);
+q.delete(u);
+if(u===goal) break;
+const neighbors=graph[u]||{};
+for(const [v,d] of Object.entries(neighbors)){
+const alt=distances[u]+d;
+if(alt<distances[v]){distances[v]=alt; prev[v]=u;}
+}
+}
+const path=[]; let u=goal;
+while(u){path.unshift(u); u=prev[u];}
+return {path,distance:distances[goal]};
+}
+
+// --- 路線判定 ---
+function getLine(from,to){
+for(const [line,stations] of Object.entries(stationLines)){
+if(stations.includes(from)&&stations.includes(to)) return line;
+}
+return "湯の浜線";
+}
+
+// --- 発着駅選択肢生成 ---
+const startSelect = document.getElementById("start");
+const goalSelect = document.getElementById("goal");
+allStations.forEach(s=>{
+const opt1=document.createElement("option"); opt1.value=s; opt1.text=s; startSelect.appendChild(opt1);
+const opt2=document.createElement("option"); opt2.value=s; opt2.text=s; goalSelect.appendChild(opt2);
+});
+
+// --- 表示 ---
+function showRoute(){
+const start=startSelect.value,goal=goalSelect.value;
+const resultDiv=document.getElementById("result"); resultDiv.innerHTML="";
+const {path,distance}=dijkstra(start,goal);
+if(path.length<2){ resultDiv.innerHTML="ルートが見つかりません"; return;}
+
+let html="";
+for(let i=0;i<path.length-1;i++){
+const from=path[i],to=path[i+1];
+const line=getLine(from,to);
+html+=`<span>${from}</span> <span class="route-line" style="background-color:${lineColors[line]}">${line}</span> `;
+}
+html+=`<span>${path[path.length-1]}</span>`;
+resultDiv.innerHTML=html;
+
+// （距）（楽）判定
+const info=document.createElement("div"); info.style.marginTop="6px";
+if(path.includes("豊町")&&path.includes("彩山")) info.innerHTML="（距）（楽)"; else info.innerHTML="（距）";
+resultDiv.appendChild(info);
+
+// 運賃表示
+const fareDiv=document.createElement("div"); fareDiv.style.marginTop="6px";
+const f=fare(distance);
+fareDiv.innerHTML=`運賃：大人 ${f.adult}円／小児 ${f.child}円（距離 ${distance.toFixed(1)} km）`;
+resultDiv.appendChild(fareDiv);
+}
+</script>
+</body>
+</html>
