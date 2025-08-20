@@ -6,7 +6,6 @@
 <style>
 body { font-family: sans-serif; padding: 20px; max-width: 950px; }
 h2 { margin-bottom: 10px; }
-.route-line { color: white; padding: 2px 6px; border-radius: 4px; margin: 0 4px; }
 .route { margin: 6px 0; }
 select { margin: 0 10px 0 0; padding: 2px; }
 button { padding: 2px 6px; }
@@ -42,14 +41,6 @@ const stationLines = {
 "鶴宮線":["鶴宮","南鶴宮","あずさ台","橘町","燠野山口","白枝","燠野","紅葉台","桐山","湊川","彩山親水公園","彩山","蓮華寺","星宮","田ノ原"],
 "新里線":["新里","南新里","田ノ原","北玖川","玖川","中野原"],
 "彩山線":["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"]
-};
-
-const lineColors = {
-"湯の浜線":"#07b5f7",
-"燠野線":"#fd5062",
-"新里線":"#0cab5e",
-"鶴宮線":"#feac2c",
-"彩山線":"#7dca22"
 };
 
 // --- 駅間距離 ---
@@ -126,7 +117,6 @@ function findBestPath(start,goal){
             const key=path.concat(next).join(">");
             if(visited[key]) continue;
             visited[key]=true;
-
             queue.push([path.concat(next),distance+graph[last][next]]);
         }
     }
@@ -142,11 +132,9 @@ function processDisplayPath(path){
         const line=getLine(path[i],path[i+1]);
         // 湯の浜直通ルールで湯の浜駅・湯の浜線を省略
         if(lastLine==="湯の浜線" && line==="燠野線" && (path[i]==="湯の浜" || path[i]==="湯の浜海岸")){
-            // スキップ
+            // 省略
         } else {
-            if(line!==lastLine){
-                display.push({station:path[i],line:line});
-            }
+            display.push({station:path[i],line:line});
         }
         lastLine=line;
     }
