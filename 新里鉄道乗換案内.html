@@ -197,7 +197,7 @@ function showAllRoutes(){
     html+=display[display.length-1].station;
 
     const f=fare(best.distance);
-    html+=` （距） 運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
+    html+=` 運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
 
     const div=document.createElement("div"); div.className="route"; div.innerHTML=html;
     resultDiv.appendChild(div);
@@ -205,5 +205,6 @@ function showAllRoutes(){
 </script>
 </body>
 </html>
+
 
 
