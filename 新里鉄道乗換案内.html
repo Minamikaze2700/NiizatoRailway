@@ -30,12 +30,11 @@ button { padding: 2px 6px; }
 <select id="goal"></select>
 </label>
 <br><br>
-<button onclick="showAllRoutes()">検索</button>
+<button onclick="showRoute()">検索</button>
 
 <div id="result"></div>
 
 <script>
-// --- 駅・路線データ ---
 const stationLines = {
 "湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
 "燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
@@ -54,7 +53,6 @@ const lineColors = {
 "彩山線":"#7dca22"
 };
 
-// --- 駅間距離（双方向） ---
 const rawGraph = {
 "豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},
 "安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},"栃原":{"宇城":2.2},
@@ -76,7 +74,6 @@ const rawGraph = {
 "深江":{"三栗谷":1.7},"三栗谷":{"桜川公園":1.6},"桜川公園":{"桜川":1.5}
 };
 
-// 双方向化
 const graph={};
 for(const [from,targets] of Object.entries(rawGraph)){
     if(!graph[from]) graph[from]={};
@@ -87,7 +84,6 @@ for(const [from,targets] of Object.entries(rawGraph)){
     }
 }
 
-// --- 運賃 ---
 function fare(distance){
     if(distance<=3) return {adult:130,child:70};
     else if(distance<=6) return {adult:160,child:80};
@@ -99,7 +95,6 @@ function fare(distance){
     else return {adult:340,child:170};
 }
 
-// --- 路線判定 ---
 function getLine(from,to){
     for(const [line,stations] of Object.entries(stationLines)){
         for(let i=0;i<stations.length-1;i++){
@@ -109,17 +104,14 @@ function getLine(from,to){
     return null;
 }
 
-// --- BFS探索 ---
-function findBestPaths(start,goal){
+// --- BFSで最短ルート1件だけ ---
+function findRoute(start,goal){
     const queue=[[ [start],0 ]];
-    const results=[];
     const visited={};
     while(queue.length>0){
-        queue.sort((a,b)=>a[1]-b[1]);
         const [path,distance]=queue.shift();
         const last=path[path.length-1];
-        if(last===goal){ results.push({path,distance}); continue; }
-
+        if(last===goal) return {path,distance};
         for(const next in graph[last]){
             if(path.includes(next)) continue;
             const key=path.concat(next).join(">");
@@ -128,14 +120,10 @@ function findBestPaths(start,goal){
             queue.push([path.concat(next),distance+graph[last][next]]);
         }
     }
-    results.sort((a,b)=>{
-        if(a.distance!==b.distance) return a.distance-b.distance;
-        return a.path.length-b.path.length;
-    });
-    return results.slice(0,10);
+    return null;
 }
 
-// --- 路線選択による駅更新 ---
+// --- 路線選択で駅更新 ---
 function updateStations(type){
     const lineSelect=document.getElementById(type+"Line");
     const stationSelect=document.getElementById(type);
@@ -156,51 +144,43 @@ Object.keys(stationLines).forEach(l=>{
 updateStations("start"); updateStations("goal");
 
 // --- 表示 ---
-function showAllRoutes(){
-    const start = document.getElementById("start").value;
-    const goal = document.getElementById("goal").value;
-    const resultDiv = document.getElementById("result");
+function showRoute(){
+    const start=document.getElementById("start").value;
+    const goal=document.getElementById("goal").value;
+    const resultDiv=document.getElementById("result");
     resultDiv.innerHTML="";
     if(start===goal){ resultDiv.innerHTML="発駅と着駅が同じです"; return; }
 
-    const paths = findBestPaths(start,goal);
-    if(paths.length===0){ resultDiv.innerHTML="ルートが見つかりません"; return; }
+    const r=findRoute(start,goal);
+    if(!r){ resultDiv.innerHTML="ルートが見つかりません"; return; }
 
-    paths.forEach(r=>{
-        const p=r.path;
+    const p=r.path;
+    const display = [p[0]];
+    for(let i=1;i<p.length-1;i++){
+        if(transferStations.includes(p[i])) display.push(p[i]);
+    }
+    display.push(p[p.length-1]);
 
-        // 発着駅と乗換駅だけ抽出
-        const display = [p[0]];
-        for(let i=1;i<p.length-1;i++){
-            if(transferStations.includes(p[i])){
-                display.push(p[i]);
-            }
-        }
-        display.push(p[p.length-1]);
-
-        let html = display[0];
-        for(let i=0;i<display.length-1;i++){
-            const from = display[i];
-            const to = display[i+1];
-            let line = getLine(from,to);
-            if(!line){
-                // 直近の乗換駅間で路線を補完
-                for(const l of Object.keys(stationLines)){
-                    if(stationLines[l].includes(from) && stationLines[l].includes(to)){
-                        line=l; break;
-                    }
+    let html=display[0];
+    for(let i=0;i<display.length-1;i++){
+        const from=display[i], to=display[i+1];
+        let line=getLine(from,to);
+        if(!line){
+            // 同じ路線が通る駅を補完
+            for(const l of Object.keys(stationLines)){
+                if(stationLines[l].includes(from) && stationLines[l].includes(to)){
+                    line=l; break;
                 }
             }
-            html += ` <span class="route-line" style="background:${lineColors[line]}">新里鉄道 ${line}</span> `;
-            html += to;
         }
-        const f = fare(r.distance);
-        html += ` （距） 運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
+        html+=` <span class="route-line" style="background:${lineColors[line]}">新里鉄道 ${line}</span> ${to}`;
+    }
 
-        const div = document.createElement("div"); div.className="route";
-        div.innerHTML=html;
-        resultDiv.appendChild(div);
-    });
+    const f=fare(r.distance);
+    html+=` （距） 運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
+
+    const div=document.createElement("div"); div.className="route"; div.innerHTML=html;
+    resultDiv.appendChild(div);
 }
 </script>
 </body>
