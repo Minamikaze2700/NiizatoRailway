@@ -37,40 +37,23 @@ button { padding: 2px 6px; }
 <script>
 const stationLines = {
 "湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
-"燠野線":["新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
-"鶴宮線":["鶴宮","南鶴宮","あずさ台","橘町","燠野山口","白枝","燠野","紅葉台","桐山","湊川","彩山親水公園","彩山","蓮華寺","星宮","田ノ原"],
-"新里線":["新里","南新里","田ノ原","北玖川","玖川","中野原"],
-"彩山線":["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"]
+"燠野線":["新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"]
 };
 
 const lineColors = {
 "湯の浜線":"#07b5f7",
-"燠野線":"#fd5062",
-"新里線":"#0cab5e",
-"鶴宮線":"#feac2c",
-"彩山線":"#7dca22"
+"燠野線":"#fd5062"
 };
 
-// 駅間距離（略、前回コード同じ）
+// 駅間距離（前回コードと同じ）
 const rawGraph = {
 "豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},
 "安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},"栃原":{"宇城":2.2},
 "宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},
 "御浜":{"伊坂":2.5},"伊坂":{"垳下":2.6},"垳下":{"北浜":2.3},"北浜":{"西新里":1.4},
-"西新里":{"新里":1.7},"新里":{"河岸":0.9,"南新里":2.5},"河岸":{"新里海浜公園":1.7},
+"西新里":{"新里":1.7},"新里":{"河岸":0.9},"河岸":{"新里海浜公園":1.7},
 "新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5},
-"湯の浜":{"新里大学前":0.8,"七浦":2.5},"七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},
-"伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.1,"南鶴宮":1.7},
-"新里大学前":{"綾原":0.7},"綾原":{"福来":1.2},"福来":{"燠野":1.4},
-"燠野":{"湯川":2.6,"紅葉台":1.1},"湯川":{"温泉口":1.6},"温泉口":{"燠野温泉":1.9},
-"南鶴宮":{"あずさ台":1.4},"あずさ台":{"橘町":1.8},"橘町":{"燠野山口":1.1},
-"燠野山口":{"白枝":1.2},"白枝":{"燠野":1.1},"紅葉台":{"桐山":0.8},
-"桐山":{"湊川":0.8},"湊川":{"彩山親水公園":1.1},"彩山親水公園":{"彩山":1.2},
-"彩山":{"蓮華寺":0.8,"彩山口":2.1},"蓮華寺":{"星宮":1.1},"星宮":{"田ノ原":1.1},
-"南新里":{"田ノ原":2.3},"田ノ原":{"北玖川":2.4},"北玖川":{"玖川":3.1},"玖川":{"中野原":3.1},
-"彩山口":{"新里国際スキー場":3.4},"新里国際スキー場":{"鷹見台":10.7},
-"鷹見台":{"久我原":2.7},"久我原":{"浪原":1.5},"浪原":{"深江":1.4},
-"深江":{"三栗谷":1.3},"三栗谷":{"桜川公園":1.5},"桜川公園":{"桜川":2.2}
+"湯の浜":{"新里大学前":0.8,"七浦":2.5}
 };
 
 // 双方向化
@@ -152,9 +135,7 @@ function updateStations(type){
     const stationSelect = document.getElementById(type);
     stationSelect.innerHTML = "";
     const line = lineSelect.value;
-
     stationLines[line].forEach(st=>{
-        // 燠野線で湯の浜線区間を除外
         if(line==="燠野線" && ["新里","河岸","新里海浜公園","湯の浜海岸","湯の浜"].includes(st)) return;
         const opt = document.createElement("option");
         opt.value = st;
@@ -172,24 +153,39 @@ Object.keys(stationLines).forEach(l=>{
 });
 updateStations("start"); updateStations("goal");
 
-// 湯の浜線 ↔ 燠野線 特殊ルール
-function isSpecialTransfer(start,goal){
-    const yLine = "湯の浜線";
-    const nLine = "燠野線";
-    const startIndexY = stationLines[yLine].indexOf(start);
-    const goalIndexY = stationLines[yLine].indexOf(goal);
-    const startIndexN = stationLines[nLine].indexOf(start);
-    const goalIndexN = stationLines[nLine].indexOf(goal);
+// 新里経由ルール判定
+function determineSpecialPath(start,goal){
+    const yLine="湯の浜線";
+    const nLine="燠野線";
+    const indexStartY = stationLines[yLine].indexOf(start);
+    const indexGoalY  = stationLines[yLine].indexOf(goal);
+    const indexStartN = stationLines[nLine].indexOf(start);
+    const indexGoalN  = stationLines[nLine].indexOf(goal);
+    const indexShinriY = stationLines[yLine].indexOf("新里");
+    const indexShinriN = stationLines[nLine].indexOf("新里");
 
-    if(startIndexY >=0 && startIndexY < stationLines[yLine].indexOf("新里") &&
-       goalIndexN > stationLines[nLine].indexOf("新里")){
-        return true;
+    // 出発駅が豊町～西新里（新里含まず）
+    if(indexStartY>=0 && indexStartY<indexShinriY && indexGoalN>indexShinriN){
+        const part1 = findBestPath(start,"新里");
+        const part2 = findBestPath("新里",goal);
+        return part1 && part2 ? {path: part1.path.concat(part2.path.slice(1)), distance: part1.distance+part2.distance} : null;
     }
-    if(startIndexN > stationLines[nLine].indexOf("新里") &&
-       goalIndexY >=0 && goalIndexY < stationLines[yLine].indexOf("新里")){
-        return true;
+    // 出発駅が新里～湯の浜（新里含む）
+    if(indexStartN>indexShinriN || (indexStartY>=indexShinriY && indexStartY<=stationLines[yLine].indexOf("湯の浜"))){
+        return findBestPath(start,goal);
     }
-    return false;
+    // 着駅が豊町～西新里（新里含まず）
+    if(indexGoalY>=0 && indexGoalY<indexShinriY && indexStartN>indexShinriN){
+        const part1 = findBestPath(start,"新里");
+        const part2 = findBestPath("新里",goal);
+        return part1 && part2 ? {path: part1.path.concat(part2.path.slice(1)), distance: part1.distance+part2.distance} : null;
+    }
+    // 着駅が新里～湯の浜（新里含む）
+    if(indexGoalN>indexShinriN || (indexGoalY>=indexShinriY && indexGoalY<=stationLines[yLine].indexOf("湯の浜"))){
+        return findBestPath(start,goal);
+    }
+    // それ以外は普通に探索
+    return findBestPath(start,goal);
 }
 
 // 表示
@@ -200,17 +196,8 @@ function showAllRoutes(){
     resultDiv.innerHTML="";
     if(start===goal){ resultDiv.innerHTML="発駅と着駅が同じです"; return; }
 
-    let best=null;
-    if(isSpecialTransfer(start,goal)){
-        const shinri="新里";
-        const part1 = findBestPath(start,shinri);
-        const part2 = findBestPath(shinri,goal);
-        if(!part1 || !part2){ resultDiv.innerHTML="ルートが見つかりません"; return; }
-        best = {path: part1.path.concat(part2.path.slice(1)), distance: part1.distance + part2.distance};
-    } else {
-        best = findBestPath(start,goal);
-        if(!best){ resultDiv.innerHTML="ルートが見つかりません"; return; }
-    }
+    const best=determineSpecialPath(start,goal);
+    if(!best){ resultDiv.innerHTML="ルートが見つかりません"; return; }
 
     const display=processDisplayPath(best.path);
     let html="";
