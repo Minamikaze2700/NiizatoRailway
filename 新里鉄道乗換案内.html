@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>新里鉄道 乗換案内＋運賃（発着・乗換駅のみ表示）</title>
+<title>新里鉄道 乗換案内＋運賃</title>
 <style>
 body { font-family: sans-serif; padding: 20px; max-width: 950px; }
 h2 { margin-bottom: 10px; }
@@ -107,9 +107,9 @@ function getLine(from,to){
     return null;
 }
 
-// --- BFS探索（短距離・少ない乗換優先） ---
+// --- BFS探索（距離・少ない乗換優先） ---
 function findBestPaths(start,goal){
-    const queue=[[ [start],0 ]]; // path, distance
+    const queue=[[ [start],0 ]];
     const results=[];
     const visited={};
     while(queue.length>0){
@@ -152,17 +152,15 @@ Object.keys(stationLines).forEach(l=>{
 });
 updateStations("start"); updateStations("goal");
 
-// --- 乗換判定（経由路線に依存） ---
+// --- 乗換判定（経由路線依存） ---
 function shouldShowTransfer(prevLine,currLine,prevStation,currStation){
     if(prevLine===currLine) return false;
-    // 新里線 ⇔ 鶴宮線のみ田ノ原
-    if((prevLine==="新里線" && currLine==="鶴宮線") || (prevLine==="鶴宮線" && currLine==="新里線")){
-        if(currStation==="田ノ原" || prevStation==="田ノ原") return true;
+    if((prevLine==="新里線" && currLine==="鶴宮線")||(prevLine==="鶴宮線" && currLine==="新里線")){
+        if(currStation==="田ノ原"||prevStation==="田ノ原") return true;
         return false;
     }
-    // 鶴宮線 ⇔ 燠野線のみ燠野
-    if((prevLine==="鶴宮線" && currLine==="燠野線") || (prevLine==="燠野線" && currLine==="鶴宮線")){
-        if(currStation==="燠野" || prevStation==="燠野") return true;
+    if((prevLine==="鶴宮線" && currLine==="燠野線")||(prevLine==="燠野線" && currLine==="鶴宮線")){
+        if(currStation==="燠野"||prevStation==="燠野") return true;
         return false;
     }
     return true;
