@@ -36,7 +36,7 @@ button { padding: 2px 6px; }
 
 <script>
 // --- 駅・路線データ ---
-// 燠野線に湯の浜線区間を追加
+// 燠野線に湯の浜線区間を追加（探索用）
 const stationLines = {
 "湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
 "燠野線":["新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
@@ -76,7 +76,7 @@ const rawGraph = {
 };
 
 // 双方向化
-const graph={};
+const graph = {};
 for(const [from,targets] of Object.entries(rawGraph)){
     if(!graph[from]) graph[from]={};
     for(const [to,d] of Object.entries(targets)){
@@ -129,11 +129,6 @@ function findBestPath(start,goal){
             if(visited[key]) continue;
             visited[key]=true;
 
-            // 湯の浜線→燠野線優先処理
-            if(path.includes("豊町") && next==="新里"){
-                // ここで湯の浜線経由のルートを優先させる
-            }
-
             queue.push([path.concat(next),distance+graph[last][next]]);
         }
     }
@@ -158,12 +153,19 @@ function processDisplayPath(path){
 
 // --- 路線選択による駅更新 ---
 function updateStations(type){
-    const lineSelect=document.getElementById(type+"Line");
-    const stationSelect=document.getElementById(type);
-    stationSelect.innerHTML="";
-    const line=lineSelect.value;
+    const lineSelect = document.getElementById(type+"Line");
+    const stationSelect = document.getElementById(type);
+    stationSelect.innerHTML = "";
+    const line = lineSelect.value;
+
     stationLines[line].forEach(st=>{
-        const opt=document.createElement("option"); opt.value=st; opt.text=st; stationSelect.appendChild(opt);
+        // 燠野線で湯の浜線区間（新里～湯の浜海岸）は表示しない
+        if(line==="燠野線" && ["河岸","新里海浜公園","湯の浜海岸","湯の浜"].includes(st)) return;
+
+        const opt = document.createElement("option");
+        opt.value = st;
+        opt.text = st;
+        stationSelect.appendChild(opt);
     });
 }
 
