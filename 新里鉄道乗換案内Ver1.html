@@ -117,7 +117,6 @@ function findBestPath(start,goal){
         queue.sort((a,b)=>a[1]-b[1]);
         const [path,distance]=queue.shift();
         const last=path[path.length-1];
-
         if(last===goal){
             if(!best || distance<best.distance) best={path,distance};
             continue;
@@ -128,11 +127,42 @@ function findBestPath(start,goal){
             const key=path.concat(next).join(">");
             if(visited[key]) continue;
             visited[key]=true;
+
+            // 湯の浜線⇔燠野線直通判定
+            if((last==="湯の浜" || last==="湯の浜海岸") && getLine(last,next)==="燠野線"){
+                // 湯の浜線区間を省略して直通扱い
+            }
+
             queue.push([path.concat(next),distance+graph[last][next]]);
         }
     }
 
     return best;
+}
+
+// --- 表示用パス生成（省略処理） ---
+function processDisplayPath(path){
+    let display=[];
+    let lastLine=getLine(path[0],path[1]);
+    display.push({station:path[0],line:lastLine});
+
+    for(let i=1;i<path.length-1;i++){
+        const line=getLine(path[i],path[i+1]);
+
+        // 湯の浜直通ルールにより湯の浜駅・湯の浜線を省略
+        if(lastLine==="湯の浜線" && line==="燠野線" && (path[i]==="湯の浜" || path[i]==="湯の浜海岸")){
+            // 何も追加せずスキップ
+        } else {
+            if(line!==lastLine){
+                display.push({station:path[i],line:line});
+            }
+        }
+
+        lastLine=line;
+    }
+
+    display.push({station:path[path.length-1],line:lastLine});
+    return display;
 }
 
 // --- 路線選択による駅更新 ---
@@ -166,30 +196,18 @@ function showAllRoutes(){
     const best=findBestPath(start,goal);
     if(!best){ resultDiv.innerHTML="ルートが見つかりません"; return; }
 
-    const p=best.path;
-    let display=[]; 
-    let lastLine=getLine(p[0],p[1]);
-    display.push({station:p[0],line:lastLine});
-    for(let i=1;i<p.length-1;i++){
-        const line=getLine(p[i],p[i+1]);
-        if(line!==lastLine){
-            display.push({station:p[i],line:line});
-        }
-        lastLine=line;
-    }
-    display.push({station:p[p.length-1],line:lastLine});
+    const display=processDisplayPath(best.path);
 
     let html="";
     for(let i=0;i<display.length-1;i++){
         const curr=display[i];
-        html+=curr.station;
-        html+=` <span class="route-line" style="background:${lineColors[curr.line]}">新里鉄道 ${curr.line}</span> `;
+        html+=curr.station+"<br>";
+        html+=`<span class="route-line" style="background:${lineColors[curr.line]}">新里鉄道 ${curr.line}</span><br>`;
     }
-    html+=display[display.length-1].station;
+    html+=display[display.length-1].station+"<br>";
 
-    html+=`<br>`; // 改行追加
-    html+=`総距離: ${best.distance.toFixed(1)} km<br>`; // 総距離表示
     const f=fare(best.distance);
+    html+=`総距離: ${best.distance.toFixed(1)} km<br>`;
     html+=`運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
 
     const div=document.createElement("div"); div.className="route"; div.innerHTML=html;
