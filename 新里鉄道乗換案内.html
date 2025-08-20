@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>新里鉄道 乗換案内＋運賃（修正版 8/20(14:05)）</title>
+<title>新里鉄道 乗換案内＋運賃（距離短・乗換少優先）</title>
 <style>
 body { font-family: sans-serif; padding: 20px; max-width: 950px; }
 h2 { margin-bottom: 10px; }
@@ -14,7 +14,7 @@ button { padding: 2px 6px; }
 </style>
 </head>
 <body>
-<h2>新里鉄道 乗換案内＋運賃（修正版 8/20(14:05)）</h2>
+<h2>新里鉄道 乗換案内＋運賃（距離短・乗換少優先）</h2>
 
 <label>発路線:
 <select id="startLine" onchange="updateStations('start')"></select>
@@ -61,7 +61,7 @@ const rawGraph = {
 "西新里":{"新里":1.7},"新里":{"河岸":0.9,"田ノ原":2.0},"河岸":{"新里海浜公園":1.7},
 "新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5},"湯の浜":{"七浦":2.5,"新里大学前":1.5},
 "七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},
-"伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.1,"彩山":2.0},
+"伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.1,"彩山":2.0,"燠野":2.0},
 "田ノ原":{"彩山":2.0},"新里大学前":{"綾原":1.5},"綾原":{"福来":1.5},"福来":{"燠野":1.8},
 "燠野":{"湯川":1.5},"湯川":{"温泉口":1.8},"温泉口":{"燠野温泉":1.5},
 "南鶴宮":{"あずさ台":1.2},"あずさ台":{"橘町":1.3},"橘町":{"燠野山口":1.2},
@@ -109,26 +109,36 @@ function getLine(from,to){
     return null;
 }
 
-// --- BFS 全ルート探索 ---
-function findAllPaths(start, goal){
+// --- BFS 最短距離＋少ない乗換優先 ---
+function findBestPaths(start,goal){
+    const heap=[[ [start],0,[] ]]; // path,distance,linesUsed
     const results=[];
-    const queue=[[ [start],0 ]];
-    while(queue.length>0){
-        const [path,dist]=queue.shift();
+    while(heap.length>0){
+        heap.sort((a,b)=>{
+            const [pa,da,la]=a; const [pb,db,lb]=b;
+            if(da!==db) return da-db;
+            return la.length - lb.length;
+        });
+        const [path,distance,linesUsed]=heap.shift();
         const last=path[path.length-1];
-        const neighbors=graph[last]?Object.keys(graph[last]):[];
-        for(const n of neighbors){
-            if(path.includes(n)) continue;
-            const newPath=[...path,n];
-            const newDist=dist+graph[last][n];
-            if(n===goal){
-                results.push({path:newPath,distance:newDist});
-            } else {
-                queue.push([newPath,newDist]);
-            }
+        if(last===goal){
+            results.push({path,distance});
+            continue;
+        }
+        for(const next in graph[last]){
+            if(path.includes(next)) continue;
+            const line=getLine(last,next);
+            const newLinesUsed=[...linesUsed];
+            if(linesUsed.length===0 || linesUsed[linesUsed.length-1]!==line) newLinesUsed.push(line);
+            heap.push([[...path,next],distance+graph[last][next],newLinesUsed]);
         }
     }
-    return results;
+    // 最短距離＋少ない乗換順でソート
+    results.sort((a,b)=>{
+        if(a.distance!==b.distance) return a.distance-b.distance;
+        return a.path.length-b.path.length;
+    });
+    return results.slice(0,10); // 最大10ルート表示
 }
 
 // --- 路線選択による駅更新 ---
@@ -159,21 +169,20 @@ function showAllRoutes(){
     resultDiv.innerHTML="";
     if(start===goal){ resultDiv.innerHTML="発着駅が同じです"; return; }
 
-    const allPaths=findAllPaths(start,goal);
+    const allPaths=findBestPaths(start,goal);
     if(allPaths.length===0){ resultDiv.innerHTML="ルートが見つかりません"; return; }
 
     allPaths.forEach(r=>{
         const path=r.path, distance=r.distance;
         let html=`<span>${path[0]}</span> `;
-        let prevLine=null;
         for(let i=0;i<path.length-1;i++){
             const from=path[i], to=path[i+1];
             const line=getLine(from,to);
-            if(prevLine!==line){
-                if(i>0) html+=`<span>${from}</span> `;
-                if(line) html+=`<span class="route-line" style="background-color:${lineColors[line]}">新里鉄道 ${line}</span> `;
+            if(line){
+                html+=`<span class="route-line" style="background-color:${lineColors[line]}">新里鉄道 ${line}</span> `;
             }
-            prevLine=line;
+            // 乗換駅だけ表示
+            if(i<path.length-2) html+=`<span>${to}</span> `;
         }
         html+=`<span>${path[path.length-1]}</span> `;
         html+=`<span>（距）</span> `;
