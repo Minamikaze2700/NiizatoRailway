@@ -51,7 +51,7 @@ const lineColors = {
 "彩山線":"#7dca22"
 };
 
-// 駅間距離
+// --- 駅間距離 ---
 const rawGraph = {
 "豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},
 "安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},"栃原":{"宇城":2.2},
@@ -84,7 +84,7 @@ for(const [from,targets] of Object.entries(rawGraph)){
     }
 }
 
-// 運賃関数
+// 運賃
 function fare(distance){
     if(distance<=3) return {adult:130,child:70};
     else if(distance<=6) return {adult:160,child:80};
@@ -106,8 +106,8 @@ function getLine(from,to){
     return null;
 }
 
-// BFS探索
-function findBestPath(start,goal){
+// --- BFS探索 ---
+function findBestPath(start,goal,allowedLines=null){
     const queue=[[ [start],0 ]];
     const visited={};
     let best=null;
@@ -120,71 +120,22 @@ function findBestPath(start,goal){
             if(!best || distance<best.distance) best={path,distance};
             continue;
         }
+
         for(const next in graph[last]){
             if(path.includes(next)) continue;
+            if(allowedLines && !allowedLines.includes(getLine(last,next))) continue;
+
             const key=path.concat(next).join(">");
             if(visited[key]) continue;
             visited[key]=true;
+
             queue.push([path.concat(next),distance+graph[last][next]]);
         }
     }
     return best;
 }
 
-// --- 新里経由ルール判定 ---
-function determineSpecialPath(start,goal){
-    const yLine="湯の浜線";
-    const nLine="燠野線";
-    const indexStartY = stationLines[yLine].indexOf(start);
-    const indexGoalY  = stationLines[yLine].indexOf(goal);
-    const indexStartN = stationLines[nLine].indexOf(start);
-    const indexGoalN  = stationLines[nLine].indexOf(goal);
-    const indexShinriY = stationLines[yLine].indexOf("新里");
-    const indexShinriN = stationLines[nLine].indexOf("新里");
-
-    // 出発駅が豊町～西新里（新里含まず）で着駅が燠野線側
-    if(indexStartY>=0 && indexStartY<indexShinriY && indexGoalN>indexShinriN){
-        const part1 = findBestPath(start,"新里");
-        const part2 = findBestPath("新里",goal);
-        return part1 && part2 ? {path: part1.path.concat(part2.path.slice(1)), distance: part1.distance+part2.distance} : null;
-    }
-    // 出発駅が新里～湯の浜（新里含む）または燠野線
-    if((indexStartN>indexShinriN) || (indexStartY>=indexShinriY && indexStartY<=stationLines[yLine].indexOf("湯の浜"))){
-        return findBestPath(start,goal);
-    }
-    // 着駅が豊町～西新里（新里含まず）で出発駅が燠野線側
-    if(indexGoalY>=0 && indexGoalY<indexShinriY && indexStartN>indexShinriN){
-        const part1 = findBestPath(start,"新里");
-        const part2 = findBestPath("新里",goal);
-        return part1 && part2 ? {path: part1.path.concat(part2.path.slice(1)), distance: part1.distance+part2.distance} : null;
-    }
-    // 着駅が新里～湯の浜（新里含む）または燠野線
-    if((indexGoalN>indexShinriN) || (indexGoalY>=indexShinriY && indexGoalY<=stationLines[yLine].indexOf("湯の浜"))){
-        return findBestPath(start,goal);
-    }
-
-    // 通常ルート
-    return findBestPath(start,goal);
-}
-
-// 表示用パス生成
-function processDisplayPath(path){
-    let display=[]; 
-    let lastLine=getLine(path[0],path[1]);
-    display.push({station:path[0],line:lastLine});
-    for(let i=1;i<path.length-1;i++){
-        const line=getLine(path[i],path[i+1]);
-        if(path[i]==="新里" && lastLine==="湯の浜線" && line==="燠野線") continue;
-        if(line!==lastLine){
-            display.push({station:path[i],line:line});
-        }
-        lastLine=line;
-    }
-    display.push({station:path[path.length-1],line:lastLine});
-    return display;
-}
-
-// 路線選択による駅更新
+// --- 路線選択による駅更新 ---
 function updateStations(type){
     const lineSelect = document.getElementById(type+"Line");
     const stationSelect = document.getElementById(type);
@@ -192,9 +143,8 @@ function updateStations(type){
     const line = lineSelect.value;
 
     stationLines[line].forEach(st=>{
-        // 燠野線で湯の浜線区間（新里～湯の浜海岸）は表示しない
+        // 燠野線で湯の浜線区間は表示しない
         if(line==="燠野線" && ["新里","河岸","新里海浜公園","湯の浜海岸"].includes(st)) return;
-
         const opt = document.createElement("option");
         opt.value = st;
         opt.text = st;
@@ -202,37 +152,7 @@ function updateStations(type){
     });
 }
 
-// showAllRoutes
-function showAllRoutes(){
-    const start=document.getElementById("start").value;
-    const goal=document.getElementById("goal").value;
-    const resultDiv=document.getElementById("result");
-    resultDiv.innerHTML="";
-    if(start===goal){ resultDiv.innerHTML="発駅と着駅が同じです"; return; }
-
-    const best=determineSpecialPath(start,goal);
-    if(!best){ resultDiv.innerHTML="ルートが見つかりません"; return; }
-
-    const display=processDisplayPath(best.path);
-
-    let html="";
-    for(let i=0;i<display.length;i++){
-        const curr=display[i];
-        html+=curr.station;
-        if(i < display.length-1){
-            html+=" <span class='route-line' style='background:"+lineColors[curr.line]+"'>新里鉄道 "+curr.line+"</span> ";
-        } else { html+=" "; }
-    }
-
-    html+=`<br>\n総距離: ${best.distance.toFixed(1)} km<br>`;
-    const f=fare(best.distance);
-    html+=`運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
-
-    const div=document.createElement("div"); div.className="route"; div.innerHTML=html;
-    resultDiv.appendChild(div);
-}
-
-// 初期化
+// --- 初期化 ---
 const startLine=document.getElementById("startLine");
 const goalLine=document.getElementById("goalLine");
 Object.keys(stationLines).forEach(l=>{
@@ -240,6 +160,75 @@ Object.keys(stationLines).forEach(l=>{
     const opt2=document.createElement("option"); opt2.text=l; opt2.value=l; goalLine.appendChild(opt2);
 });
 updateStations("start"); updateStations("goal");
+
+// --- 表示 ---
+function showAllRoutes(){
+    const start=document.getElementById("start").value;
+    const goal=document.getElementById("goal").value;
+    const resultDiv=document.getElementById("result");
+    resultDiv.innerHTML="";
+    if(start===goal){ resultDiv.innerHTML="発駅と着駅が同じです"; return; }
+
+    // 新里経由ルール適用
+    const startIndex=stationLines["湯の浜線"].indexOf(start);
+    const goalIndex=stationLines["湯の浜線"].indexOf(goal);
+    let best=null;
+
+    if(startIndex>=0 && startIndex<stationLines["湯の浜線"].indexOf("新里") && goalIndex>stationLines["湯の浜線"].indexOf("新里")){
+        // 発駅が豊町～西新里、着駅が新里～湯の浜海岸
+        const part1=findBestPath(start,"新里",["湯の浜線"]);
+        const part2=findBestPath("新里",goal,["燠野線"]);
+        if(part1 && part2){
+            best={path:part1.path.concat(part2.path.slice(1)),distance:part1.distance+part2.distance};
+        }
+    } else if(startIndex>=stationLines["湯の浜線"].indexOf("新里")){
+        // 発駅が新里～湯の浜海岸
+        best=findBestPath(start,goal,["燠野線"]);
+    } else if(goalIndex>=0 && goalIndex<stationLines["湯の浜線"].indexOf("新里")){
+        // 着駅が豊町～西新里
+        const part1=findBestPath(start,"新里",["燠野線"]);
+        const part2=findBestPath("新里",goal,["湯の浜線"]);
+        if(part1 && part2){
+            best={path:part1.path.concat(part2.path.slice(1)),distance:part1.distance+part2.distance};
+        }
+    } else if(goalIndex>=stationLines["湯の浜線"].indexOf("新里")){
+        // 着駅が新里～湯の浜海岸
+        best=findBestPath(start,goal,["燠野線"]);
+    } else {
+        // それ以外は通常探索
+        best=findBestPath(start,goal);
+    }
+
+    if(!best){ resultDiv.innerHTML="ルートが見つかりません"; return; }
+
+    // 表示
+    const display=[];
+    let lastLine=getLine(best.path[0],best.path[1]);
+    display.push({station:best.path[0],line:lastLine});
+    for(let i=1;i<best.path.length-1;i++){
+        const line=getLine(best.path[i],best.path[i+1]);
+        if(line!==lastLine){
+            display.push({station:best.path[i],line:line});
+        }
+        lastLine=line;
+    }
+    display.push({station:best.path[best.path.length-1],line:lastLine});
+
+    let html="";
+    for(let i=0;i<display.length;i++){
+        const curr=display[i];
+        html+=curr.station;
+        if(i < display.length-1){
+            html+=" <span class='route-line' style='background:"+lineColors[curr.line]+"'>新里鉄道 "+curr.line+"</span> ";
+        } else html+=" ";
+    }
+    html+=`<br>\n総距離: ${best.distance.toFixed(1)} km<br>`;
+    const f=fare(best.distance);
+    html+=`運賃: 大人 ${f.adult}円／小児 ${f.child}円`;
+
+    const div=document.createElement("div"); div.className="route"; div.innerHTML=html;
+    resultDiv.appendChild(div);
+}
 </script>
 </body>
 </html>
