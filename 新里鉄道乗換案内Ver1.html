@@ -204,7 +204,6 @@ function showAllRoutes(){
         html+=curr.station+"<br>";
         html+=`<span class="route-line" style="background:${lineColors[curr.line]}">新里鉄道 ${curr.line}</span><br>`;
     }
-    html+=display[display.length-1].station+"<br>";
 
     const f=fare(best.distance);
     html+=`総距離: ${best.distance.toFixed(1)} km<br>`;
@@ -216,4 +215,5 @@ function showAllRoutes(){
 </script>
 </body>
 </html>
+
 
