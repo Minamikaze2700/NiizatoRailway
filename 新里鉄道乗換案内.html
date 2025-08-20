@@ -84,6 +84,7 @@ for(const [from,targets] of Object.entries(rawGraph)){
         graph[to][from]=d;
     }
 }
+
 // --- 運賃 ---
 function fare(distance){
     if(distance<=3) return {adult:130,child:70};
@@ -106,7 +107,7 @@ function getLine(from,to){
     return null;
 }
 
-// --- BFS探索（距離・乗換少なめ優先） ---
+// --- BFS探索（距離優先、乗換少なめ） ---
 function findBestPath(start,goal){
     const queue=[[ [start],0 ]];
     const visited={};
@@ -116,6 +117,7 @@ function findBestPath(start,goal){
         queue.sort((a,b)=>a[1]-b[1]);
         const [path,distance]=queue.shift();
         const last=path[path.length-1];
+
         if(last===goal){
             if(!best || distance<best.distance) best={path,distance};
             continue;
@@ -126,18 +128,7 @@ function findBestPath(start,goal){
             const key=path.concat(next).join(">");
             if(visited[key]) continue;
             visited[key]=true;
-
-            // 乗換駅隣接確認
-            let allow=true;
-            const prevLine=getLine(last,next);
-            const prevStation=path[path.length-2] || null;
-            if(prevStation && transferNeighbors[last]){
-                for(const dirs of Object.values(transferNeighbors[last])){
-                    if(dirs.includes(next)) allow=true;
-                }
-            }
-
-            if(allow) queue.push([path.concat(next),distance+graph[last][next]]);
+            queue.push([path.concat(next),distance+graph[last][next]]);
         }
     }
 
@@ -205,6 +196,3 @@ function showAllRoutes(){
 </script>
 </body>
 </html>
-
-
-
