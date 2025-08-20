@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>新里鉄道 乗換案内＋運賃（距離短・乗換少優先）</title>
+<title>新里鉄道 乗換案内＋運賃（乗換駅のみ表示）</title>
 <style>
 body { font-family: sans-serif; padding: 20px; max-width: 950px; }
 h2 { margin-bottom: 10px; }
@@ -14,7 +14,7 @@ button { padding: 2px 6px; }
 </style>
 </head>
 <body>
-<h2>新里鉄道 乗換案内＋運賃（距離短・乗換少優先）</h2>
+<h2>新里鉄道 乗換案内＋運賃（乗換駅のみ表示）</h2>
 
 <label>発路線:
 <select id="startLine" onchange="updateStations('start')"></select>
@@ -109,7 +109,7 @@ function getLine(from,to){
     return null;
 }
 
-// --- BFS 最短距離＋少ない乗換優先 ---
+// --- BFS探索（短距離・少ない乗換優先） ---
 function findBestPaths(start,goal){
     const heap=[[ [start],0,[] ]]; // path,distance,linesUsed
     const results=[];
@@ -133,12 +133,11 @@ function findBestPaths(start,goal){
             heap.push([[...path,next],distance+graph[last][next],newLinesUsed]);
         }
     }
-    // 最短距離＋少ない乗換順でソート
     results.sort((a,b)=>{
         if(a.distance!==b.distance) return a.distance-b.distance;
         return a.path.length-b.path.length;
     });
-    return results.slice(0,10); // 最大10ルート表示
+    return results.slice(0,10);
 }
 
 // --- 路線選択による駅更新 ---
@@ -157,7 +156,7 @@ const startLine=document.getElementById("startLine");
 const goalLine=document.getElementById("goalLine");
 Object.keys(stationLines).forEach(l=>{
     const opt1=document.createElement("option"); opt1.value=l; opt1.text=l; startLine.appendChild(opt1);
-    const opt2=document.createElement("option"); opt2.value=l; opt2.text=l; goalLine.appendChild(opt2);
+    const opt2=document.createElement("option"); opt2.text=l; opt2.value=l; goalLine.appendChild(opt2);
 });
 updateStations("start"); updateStations("goal");
 
@@ -175,15 +174,16 @@ function showAllRoutes(){
     allPaths.forEach(r=>{
         const path=r.path, distance=r.distance;
         let html=`<span>${path[0]}</span> `;
-        for(let i=0;i<path.length-1;i++){
-            const from=path[i], to=path[i+1];
-            const line=getLine(from,to);
-            if(line){
-                html+=`<span class="route-line" style="background-color:${lineColors[line]}">新里鉄道 ${line}</span> `;
+        let prevLine=getLine(path[0],path[1]);
+        for(let i=1;i<path.length-1;i++){
+            const line=getLine(path[i],path[i+1]);
+            if(line!==prevLine){ // 乗換駅表示
+                html+=`<span class="route-line" style="background-color:${lineColors[prevLine]}">新里鉄道 ${prevLine}</span> `;
+                html+=`<span>${path[i]}</span> `;
+                prevLine=line;
             }
-            // 乗換駅だけ表示
-            if(i<path.length-2) html+=`<span>${to}</span> `;
         }
+        html+=`<span class="route-line" style="background-color:${lineColors[prevLine]}">新里鉄道 ${prevLine}</span> `;
         html+=`<span>${path[path.length-1]}</span> `;
         html+=`<span>（距）</span> `;
         const f=fare(distance);
