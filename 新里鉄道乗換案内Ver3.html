@@ -21,17 +21,17 @@
 
     #map { width: 100%; border: 1px solid #ddd; border-radius: 10px; margin-top: 22px; }
 
-    .label text.name { font-size: 20px; dominant-baseline: central; }
-    .label .line-pill { font-size: 13px; dominant-baseline: hanging; fill: #fff; }
+    .label text.name { font-size: 20px; }
+    .label .line-pill { font-size: 13px; fill: #fff; }
     .pill-bg { rx: 6; ry: 6; }
 
     .station.major circle.node { r: var(--major-r); fill: var(--line-color); stroke: var(--line-color); stroke-width: 0;}
     .station.minor circle.node { r: var(--minor-r); fill: var(--line-color); stroke: var(--line-color); stroke-width: 0;}
-    .station.minor text.name { font-size: 15px; fill: #333; dominant-baseline: central; }
+    .station.minor text.name { font-size: 15px; fill: #333; text-anchor: start; dominant-baseline: central; }
 
     line.segment { stroke-width: var(--seg-width); stroke-linecap: round; }
 
-    .seg-btn { font-size: 13px; padding: 2px 6px; margin-top: 6px; }
+    .seg-btn { font-size: 13px; }
   </style>
 </head>
 <body>
@@ -50,6 +50,7 @@
   <svg id="map" height="400"></svg>
 
   <script>
+    // ==== 路線データ ====
     const stationLines = {
       "湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
       "燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
@@ -59,6 +60,7 @@
     };
     const lineColors = { "湯の浜線":"#07b5f7", "燠野線":"#fd5062", "新里線":"#0cab5e", "鶴宮線":"#feac2c", "彩山線":"#7dca22" };
 
+    // ==== グラフ ====
     const rawGraph = {
       "豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},"安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},
       "栃原":{"宇城":2.2},"宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},"御浜":{"伊坂":2.5},
@@ -83,6 +85,7 @@
       }
     }
 
+    // ==== 運賃計算 ====
     function fare(distance){
       if(distance<=3) return {adult:130,child:70};
       else if(distance<=6) return {adult:160,child:80};
@@ -94,6 +97,7 @@
       else return {adult:340,child:170};
     }
 
+    // ==== UI ====
     const fromLineSel = document.getElementById('fromLine');
     const toLineSel   = document.getElementById('toLine');
     const fromStaSel  = document.getElementById('fromStation');
@@ -120,10 +124,10 @@
     populateLineSelect(fromLineSel);
     populateLineSelect(toLineSel);
 
+    // デフォルトを新里→燠野温泉
     fromLineSel.value = "湯の浜線";
     populateStationSelect(fromLineSel, fromStaSel);
     fromStaSel.value = "新里";
-
     toLineSel.value = "燠野線";
     populateStationSelect(toLineSel, toStaSel);
     toStaSel.value = "燠野温泉";
@@ -131,6 +135,7 @@
     fromLineSel.addEventListener('change',()=>populateStationSelect(fromLineSel, fromStaSel));
     toLineSel.addEventListener('change',  ()=>populateStationSelect(toLineSel,   toStaSel));
 
+    // ==== 経路探索 (ダイクストラ) ====
     function shortestPath(start, goal){
       const dist={}, prev={};
       const Q=new Set(Object.keys(graph));
@@ -149,6 +154,7 @@
       return { path, distance: dist[goal] };
     }
 
+    // ==== 路線抽出補助 ====
     function segmentLineBetween(fullPath, a, b){
       const i1 = fullPath.indexOf(a);
       const i2 = fullPath.indexOf(b);
@@ -165,7 +171,6 @@
       }
       return null;
     }
-
     function extractMajorStations(path){
       if(path.length===0) return [];
       const majors=[path[0]];
@@ -177,7 +182,6 @@
       majors.push(path[path.length-1]);
       return majors;
     }
-
     function intermediatesBetween(path, a, b){
       const i1 = path.indexOf(a);
       const i2 = path.indexOf(b);
@@ -185,6 +189,7 @@
       return path.slice(i1+1, i2);
     }
 
+    // ==== 描画 ====
     const svg = document.getElementById('map');
     function clearSVG(){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
     const segToggle = new Map();
@@ -194,175 +199,150 @@
       if(!path || path.length<2) return;
 
       const majors = extractMajorStations(path);
-
-      const top = 20; 
-      const minGap = 120; 
-      const basePad = 30;
+      const top = 40, minGap = 120, basePad = 30;
 
       const segmentMeta = [];
       for(let i=0;i<majors.length-1;i++){
-        const a = majors[i], b = majors[i+1];
-        const subs = intermediatesBetween(path, a, b);
-        const key = `${a}→${b}`;
-        const show = !!segToggle.get(key);
-
-        let gap = minGap;
-        if(show){
-          gap = Math.max(gap, basePad + (subs.length+1) * 30);
-        }
-
-        const lineName = segmentLineBetween(path, a, b);
+        const a=majors[i], b=majors[i+1];
+        const subs=intermediatesBetween(path,a,b);
+        const key=`${a}→${b}`;
+        const show=!!segToggle.get(key);
+        let gap=minGap;
+        if(show){ gap=Math.max(gap, basePad+(subs.length+1)*30); }
+        const lineName=segmentLineBetween(path,a,b);
         segmentMeta.push({a,b,subs,key,show,gap,lineName});
       }
 
-      const ys = [top];
-      for(const seg of segmentMeta){ ys.push( ys[ys.length-1] + seg.gap ); }
-
-      svg.setAttribute('height', Math.max(220, ys[ys.length-1] + 40));
-
-      const cx = 140; 
-      const MAJOR_R = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--major-r')) || 10;
+      const ys=[top];
+      for(const seg of segmentMeta){ ys.push( ys[ys.length-1]+seg.gap ); }
+      svg.setAttribute('height', Math.max(220, ys[ys.length-1]+40));
+      const cx=200;
+      const MAJOR_R=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--major-r'))||10;
 
       for(let i=0;i<majors.length;i++){
-        const st = majors[i];
-        const cy = ys[i];
-        const prevSt = i>0 ? majors[i-1] : null;
-        const nextSt = i<majors.length-1 ? majors[i+1] : null;
-        const metaPrev = i>0 ? segmentMeta[i-1] : null;
-        const metaNext = i<segmentMeta.length ? segmentMeta[i] : null;
-        const colorPrev = metaPrev ? (lineColors[metaPrev.lineName] || '#999') : null;
+        const st=majors[i], cy=ys[i];
+        const prevSt=i>0?majors[i-1]:null;
+        const nextSt=i<majors.length-1?majors[i+1]:null;
+        const metaPrev=i>0?segmentMeta[i-1]:null;
+        const metaNext=i<segmentMeta.length?segmentMeta[i]:null;
+        const colorPrev=metaPrev?(lineColors[metaPrev.lineName]||'#999'):null;
 
         if(prevSt){
-          const y1 = ys[i-1] + MAJOR_R;
-          const y2 = cy - MAJOR_R;
-          const segL = document.createElementNS('http://www.w3.org/2000/svg','line');
+          const y1=ys[i-1]+MAJOR_R, y2=cy-MAJOR_R;
+          const segL=document.createElementNS('http://www.w3.org/2000/svg','line');
           segL.setAttribute('class','segment');
-          segL.setAttribute('x1', cx); segL.setAttribute('y1', y1);
-          segL.setAttribute('x2', cx); segL.setAttribute('y2', y2);
-          segL.setAttribute('stroke', colorPrev || '#999');
+          segL.setAttribute('x1',cx); segL.setAttribute('y1',y1);
+          segL.setAttribute('x2',cx); segL.setAttribute('y2',y2);
+          segL.setAttribute('stroke',colorPrev||'#999');
           svg.appendChild(segL);
         }
 
-        drawStation({name: st, x: cx, y: cy, isMajor: true, line: metaNext ? metaNext.lineName : (metaPrev ? metaPrev.lineName : null)});
+        drawStation({name:st,x:cx,y:cy,isMajor:true,line:metaNext?metaNext.lineName:(metaPrev?metaPrev.lineName:null)});
 
-        const label = document.createElementNS('http://www.w3.org/2000/svg','g');
+        // === ラベル (中心基準) ===
+        const label=document.createElementNS('http://www.w3.org/2000/svg','g');
         label.setAttribute('class','label');
-        label.setAttribute('transform', `translate(${cx + 22}, ${cy})`);
+        label.setAttribute('transform',`translate(${cx},${cy})`);
         svg.appendChild(label);
 
-        let offsetY = 0;
-        const nameText = document.createElementNS('http://www.w3.org/2000/svg','text');
+        let offsetY=0;
+        // 駅名
+        const nameText=document.createElementNS('http://www.w3.org/2000/svg','text');
         nameText.setAttribute('class','name');
-        nameText.setAttribute('dominant-baseline','hanging');
-        nameText.textContent = st;
+        nameText.setAttribute('text-anchor','middle');
+        nameText.setAttribute('dominant-baseline','central');
+        nameText.textContent=st;
+        nameText.setAttribute('y',offsetY);
         label.appendChild(nameText);
-        offsetY += 20;
+        offsetY+=20;
 
+        // 路線名とボタン
         if(nextSt && metaNext && metaNext.lineName){
-          const color = lineColors[metaNext.lineName];
-          const pillGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
-          pillGroup.setAttribute('transform', `translate(0, ${offsetY})`);
+          const color=lineColors[metaNext.lineName];
+          const pillGroup=document.createElementNS('http://www.w3.org/2000/svg','g');
+          pillGroup.setAttribute('transform',`translate(0,${offsetY})`);
           label.appendChild(pillGroup);
 
-          const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+          const text=document.createElementNS('http://www.w3.org/2000/svg','text');
           text.setAttribute('class','line-pill');
-          text.textContent = `新里鉄道${metaNext.lineName}`;
+          text.setAttribute('text-anchor','middle');
+          text.setAttribute('dominant-baseline','central');
+          text.textContent=`新里鉄道${metaNext.lineName}`;
           pillGroup.appendChild(text);
 
-          const bbox = text.getBBox();
-          const bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
+          const bbox=text.getBBox();
+          const bg=document.createElementNS('http://www.w3.org/2000/svg','rect');
           bg.setAttribute('class','pill-bg');
-          bg.setAttribute('x', bbox.x - 6);
-          bg.setAttribute('y', bbox.y - 2);
-          bg.setAttribute('width', bbox.width + 12);
-          bg.setAttribute('height', bbox.height + 6);
-          bg.setAttribute('fill', color);
-          pillGroup.insertBefore(bg, text);
+          bg.setAttribute('x',-bbox.width/2-6);
+          bg.setAttribute('y',-bbox.height/2-3);
+          bg.setAttribute('width',bbox.width+12);
+          bg.setAttribute('height',bbox.height+6);
+          bg.setAttribute('fill',color);
+          pillGroup.insertBefore(bg,text);
 
-          offsetY += 20;
+          offsetY+=20;
 
-          const btn = document.createElementNS('http://www.w3.org/2000/svg','foreignObject');
-          btn.setAttribute('x', bbox.x);
-          btn.setAttribute('y', offsetY);
-          btn.setAttribute('width', Math.max(120, bbox.width));
-          btn.setAttribute('height', 28);
-
-          const div = document.createElementNS('http://www.w3.org/1999/xhtml','div');
-          div.className = 'seg-btn';
-          const key = metaNext.key;
-          const on = !!segToggle.get(key);
-          div.textContent = on ? '途中駅を非表示' : '途中駅を表示';
-          div.style.cursor = 'pointer';
-          div.style.background = '#f3f3f3';
-          div.style.border = '1px solid #ccc';
-          div.style.borderRadius = '6px';
-          div.style.display = 'inline-block';
-          div.style.padding = '2px 6px';
-          div.addEventListener('click', ()=>{
-            segToggle.set(key, !segToggle.get(key));
+          // ボタン
+          const fo=document.createElementNS('http://www.w3.org/2000/svg','foreignObject');
+          fo.setAttribute('x',-60); fo.setAttribute('y',offsetY-12);
+          fo.setAttribute('width',120); fo.setAttribute('height',24);
+          const btn=document.createElement('button');
+          btn.textContent=metaNext.show?'途中駅を隠す':'途中駅を表示';
+          btn.className='seg-btn';
+          btn.addEventListener('click',()=>{
+            segToggle.set(metaNext.key,!segToggle.get(metaNext.key));
             drawRoute(path);
           });
-          btn.appendChild(div);
-          label.appendChild(btn);
-
-          // === ボタンと次の主要駅の間隔 30px ===
-          ys[i+1] = Math.max(ys[i+1], cy + offsetY + 30);
+          fo.appendChild(btn);
+          label.appendChild(fo);
+          offsetY+=30;
         }
 
-        if(metaNext && metaNext.show){
-          const y1 = cy + MAJOR_R + 30;
-          const subs = metaNext.subs;
-          const fixedStep = 30;
-          subs.forEach((name, idx)=>{
-            const sy = y1 + fixedStep * idx;
-            drawStation({name, x: cx, y: sy, isMajor:false, line: metaNext.lineName});
-          });
-          ys[i+1] = y1 + fixedStep * subs.length;
+        // 途中駅描画
+        if(metaPrev && metaPrev.show){
+          const subs=metaPrev.subs;
+          for(let j=0;j<subs.length;j++){
+            const sub=subs[j];
+            const subY=ys[i-1]+basePad+(j+1)*30;
+            drawStation({name:sub,x:cx,y:subY,isMajor:false,line:metaPrev.lineName});
+          }
         }
       }
     }
 
-    function drawStation({name, x, y, isMajor, line}){
-      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-      g.setAttribute('class', `station ${isMajor? 'major':'minor'}`);
-      g.setAttribute('transform', `translate(${x}, ${y})`);
-      if(line){ g.style.setProperty('--line-color', lineColors[line] || '#999'); }
-
-      const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
-      c.setAttribute('class','node');
-      c.setAttribute('cx', 0);
-      c.setAttribute('cy', 0);
-      g.appendChild(c);
-
+    function drawStation({name,x,y,isMajor,line}){
+      const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+      g.setAttribute('class',isMajor?'station major':'station minor');
+      g.setAttribute('transform',`translate(${x},${y})`);
+      if(line) g.style.setProperty('--line-color',lineColors[line]||'#999');
+      const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      circle.setAttribute('class','node');
+      circle.setAttribute('r',isMajor?8:6);
+      g.appendChild(circle);
       if(!isMajor){
-        const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-        t.setAttribute('class','name');
-        t.setAttribute('x', 16);
-        t.setAttribute('y', 0);
-        t.setAttribute('dominant-baseline','central');
-        t.textContent = name;
-        g.appendChild(t);
+        const text=document.createElementNS('http://www.w3.org/2000/svg','text');
+        text.setAttribute('class','name');
+        text.setAttribute('x',15);
+        text.setAttribute('y',0);
+        text.textContent=name;
+        g.appendChild(text);
       }
       svg.appendChild(g);
     }
 
-    document.getElementById('searchBtn').addEventListener('click', ()=>{
-      const from = fromStaSel.value; const to = toStaSel.value;
-      if(!from || !to){
-        setInfo('駅を選択してください。', true); return;
-      }
-      if(from === to){
-        setInfo('発着駅が同一です。別の駅を選んでください。', true); return;
-      }
-      const {path, distance} = shortestPath(from, to);
-      if(!path || !isFinite(distance)) {
-        setInfo('経路が見つかりませんでした。', true); return;
-      }
-      segToggle.clear();
+    // ==== ボタン動作 ====
+    document.getElementById('searchBtn').addEventListener('click',()=>{
+      const from=fromStaSel.value, to=toStaSel.value;
+      if(!from||!to){ setInfo('駅を選択してください',true); return; }
+      const {path,distance}=shortestPath(from,to);
+      if(!path.length){ setInfo('経路が見つかりません',true); clearSVG(); return; }
+      const f=fare(distance);
+      setInfo(`経路: ${path.join(" → ")}　距離:${distance.toFixed(1)}km　運賃:大人${f.adult}円 子供${f.child}円`);
       drawRoute(path);
-      const f = fare(distance);
-      setInfo(`距離 ${distance.toFixed(1)}km ／ 運賃 大人${f.adult}円 子供${f.child}円`, false);
     });
+
+    // 初期表示
+    document.getElementById('searchBtn').click();
   </script>
 </body>
 </html>
