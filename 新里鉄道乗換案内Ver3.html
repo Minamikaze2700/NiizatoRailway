@@ -7,23 +7,19 @@
 body { font-family: sans-serif; padding: 20px; max-width: 950px; }
 h2 { margin-bottom: 10px; }
 .route-line { color: white; padding: 2px 6px; border-radius: 4px; margin: 0 4px; }
-.route { margin: 6px 0; }
 select { margin: 0 10px 0 0; padding: 2px; }
 button { padding: 2px 6px; }
 #result { margin-top: 12px; max-height: 600px; overflow-y: auto; border:1px solid #ccc; padding:6px; }
 
-/* 新しい出力デザイン */
 .route-container { display: flex; flex-direction: column; margin: 10px 0; }
-.route-row { display: flex; align-items: flex-start; margin: 4px 0; position: relative; }
-.route-marker { width: 16px; height: 16px; border-radius: 50%; margin-right: 8px; position: relative; flex: 0 0 16px; }
-.route-marker.small { width: 10px; height: 10px; flex-basis: 10px; }
+.route-row { display: flex; align-items: flex-start; margin: 4px 0; }
+.route-marker { width: 16px; height: 16px; border-radius: 50%; margin-right: 8px; position: relative; }
+.route-marker.small { width: 10px; height: 10px; }
 .route-line-vertical { position: absolute; left: 50%; top: 16px; width: 2px; height: calc(100% - 16px); transform: translateX(-50%); }
 .station-label { display: flex; flex-direction: column; }
 .station-name { font-size: 14px; font-weight: bold; }
-.station-line { font-size: 12px; color: #fff; padding:2px 6px; border-radius:4px; margin-top:2px; display: inline-block; }
+.station-line { font-size: 12px; color: #fff; padding: 2px 6px; border-radius: 4px; margin-top:2px; display:inline-block; }
 .hidden { display: none; }
-.toggle-btn { font-size: 12px; margin-top: 2px; }
-.error { color: #c00; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -48,10 +44,10 @@ button { padding: 2px 6px; }
 <div id="result"></div>
 
 <script>
-// --- 駅・路線データ ---
+// 駅・路線データ
 const stationLines = {
 "湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
-"燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
+"燠野線":["新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
 "鶴宮線":["鶴宮","南鶴宮","あずさ台","橘町","燠野山口","白枝","燠野","紅葉台","桐山","湊川","彩山親水公園","彩山","蓮華寺","星宮","田ノ原"],
 "新里線":["新里","南新里","田ノ原","北玖川","玖川","中野原"],
 "彩山線":["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"]
@@ -65,13 +61,13 @@ const lineColors = {
 "彩山線":"#7dca22"
 };
 
-// --- 駅間距離 ---
+// 駅間距離
 const rawGraph = {
 "豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},
 "安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},"栃原":{"宇城":2.2},
 "宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},
 "御浜":{"伊坂":2.5},"伊坂":{"垳下":2.6},"垳下":{"北浜":2.3},"北浜":{"西新里":1.4},
-"西新里":{"新里":1.7},"新里":{"河岸":0.9,"南新里":2.5},"河岸":{"新里海浜公園":1.7},
+"西新里":{"新里":1.7},"新里":{"河岸":0.9,"南新里":2.5,"新里大学前":0.8},"河岸":{"新里海浜公園":1.7},
 "新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5},"湯の浜":{"七浦":2.5,"新里大学前":0.8},
 "七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},
 "伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.1,"南鶴宮":1.7},
@@ -87,161 +83,120 @@ const rawGraph = {
 "深江":{"三栗谷":1.3},"三栗谷":{"桜川公園":1.5},"桜川公園":{"桜川":2.2}
 };
 
-// --- グラフ整形 ---
-const graph = {};
-for (let s in rawGraph){
-  if(!graph[s]) graph[s]={};
-  for (let t in rawGraph[s]){
-    let d = rawGraph[s][t];
-    graph[s][t]=d;
-    if(!graph[t]) graph[t]={};
-    graph[t][s]=d;
-  }
-}
-
-// --- UI初期化 ---
-window.onload = ()=>{
-  for(let line in stationLines){
-    let opt1=document.createElement("option"); opt1.value=line; opt1.text=line;
-    document.getElementById("startLine").appendChild(opt1);
-    let opt2=document.createElement("option"); opt2.value=line; opt2.text=line;
-    document.getElementById("goalLine").appendChild(opt2);
-  }
-  updateStations("start"); updateStations("goal");
-};
-function updateStations(which){
-  let line=document.getElementById(which+"Line").value;
-  let sel=document.getElementById(which);
-  sel.innerHTML="";
-  stationLines[line].forEach(st=>{
-    let o=document.createElement("option"); o.value=st; o.text=st; sel.appendChild(o);
-  });
-}
-
-// --- ダイクストラ ---
-function shortestPath(start,goal){
-  let dist={}, prev={}, visited={};
-  for(let s in graph){ dist[s]=Infinity; prev[s]=null; }
-  dist[start]=0;
-  while(true){
-    let u=null, min=Infinity;
-    for(let s in dist){ if(!visited[s] && dist[s]<min){min=dist[s]; u=s;} }
-    if(u===null||u===goal) break;
-    visited[u]=true;
-    for(let v in graph[u]){
-      let alt=dist[u]+graph[u][v];
-      if(alt<dist[v]){ dist[v]=alt; prev[v]=u; }
+// 双方向化
+const graph={};
+for(const [from,targets] of Object.entries(rawGraph)){
+    if(!graph[from]) graph[from]={};
+    for(const [to,d] of Object.entries(targets)){
+        graph[from][to]=d;
+        if(!graph[to]) graph[to]={};
+        graph[to][from]=d;
     }
-  }
-  let path=[], u=goal;
-  while(u){ path.unshift(u); u=prev[u]; }
-  return {path, distance:dist[goal]};
 }
 
-// --- 路線判定 ---
-function findLine(st1,st2){
-  for(let line in stationLines){
-    let arr=stationLines[line];
-    if(arr.includes(st1)&&arr.includes(st2)) return line;
-  }
-  return null;
+// 路線取得
+function getLine(from,to){
+    for(const [line,stations] of Object.entries(stationLines)){
+        for(let i=0;i<stations.length-1;i++){
+            if((stations[i]===from && stations[i+1]===to)||(stations[i]===to && stations[i+1]===from)) return line;
+        }
+    }
+    return null;
 }
 
-/* ▼ 途中駅表示トグル用のグローバル状態（デフォルト非表示） ▼ */
-let showIntermediate = false;
+// BFS
+function findPath(start,goal){
+    if(start===goal) return null;
+    const queue=[[ [start],0 ]];
+    const visited={};
+    while(queue.length>0){
+        queue.sort((a,b)=>a[1]-b[1]);
+        const [path,distance]=queue.shift();
+        const last=path[path.length-1];
+        if(last===goal) return {path,distance};
+        for(const next in graph[last]){
+            if(path.includes(next)) continue;
+            const key=path.concat(next).join(">");
+            if(visited[key]) continue;
+            visited[key]=true;
+            queue.push([path.concat(next),distance+graph[last][next]]);
+        }
+    }
+    return null;
+}
 
-// --- 検索結果表示 ---
+// 路線選択による駅更新
+function updateStations(type){
+    const lineSelect=document.getElementById(type+"Line");
+    const stationSelect=document.getElementById(type);
+    stationSelect.innerHTML="";
+    const line=lineSelect.value;
+    stationLines[line].forEach(st=>{
+        const opt=document.createElement("option");
+        opt.value=st; opt.text=st;
+        stationSelect.appendChild(opt);
+    });
+}
+
+// 初期化
+const startLine=document.getElementById("startLine");
+const goalLine=document.getElementById("goalLine");
+Object.keys(stationLines).forEach(l=>{
+    const opt1=document.createElement("option"); opt1.value=l; opt1.text=l; startLine.appendChild(opt1);
+    const opt2=document.createElement("option"); opt2.value=l; opt2.text=l; goalLine.appendChild(opt2);
+});
+updateStations("start"); updateStations("goal");
+
+// 結果表示
 function showAllRoutes(){
-  const start=document.getElementById("start").value;
-  const goal=document.getElementById("goal").value;
-  const result=document.getElementById("result");
-  result.innerHTML="";
+    const start=document.getElementById("start").value;
+    const goal=document.getElementById("goal").value;
+    const resultDiv=document.getElementById("result");
+    resultDiv.innerHTML="";
+    if(start===goal){ resultDiv.innerHTML="発駅と着駅が同じです"; return; }
+    const best=findPath(start,goal);
+    if(!best){ resultDiv.innerHTML="ルートが見つかりません"; return; }
 
-  // 同一駅エラー
-  if(start===goal){
-    result.innerHTML = "<p class='error'>発駅と着駅が同じです</p>";
-    return;
-  }
+    const container=document.createElement("div");
+    container.className="route-container";
+    const path=best.path;
 
-  const res=shortestPath(start,goal);
-  if(!res.path || !res.path.length || !isFinite(res.distance)){
-    result.innerHTML = "<p class='error'>ルートが見つかりません</p>";
-    return;
-  }
+    for(let i=0;i<path.length;i++){
+        const station=path[i];
+        const row=document.createElement("div"); row.className="route-row";
+        const marker=document.createElement("div"); marker.className="route-marker";
+        if(i>0 && i<path.length-1) marker.classList.add("small");
 
-  const container=document.createElement("div");
-  container.className="route-container";
+        const line=i<path.length-1?getLine(station,path[i+1]):getLine(path[i-1],station);
+        marker.style.background=line?lineColors[line]:"#aaa";
 
-  for(let i=0;i<res.path.length;i++){
-    const st=res.path[i];
-    const row=document.createElement("div"); row.className="route-row";
+        if(i<path.length-1){
+            const vline=document.createElement("div"); vline.className="route-line-vertical"; vline.style.background=marker.style.background;
+            marker.appendChild(vline);
+        }
 
-    // 路線判定
-    const prevLine = findLine(res.path[i-1], st);
-    const nextLine = findLine(st, res.path[i+1]);
-    const line = prevLine || nextLine;
+        const label=document.createElement("div"); label.className="station-label";
+        const name=document.createElement("div"); name.className="station-name"; name.textContent=station;
+        label.appendChild(name);
 
-    // 乗換駅判定（前後で路線が変わる中間駅）
-    const isTransfer = (i>0 && i<res.path.length-1 && prevLine && nextLine && prevLine !== nextLine);
+        // 発駅と乗換駅のみ路線名表示
+        if(i===0 || (i>0 && line!==getLine(path[i-1],station))){
+            if(i<path.length-1){
+                const ln=document.createElement("div"); ln.className="station-line"; ln.textContent=line; ln.style.background=lineColors[line];
+                label.appendChild(ln);
 
-    // マーカー
-    const marker=document.createElement("div"); marker.className="route-marker";
-    if(i>0 && i<res.path.length-1 && !isTransfer) marker.classList.add("small");
-    marker.style.background = line ? lineColors[line] : "#aaa";
+                // 途中駅表示ボタン
+                const btn=document.createElement("button"); btn.textContent="途中駅を表示";
+                btn.onclick=()=>{ alert(stationLines[line].join("\n")); };
+                label.appendChild(btn);
+            }
+        }
 
-    // 縦線（次の駅があるとき）
-    if(i<res.path.length-1){
-      const vline=document.createElement("div");
-      vline.className="route-line-vertical";
-      vline.style.background = marker.style.background;
-      marker.appendChild(vline);
+        row.appendChild(marker); row.appendChild(label); container.appendChild(row);
     }
 
-    // ラベル
-    const label=document.createElement("div"); label.className="station-label";
-    const name=document.createElement("div"); name.className="station-name"; name.textContent=st;
-    label.appendChild(name);
-
-    // 発駅と乗換駅だけ路線名ラベルと「途中駅を表示」ボタン
-    if(i===0 || isTransfer){
-      if(line){
-        const ln=document.createElement("div");
-        ln.className="station-line";
-        ln.textContent = "新里鉄道 " + line;
-        ln.style.background = lineColors[line];
-        label.appendChild(ln);
-      }
-      const btn=document.createElement("button");
-      btn.className="toggle-btn";
-      btn.textContent = showIntermediate ? "途中駅を隠す" : "途中駅を表示";
-      btn.onclick = ()=>{
-        showIntermediate = !showIntermediate;
-        showAllRoutes(); // 再描画
-      };
-      label.appendChild(btn);
-    }
-
-    // 非表示判定：中間かつ乗換でない駅は、トグルがOFFなら隠す
-    if(i>0 && i<res.path.length-1 && !isTransfer && !showIntermediate){
-      row.classList.add("hidden");
-    }
-
-    row.appendChild(marker);
-    row.appendChild(label);
-    container.appendChild(row);
-  }
-
-  result.appendChild(container);
-
-  // 距離・運賃
-  const distP = document.createElement("p");
-  distP.textContent = "距離：" + res.distance.toFixed(1) + " km";
-  result.appendChild(distP);
-
-  const price = fare(res.distance);
-  const fareP = document.createElement("p");
-  fareP.textContent = `運賃：大人 ${price.adult}円／小児 ${price.child}円`;
-  result.appendChild(fareP);
+    resultDiv.appendChild(container);
+    resultDiv.innerHTML+="<p>総距離: "+best.distance.toFixed(1)+" km</p>";
 }
 </script>
 </body>
