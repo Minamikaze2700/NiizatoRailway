@@ -4,49 +4,54 @@
   <meta charset="UTF-8" />
   <title>新里鉄道路線 ルート検索</title>
   <style>
-    :root{
-      --major-r: 8px;      /* 主要駅 ● 半径 */
-      --minor-r: 6.5px;    /* 途中駅 ● 半径（主要の75%） */
-      --seg-width: 5px;    /* 線の太さ */
+    :root {
+      --major-r: 8px;    /* 主要駅 ● 半径 */
+      --minor-r: 6.5px;  /* 途中駅 ● 半径 */
+      --seg-width: 5px;  /* 線の太さ */
     }
-
     body {
       font-family: sans-serif;
     }
-
     #controls {
-      margin: 10px;
+      margin-bottom: 1em;
     }
-
-    #map {
-      border: 1px solid #888;
-      margin-top: 10px;
+    #result {
+      margin-top: 1em;
+      color: red; /* エラーを赤字で */
+      font-weight: bold;
     }
-
-    .line-button {
+    .line-toggle {
+      margin: 0.5em 0;
       display: block;
-      margin: 4px 0 4px 10px;
-      padding: 4px 8px;
-      background: #f0f0f0;
-      border: 1px solid #aaa;
-      border-radius: 5px;
-      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <h2>新里鉄道路線 ルート検索</h2>
+  <h1>新里鉄道路線 ルート検索</h1>
 
   <div id="controls">
-    出発駅: <input type="text" id="start" />
-    到着駅: <input type="text" id="goal" />
-    <button onclick="searchRoute()">検索</button>
+    <label>出発路線:
+      <select id="start-line"></select>
+    </label>
+    <label>出発駅:
+      <select id="start-station"></select>
+    </label>
+    <br/>
+    <label>到着路線:
+      <select id="goal-line"></select>
+    </label>
+    <label>到着駅:
+      <select id="goal-station"></select>
+    </label>
+    <br/>
+    <button id="search">検索</button>
   </div>
 
-  <!-- エラーや検索結果を表示 -->
-  <div id="result"></div>
+  <div id="line-toggles"></div>
 
   <svg id="map" width="900" height="700"></svg>
+
+  <div id="result"></div>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script>
@@ -68,25 +73,54 @@
 
     const svg = d3.select("#map");
 
-    // ==== 乗換駅の判定 ====
-    function findInterchangeStations() {
-      const stationCount = {};
-      for (const line in stationLines) {
-        stationLines[line].forEach(st => {
-          stationCount[st] = (stationCount[st] || 0) + 1;
-        });
-      }
-      return Object.keys(stationCount).filter(st => stationCount[st] > 1);
-    }
+    // ==== 駅配置用の座標例（簡易配置、必要なら調整可）====
+    const lineCoords = {};
+    Object.keys(stationLines).forEach((line, idx) => {
+      lineCoords[line] = stationLines[line].map((st, i) => ({
+        x: 100 + i * 30,
+        y: 100 + idx * 100
+      }));
+    });
 
-    // ==== 駅ラベル描画 ====
-    function drawStationLabels(svg, lineName, stations, lineCoords, startStation, goalStation) {
+    // ==== 路線の描画 ====
+    function drawMap(startStation, goalStation) {
+      svg.selectAll("*").remove();
+
       const interchangeStations = findInterchangeStations();
 
+      Object.keys(stationLines).forEach(line => {
+        const stations = stationLines[line];
+        const coords = lineCoords[line];
+
+        // 線
+        svg.append("path")
+          .datum(coords)
+          .attr("fill", "none")
+          .attr("stroke", lineColors[line])
+          .attr("stroke-width", 5)
+          .attr("d", d3.line().x(d => d.x).y(d => d.y));
+
+        // 停車駅
+        coords.forEach((c, i) => {
+          svg.append("circle")
+            .attr("cx", c.x)
+            .attr("cy", c.y)
+            .attr("r", stations[i] === startStation || stations[i] === goalStation ? 8 : 6)
+            .attr("fill", "white")
+            .attr("stroke", lineColors[line])
+            .attr("stroke-width", 3);
+        });
+
+        // 駅ラベル
+        drawStationLabels(svg, line, stations, coords, startStation, goalStation, interchangeStations);
+      });
+    }
+
+    // ==== 駅ラベル ====
+    function drawStationLabels(svg, lineName, stations, lineCoords, startStation, goalStation, interchangeStations) {
       stations.forEach((station, i) => {
         const x = lineCoords[i].x;
         const y = lineCoords[i].y;
-
         const isStartOrGoal = (station === startStation || station === goalStation);
         const isInterchange = interchangeStations.includes(station);
         const fontSize = (isStartOrGoal || isInterchange) ? "20px" : "12px";
@@ -100,108 +134,93 @@
       });
     }
 
-    // ==== 路線描画 ====
-    function drawLine(lineName, offsetY, startStation, goalStation) {
-      const stations = stationLines[lineName];
-      const color = lineColors[lineName];
-      const xStart = 50;
-      const xStep = 30;
-      const y = offsetY;
-
-      const coords = stations.map((s,i)=>({x: xStart+i*xStep, y:y}));
-
-      // 路線線
-      svg.append("line")
-        .attr("x1", coords[0].x)
-        .attr("y1", y)
-        .attr("x2", coords[coords.length-1].x)
-        .attr("y2", y)
-        .attr("stroke", color)
-        .attr("stroke-width", 5);
-
-      // 駅の丸
-      coords.forEach(c=>{
-        svg.append("circle")
-          .attr("cx", c.x)
-          .attr("cy", c.y)
-          .attr("r", 6)
-          .attr("fill", "white")
-          .attr("stroke", color)
-          .attr("stroke-width", 2);
-      });
-
-      // 路線名
-      svg.append("text")
-        .attr("x", coords[0].x)
-        .attr("y", y - 20)
-        .attr("font-size", "16px")
-        .attr("fill", color)
-        .text(lineName);
-
-      // 停車駅表示/非表示ボタン
-      const button = document.createElement("button");
-      button.innerText = lineName + " 停車駅 表示/非表示";
-      button.className = "line-button";
-      document.body.insertBefore(button, svg.node().nextSibling);
-
-      let stationsVisible = true;
-      button.addEventListener("click", () => {
-        stationsVisible = !stationsVisible;
-        svg.selectAll(".label-" + lineName.replace(/線/,""))
-          .style("display", stationsVisible ? "block" : "none");
-      });
-
-      // 駅ラベル
-      const interchangeStations = findInterchangeStations();
-      stations.forEach((station,i)=>{
-        const x = coords[i].x;
-        const y = coords[i].y;
-        const isStartOrGoal = (station === startStation || station === goalStation);
-        const isInterchange = interchangeStations.includes(station);
-        const fontSize = (isStartOrGoal || isInterchange) ? "20px" : "12px";
-
-        svg.append("text")
-          .attr("class", "label-" + lineName.replace(/線/,""))
-          .attr("x", x + 10)
-          .attr("y", y - 5)
-          .attr("font-size", fontSize)
-          .attr("fill", "black")
-          .text(station);
-      });
-    }
-
-    // ==== ルート検索 ====
-    function searchRoute() {
-      const start = document.getElementById("start").value.trim();
-      const goal = document.getElementById("goal").value.trim();
-      const resultDiv = document.getElementById("result");
-      resultDiv.innerHTML = "";
-
-      if (!start || !goal) {
-        resultDiv.innerText = "出発駅と到着駅を入力してください。";
-        return;
-      }
-
-      // 入力駅が存在するかチェック
-      const allStations = Object.values(stationLines).flat();
-      if (!allStations.includes(start) || !allStations.includes(goal)) {
-        resultDiv.innerText = "入力された駅が存在しません。";
-        return;
-      }
-
-      // 描画リセット
-      svg.selectAll("*").remove();
-
-      // 路線ごとに描画
-      let offsetY = 80;
+    // ==== 乗換駅を探す ====
+    function findInterchangeStations() {
+      const count = {};
       for (const line in stationLines) {
-        drawLine(line, offsetY, start, goal);
-        offsetY += 100;
+        stationLines[line].forEach(st => {
+          count[st] = (count[st] || 0) + 1;
+        });
       }
-
-      resultDiv.innerText = "検索完了: " + start + " → " + goal;
+      return Object.keys(count).filter(st => count[st] > 1);
     }
 
+    // ==== 発着駅セレクトの準備 ====
+    function setupStationSelectors() {
+      const startLineSel = document.getElementById("start-line");
+      const startStationSel = document.getElementById("start-station");
+      const goalLineSel = document.getElementById("goal-line");
+      const goalStationSel = document.getElementById("goal-station");
+
+      // 路線を追加
+      Object.keys(stationLines).forEach(line => {
+        startLineSel.add(new Option(line, line));
+        goalLineSel.add(new Option(line, line));
+      });
+
+      // 路線選択時に駅セレクトを更新
+      startLineSel.addEventListener("change", () => {
+        updateStationOptions(startLineSel.value, startStationSel);
+      });
+      goalLineSel.addEventListener("change", () => {
+        updateStationOptions(goalLineSel.value, goalStationSel);
+      });
+
+      // 初期状態
+      updateStationOptions(startLineSel.value, startStationSel);
+      updateStationOptions(goalLineSel.value, goalStationSel);
+    }
+
+    function updateStationOptions(line, stationSel) {
+      stationSel.innerHTML = "";
+      stationLines[line].forEach(st => {
+        stationSel.add(new Option(st, st));
+      });
+    }
+
+    // ==== 停車駅表示切替ボタン ====
+    function setupLineToggles() {
+      const div = document.getElementById("line-toggles");
+      div.innerHTML = "";
+      Object.keys(stationLines).forEach(line => {
+        const btn = document.createElement("button");
+        btn.textContent = line + " の停車駅表示切替";
+        btn.className = "line-toggle";
+        btn.onclick = () => {
+          const texts = svg.selectAll("text").filter(function() {
+            return d3.select(this).text() && stationLines[line].includes(d3.select(this).text());
+          });
+          const hidden = texts.style("display") === "none";
+          texts.style("display", hidden ? "block" : "none");
+        };
+        div.appendChild(btn);
+      });
+    }
+
+    // ==== 検索ボタン ====
+    document.getElementById("search").addEventListener("click", () => {
+      const startStation = document.getElementById("start-station").value;
+      const goalStation = document.getElementById("goal-station").value;
+      const resultDiv = document.getElementById("result");
+      resultDiv.textContent = "";
+
+      if (!startStation || !goalStation) {
+        resultDiv.textContent = "出発駅と到着駅を選んでください。";
+        return;
+      }
+      if (startStation === goalStation) {
+        resultDiv.textContent = "出発駅と到着駅が同じです。";
+        return;
+      }
+
+      // 仮ルート検索（経路探索は未実装）
+      drawMap(startStation, goalStation);
+    });
+
+    // ==== 初期化 ====
+    setupStationSelectors();
+    setupLineToggles();
+    drawMap(null, null);
   </script>
 </body>
 </html>
