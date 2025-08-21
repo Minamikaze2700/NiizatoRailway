@@ -90,14 +90,16 @@
       }
     }
 
-    // 運賃
+    // ==== 運賃（新テーブル）====
     function fare(distance){
-      if(distance<=3) return {adult:150,child:80};
-      if(distance<=7) return {adult:200,child:100};
-      if(distance<=15) return {adult:250,child:130};
-      if(distance<=25) return {adult:300,child:150};
-      if(distance<=40) return {adult:400,child:200};
-      return {adult:500,child:250};
+      if(distance<=3) return {adult:130,child:70};
+      else if(distance<=6) return {adult:160,child:80};
+      else if(distance<=10) return {adult:190,child:100};
+      else if(distance<=15) return {adult:220,child:110};
+      else if(distance<=20) return {adult:250,child:130};
+      else if(distance<=25) return {adult:280,child:140};
+      else if(distance<=30) return {adult:310,child:160};
+      else return {adult:340,child:170};
     }
 
     // UI
@@ -187,7 +189,7 @@
       svg.appendChild(g);
     }
 
-    // 経路描画（発着駅＋乗換駅のみデフォルト）
+    // 経路描画
     function drawRoute(path){
       clearSVG();
       if(!path.length) return;
@@ -218,7 +220,8 @@
           const lineName=findLine(path[i],path[i+1]);
           if(lineName){
             const key=`${path[i]}-${path[i+1]}`;
-            let offsetYmid=(ys[i]+ys[i+1])/2;
+            // 上の駅から20px下に配置
+            let offsetYmid = ys[i] + 20;
             // ボタン
             const fo=document.createElementNS('http://www.w3.org/2000/svg','foreignObject');
             fo.setAttribute('x',cx+20);
