@@ -201,12 +201,12 @@
           fo.appendChild(div);
           svg.appendChild(fo);
 
-          // ==== 途中駅表示 ====
+          // ==== 途中駅表示（修正: ボタン下端+5pxから配置）====
           if(segToggle.get(key)){
             const subs=getSubs(lineName,path[i],path[i+1]);
             if(subs.length>0){
-              const btnBottom=midY+14; // ボタン下端
-              const startY=btnBottom+5; // そこから5px下に1駅目
+              const btnBottom = midY + 14;   // ボタンの下端
+              const startY = btnBottom + 5;  // そこから5px下
               const fixedStep=30;
               subs.forEach((name,idx)=>{
                 const sy=startY+fixedStep*idx;
