@@ -310,7 +310,7 @@ nameText.setAttribute('class','name');
 nameText.setAttribute('dominant-baseline','hanging');
 nameText.textContent = st;
 label.appendChild(nameText);
-offsetY += 10;  // 次の要素までの間隔
+offsetY += 20;  // 次の要素までの間隔
 
 // 路線名ピル
 if(nextSt && metaNext && metaNext.lineName){
@@ -334,7 +334,7 @@ if(nextSt && metaNext && metaNext.lineName){
   bg.setAttribute('fill', color);
   pillGroup.insertBefore(bg, text);
 
-  offsetY += 10; // 次の要素までの間隔
+  offsetY += 20; // 次の要素までの間隔
 
   // ボタン
   const btn = document.createElementNS('http://www.w3.org/2000/svg','foreignObject');
