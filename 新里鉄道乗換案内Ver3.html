@@ -207,14 +207,30 @@
       const majors = extractMajorStations(path);
 
       // 区間ごとの表示・高さを決める
-      const top = 20; const minGap = 120; const basePad = 30;
+      const top = 20; 
+      const minGap = 120; 
+      const basePad = 30;
+      const fontH = 22;   // 駅名の高さ見積もり
+      const pillH = 28;   // 路線名ピル＋ボタンの高さ
+
       const segmentMeta = [];
       for(let i=0;i<majors.length-1;i++){
         const a = majors[i], b = majors[i+1];
         const subs = intermediatesBetween(path, a, b);
         const key = `${a}→${b}`;
         const show = !!segToggle.get(key);
-        const gap = show ? Math.max(minGap, basePad + (subs.length+1)*28) : minGap;
+
+        // ==== 必要な縦間隔を計算 ====
+        let gap = minGap;
+
+        // 途中駅を展開した場合 → 駅数分縦幅を確保
+        if(show){
+          gap = Math.max(gap, basePad + (subs.length+1) * (fontH+6));
+        }
+
+        // ラベルや路線ピルが重ならないように余裕を確保
+        gap = Math.max(gap, fontH + pillH + 40);
+
         const lineName = segmentLineBetween(path, a, b);
         segmentMeta.push({a,b,subs,key,show,gap,lineName});
       }
