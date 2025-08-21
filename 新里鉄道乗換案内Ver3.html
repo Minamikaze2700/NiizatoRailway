@@ -52,7 +52,7 @@
       "燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉","紅葉台","桐山","湊川","彩山親水公園","彩山","橘町","燠野山口","白枝","燠野"]
     };
 
-    // ==== 距離グラフ（省略なし、元データ）====
+    // ==== 距離グラフ ====
     const rawGraph = {
       "豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},"安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},
       "栃原":{"宇城":2.2},"宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},"御浜":{"伊坂":2.5},
@@ -205,12 +205,13 @@
           if(segToggle.get(key)){
             const subs=getSubs(lineName,path[i],path[i+1]);
             if(subs.length>0){
-              const startY=midY+28+5; // ボタン下5pxから配置
-              const subGap=(ys[i+1]-startY)/(subs.length+1);
-              for(let j=0;j<subs.length;j++){
-                const subY=startY+(j+1)*subGap;
-                drawStation({name:subs[j],x:cx,y:subY,isMajor:false,line:lineName});
-              }
+              const btnBottom=midY+14; // ボタンの下端
+              const startY=btnBottom+5; // そこから5px下に一駅目
+              const fixedStep=30;
+              subs.forEach((name,idx)=>{
+                const sy=startY+fixedStep*idx;
+                drawStation({name,x:cx,y:sy,isMajor:false,line:lineName});
+              });
             }
           }
         }
