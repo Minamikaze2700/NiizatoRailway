@@ -1,346 +1,127 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<title>新里鉄道 乗換案内</title>
-<style>
-body { font-family: sans-serif; padding: 20px; max-width: 950px; }
-h2 { margin-bottom: 10px; }
-.route-line { color: white; padding: 2px 6px; border-radius: 4px; margin: 0 4px; }
-.route { margin: 6px 0; }
-select { margin: 0 10px 0 0; padding: 2px; }
-button { padding: 2px 6px; }
-#result { margin-top: 12px; max-height: 600px; overflow-y: auto; border:1px solid #ccc; padding:6px; }
+import tkinter as tk
+from tkinter import ttk
 
-/* 新しい出力デザイン */
-.route-container { display: flex; flex-direction: column; margin: 10px 0; }
-.route-row { display: flex; align-items: flex-start; margin: 4px 0; }
-.route-marker { width: 16px; height: 16px; border-radius: 50%; margin-right: 8px; position: relative; }
-.route-marker.small { width: 10px; height: 10px; }
-.route-line-vertical { position: absolute; left: 50%; top: 16px; width: 2px; height: calc(100% - 16px); transform: translateX(-50%); }
-.station-label { display: flex; flex-direction: column; }
-.station-name { font-size: 14px; font-weight: bold; }
-.station-line { font-size: 12px; color: #666; }
-.hidden { display: none; }
-</style>
-</head>
-<body>
-<h2>新里鉄道 乗換案内</h2>
-
-<label>発路線:
-<select id="startLine" onchange="updateStations('start')"></select>
-</label>
-<label>発駅:
-<select id="start"></select>
-</label>
-<br><br>
-<label>着路線:
-<select id="goalLine" onchange="updateStations('goal')"></select>
-</label>
-<label>着駅:
-<select id="goal"></select>
-</label>
-<br><br>
-<button onclick="showAllRoutes()">検索</button>
-
-<div id="result"></div>
-
-<script>
-// --- 駅・路線データ ---
-const stationLines = {
-"湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
-"燠野線":["新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
-"鶴宮線":["鶴宮","南鶴宮","あずさ台","橘町","燠野山口","白枝","燠野","紅葉台","桐山","湊川","彩山親水公園","彩山","蓮華寺","星宮","田ノ原"],
-"新里線":["新里","南新里","田ノ原","北玖川","玖川","中野原"],
-"彩山線":["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"]
-};
-
-const lineColors = {
-"湯の浜線":"#07b5f7",
-"燠野線":"#fd5062",
-"新里線":"#0cab5e",
-"鶴宮線":"#feac2c",
-"彩山線":"#7dca22"
-};
-
-// --- 駅間距離 ---
-const rawGraph = {
-"豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},
-"安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},"栃原":{"宇城":2.2},
-"宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},
-"御浜":{"伊坂":2.5},"伊坂":{"垳下":2.6},"垳下":{"北浜":2.3},"北浜":{"西新里":1.4},
-"西新里":{"新里":1.7},"新里":{"河岸":0.9,"南新里":2.5,"新里大学前":1.2},
-"河岸":{"新里海浜公園":1.7},"新里海浜公園":{"湯の浜海岸":2.3},
-"湯の浜海岸":{"湯の浜":1.5},"湯の浜":{"七浦":2.5},"七浦":{"那珂町":1.6},
-"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},"伊奈崎":{"鶴宮神社":1.5},
-"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.5,"南鶴宮":1.3},
-"南鶴宮":{"あずさ台":1.1},"あずさ台":{"橘町":1.4},"橘町":{"燠野山口":1.7},
-"燠野山口":{"白枝":1.2},"白枝":{"燠野":1.6},"燠野":{"紅葉台":1.8,"湯川":1.4},
-"紅葉台":{"桐山":1.5},"桐山":{"湊川":2.0},"湊川":{"彩山親水公園":1.8},
-"彩山親水公園":{"彩山":1.2},"彩山":{"蓮華寺":1.9,"彩山口":1.1},
-"蓮華寺":{"星宮":1.7},"星宮":{"田ノ原":2.1},
-"田ノ原":{"南新里":2.3,"北玖川":1.6},"北玖川":{"玖川":1.4},"玖川":{"中野原":2.2},
-"新里大学前":{"綾原":1.5},"綾原":{"福来":1.7},"福来":{"燠野":2.0},
-"湯川":{"温泉口":1.6},"温泉口":{"燠野温泉":2.1},
-"彩山口":{"新里国際スキー場":2.0},"新里国際スキー場":{"鷹見台":1.4},
-"鷹見台":{"久我原":2.3},"久我原":{"浪原":1.9},"浪原":{"深江":2.5},
-"深江":{"三栗谷":1.8},"三栗谷":{"桜川公園":1.3},"桜川公園":{"桜川":1.5}
-};
-
-// --- グラフ整形 ---
-const graph = {};
-for (let s in rawGraph){
-  if(!graph[s]) graph[s]={};
-  for (let t in rawGraph[s]){
-    let d = rawGraph[s][t];
-    graph[s][t]=d;
-    if(!graph[t]) graph[t]={};
-    graph[t][s]=d;
-  }
+# 路線データ
+lines = {
+    "湯の浜線": ["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園",
+               "御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園",
+               "湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
+    "燠野線": ["新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
+    "鶴宮線": ["鶴宮","南鶴宮","東鶴宮","彩川","三津屋","白浜"],
+    "彩山線": ["那珂町","彩山口","彩山","彩山温泉"],
+    "新里線": ["西新里","西原","片岡","南片岡","北片岡","東片岡"]
 }
 
-// --- UI初期化 ---
-window.onload = ()=>{
-  for(let line in stationLines){
-    let opt1=document.createElement("option"); opt1.value=line; opt1.text=line;
-    document.getElementById("startLine").appendChild(opt1);
-    let opt2=document.createElement("option"); opt2.value=line; opt2.text=line;
-    document.getElementById("goalLine").appendChild(opt2);
-  }
-  updateStations("start"); updateStations("goal");
-};
-function updateStations(which){
-  let line=document.getElementById(which+"Line").value;
-  let sel=document.getElementById(which);
-  sel.innerHTML="";
-  stationLines[line].forEach(st=>{
-    let o=document.createElement("option"); o.value=st; o.text=st; sel.appendChild(o);
-  });
+# 路線カラー
+line_colors = {
+    "湯の浜線": "#1E90FF",
+    "燠野線": "#32CD32",
+    "鶴宮線": "#FF4500",
+    "彩山線": "#FFD700",
+    "新里線": "#8A2BE2"
 }
 
-// --- ダイクストラ ---
-function shortestPath(start,goal){
-  let dist={}, prev={}, visited={};
-  for(let s in graph){ dist[s]=Infinity; prev[s]=null; }
-  dist[start]=0;
-  while(true){
-    let u=null, min=Infinity;
-    for(let s in dist){ if(!visited[s] && dist[s]<min){min=dist[s]; u=s;} }
-    if(u===null||u===goal) break;
-    visited[u]=true;
-    for(let v in graph[u]){
-      let alt=dist[u]+graph[u][v];
-      if(alt<dist[v]){ dist[v]=alt; prev[v]=u; }
-    }
-  }
-  let path=[], u=goal;
-  while(u){ path.unshift(u); u=prev[u]; }
-  return {path, distance:dist[goal]};
-}
+# 経路探索（簡易版: 直通 or 新里乗換）
+def find_route(start, goal):
+    for line, stations in lines.items():
+        if start in stations and goal in stations:
+            s, g = stations.index(start), stations.index(goal)
+            if s <= g:
+                return [(line, stations[i]) for i in range(s, g+1)]
+            else:
+                return [(line, stations[i]) for i in range(s, g-1, -1)]
 
-// --- 路線判定 ---
-function findLine(st1,st2){
-  for(let line in stationLines){
-    let arr=stationLines[line];
-    if(arr.includes(st1)&&arr.includes(st2)) return line;
-  }
-  return null;
-}
+    # 新里で乗換
+    if start in lines["湯の浜線"] and goal in lines["燠野線"]:
+        s_index = lines["湯の浜線"].index(start)
+        route1 = [("湯の浜線", st) for st in lines["湯の浜線"][s_index:lines["湯の浜線"].index("新里")+1]]
+        route2 = [("燠野線", st) for st in lines["燠野線"]]
+        return route1 + route2
+    if start in lines["燠野線"] and goal in lines["湯の浜線"]:
+        g_index = lines["湯の浜線"].index(goal)
+        route1 = [("燠野線", st) for st in lines["燠野線"]]
+        route2 = [("湯の浜線", st) for st in lines["湯の浜線"][:g_index+1]]
+        return route1 + route2
+    return []
 
-// --- 検索結果表示 ---
-function showAllRoutes(){
-  let start=document.getElementById("start").value;
-  let goal=document.getElementById("goal").value;
-  let res=shortestPath(start,goal);
-  let container=document.createElement("div");
-  container.className="route-container";
-  for(let i=0;i<res.path.length;i++){
-    let st=res.path[i];
-    let row=document.createElement("div"); row.className="route-row";
-    let marker=document.createElement("div"); marker.className="route-marker";
-    if(i>0 && i<res.path.length-1) marker.classList.add("small");
-    let line=findLine(res.path[i-1],st)||findLine(st,res.path[i+1]);
-    marker.style.background=line?lineColors[line]:"#aaa";
-    if(i<res.path.length-1){
-      let vline=document.createElement("div");
-      vline.className="route-line-vertical";
-      vline.style.background=marker.style.background;
-      marker.appendChild(vline);
-    }
-    let label=document.createElement("div"); label.className="station-label";
-    let name=document.createElement("div"); name.className="station-name"; name.textContent=st;
-    label.appendChild(name);
-    if(line){ let ln=document.createElement("div"); ln.className="station-line"; ln.textContent=line; label.appendChild(ln); }
-    row.appendChild(marker); row.appendChild(label);
-    container.appendChild(row);
-  }
-  document.getElementById("result").innerHTML="";
-  document.getElementById("result").appendChild(container);
-  document.getElementById("result").innerHTML+="<p>距離："+res.distance.toFixed(1)+" km</p>";
-}
-</script>
-</body>
-</html>
-  /* 駅名部分 */
-  .station-info {
-    display: flex;
-    flex-direction: column;
-  }
-  .station-name {
-    font-weight: bold;
-  }
-  .line-name {
-    font-size: 0.85em;
-    color: gray;
-  }
+# UI部分
+root = tk.Tk()
+root.title("新里鉄道路線検索")
 
-  /* ボタン */
-  .toggle-btn {
-    margin: 10px 0;
-    padding: 4px 8px;
-    border: 1px solid #aaa;
-    border-radius: 4px;
-    background: #f0f0f0;
-    cursor: pointer;
-    font-size: 0.9em;
-  }
-</style>
-</head>
-<body>
-<h2>経路検索</h2>
-<select id="fromStation"></select> から
-<select id="toStation"></select>
-<button onclick="searchRoute()">検索</button>
+# 発着駅入力
+stations_with_line = [f"{line}{st}" for line, sts in lines.items() for st in sts]
 
-<div id="results"></div>
+start_var = tk.StringVar()
+goal_var = tk.StringVar()
 
-<script>
-// 路線データ
-const lines = {
-  "湯の浜線": {
-    color: "#1e90ff",
-    stations: ["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"]
-  },
-  "燠野線": {
-    color: "#ff4500",
-    stations: ["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"]
-  }
-};
+ttk.Label(root, text="出発駅").grid(row=0, column=0)
+ttk.Combobox(root, textvariable=start_var, values=stations_with_line, width=20).grid(row=0, column=1)
+ttk.Label(root, text="到着駅").grid(row=1, column=0)
+ttk.Combobox(root, textvariable=goal_var, values=stations_with_line, width=20).grid(row=1, column=1)
 
-// 駅リスト生成
-const stationList = [...new Set(Object.values(lines).flatMap(l=>l.stations))];
-const fromSel = document.getElementById("fromStation");
-const toSel = document.getElementById("toStation");
-stationList.forEach(s=>{
-  fromSel.add(new Option(s,s));
-  toSel.add(new Option(s,s));
-});
+# 結果表示
+result_frame = tk.Frame(root)
+result_frame.grid(row=3, column=0, columnspan=2)
 
-// グラフ構築
-const graph = {};
-for (const [line, data] of Object.entries(lines)) {
-  data.stations.forEach((st, i)=>{
-    if (!graph[st]) graph[st]=[];
-    if (i>0) graph[st].push({to:data.stations[i-1], line});
-    if (i<data.stations.length-1) graph[st].push({to:data.stations[i+1], line});
-  });
-}
+def show_route():
+    for widget in result_frame.winfo_children():
+        widget.destroy()
 
-// 経路探索(BFS)
-function bfs(start,goal){
-  const queue=[[start,[],[]]];
-  const visited=new Set();
-  while(queue.length){
-    const [cur,path,linesUsed]=queue.shift();
-    if(cur===goal) return [...path,cur];
-    if(visited.has(cur)) continue;
-    visited.add(cur);
-    for(const nxt of graph[cur]||[]){
-      queue.push([nxt.to,[...path,cur],[...linesUsed,nxt.line]]);
-    }
-  }
-  return null;
-}
+    start, goal = start_var.get(), goal_var.get()
+    if not start or not goal:
+        return
 
-// 経路検索処理
-function searchRoute(){
-  const from=fromSel.value,to=toSel.value;
-  const path=bfs(from,to);
-  const res=document.getElementById("results");
-  res.innerHTML="";
+    start_line, start_station = start[:start.find("線")+1], start[start.find("線")+1:]
+    goal_line, goal_station = goal[:goal.find("線")+1], goal[goal.find("線")+1:]
 
-  if(!path){ res.textContent="ルートが見つかりません"; return; }
+    route = find_route(start_station, goal_station)
+    if not route:
+        tk.Label(result_frame, text="ルートが見つかりません").pack()
+        return
 
-  // 表示制御ボタン
-  const toggleBtn=document.createElement("button");
-  toggleBtn.textContent="途中駅を表示";
-  toggleBtn.className="toggle-btn";
-  let showIntermediates=false;
-  toggleBtn.onclick=()=>{
-    showIntermediates=!showIntermediates;
-    toggleBtn.textContent=showIntermediates?"途中駅を非表示":"途中駅を表示";
-    renderRoute();
-  };
-  res.appendChild(toggleBtn);
+    show_details = tk.BooleanVar(value=False)
 
-  const routeDiv=document.createElement("div");
-  res.appendChild(routeDiv);
+    def render():
+        for widget in result_frame.winfo_children():
+            widget.destroy()
 
-  function renderRoute(){
-    routeDiv.innerHTML="";
-    for(let i=0;i<path.length;i++){
-      const st=path[i];
-      const prev=path[i-1], next=path[i+1];
+        last_line = None
+        for idx, (line, station) in enumerate(route):
+            frame = tk.Frame(result_frame)
+            frame.pack(anchor="w")
 
-      // どの路線か判定
-      let lineName=null;
-      for(const [ln,data] of Object.entries(lines)){
-        if(data.stations.includes(st)){ lineName=ln; break; }
-      }
-      const color=lineName?lines[lineName].color:"#000";
+            color = line_colors.get(line, "black")
 
-      // 中間駅を隠す処理
-      if(!showIntermediates && i!==0 && i!==path.length-1){
-        continue;
-      }
+            # 丸（途中駅小さい）
+            size = 14 if idx in [0, len(route)-1] or (idx > 0 and route[idx-1][0] != line) else 8
+            canvas = tk.Canvas(frame, width=20, height=20, highlightthickness=0, bg="white")
+            canvas.create_oval(10-size//2, 10-size//2, 10+size//2, 10+size//2, fill=color, outline=color)
+            if idx < len(route)-1 and route[idx+1][0] == line:
+                canvas.create_line(10, 10, 10, 20, fill=color, width=2)
+            canvas.pack(side="left")
 
-      const step=document.createElement("div");
-      step.className="route-step";
+            # 駅名＋路線名（発駅と乗換のみ）
+            text = tk.Label(frame, text=station, anchor="w")
+            text.pack(side="left")
+            if idx in [0, len(route)-1] or (idx > 0 and route[idx-1][0] != line):
+                line_label = tk.Label(frame, text=line, bg=color, fg="white")
+                line_label.pack(side="left", padx=5)
 
-      // マーカー
-      const marker=document.createElement("div");
-      marker.className="line-marker";
-      const circle=document.createElement("div");
-      circle.className="circle"+((i!==0 && i!==path.length-1)? " small":"");
-      circle.style.background=color;
-      marker.appendChild(circle);
+            # 途中駅表示
+            if idx in [0, len(route)-1] or (idx > 0 and route[idx-1][0] != line):
+                toggle_btn = tk.Button(frame, text="途中駅を表示", command=lambda: toggle())
+                toggle_btn.pack(side="left")
 
-      if(i<path.length-1){
-        const line=document.createElement("div");
-        line.className="line";
-        line.style.background=color;
-        marker.appendChild(line);
-      }
-      step.appendChild(marker);
+            # 途中駅表示
+            if show_details.get() and not (idx in [0, len(route)-1] or (idx > 0 and route[idx-1][0] != line)):
+                tk.Label(frame, text=f"{station}", fg="gray").pack(side="left")
 
-      // 駅情報
-      const info=document.createElement("div");
-      info.className="station-info";
-      const name=document.createElement("div");
-      name.className="station-name";
-      name.textContent=st;
-      const lname=document.createElement("div");
-      lname.className="line-name";
-      lname.textContent=lineName||"";
-      info.appendChild(name);
-      info.appendChild(lname);
-      step.appendChild(info);
+    def toggle():
+        show_details.set(not show_details.get())
+        render()
 
-      routeDiv.appendChild(step);
-    }
-  }
-  renderRoute();
-}
-</script>
-</body>
-</html>
+    render()
+
+ttk.Button(root, text="検索", command=show_route).grid(row=2, column=0, columnspan=2)
+
+root.mainloop()
