@@ -5,9 +5,9 @@
   <title>新里鉄道路線 ルート検索</title>
   <style>
     :root{
-      --major-r: 10px;      /* 主要駅 ● 半径 */
-      --minor-r: 7.5px;     /* 途中駅 ● 半径（主要の75%） */
-      --seg-width: 6px;     /* 区間線の太さ */
+      --major-r: 8px;      /* 主要駅 ● 半径 */
+      --minor-r: 6px;     /* 途中駅 ● 半径（主要の75%） */
+      --seg-width: 5px;     /* 区間線の太さ */
     }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', Meiryo, sans-serif; margin: 18px; }
     h1 { font-size: 18px; margin: 0 0 8px; }
@@ -27,8 +27,8 @@
     .pill-bg { rx: 6; ry: 6; }
 
     /* 駅 ● */
-    .station.major circle.node { r: var(--major-r); fill: var(--line-color); stroke: var(--line-color); stroke-width: 3; }
-    .station.minor circle.node { r: var(--minor-r); fill: #fff; stroke: var(--line-color); stroke-width: 2; }
+    .station.major circle.node { r: var(--major-r); fill: var(--line-color); stroke: var(--line-color); stroke-width: 0; }
+    .station.minor circle.node { r: var(--minor-r); fill: #fff; stroke: var(--line-color); stroke-width: 0; }
     .station.minor text.name { font-size: 10px; fill: #333; dominant-baseline: central; }
 
     /* 区間線 */
