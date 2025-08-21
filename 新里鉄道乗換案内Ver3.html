@@ -7,8 +7,8 @@
   body { font-family: sans-serif; padding: 20px; }
   .route-container { display: flex; flex-direction: column; align-items: flex-start; position: relative; }
   .station { display: flex; align-items: center; margin: 8px 0; position: relative; }
-  .circle { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; margin-right: 8px; position: relative; z-index: 2; }
-  .line { position: absolute; left: 8px; top: 18px; width: 2px; background: #888; z-index: 1; }
+  .circle { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; margin-right: 8px; z-index: 2; }
+  .line { width: 2px; background: #888; position: absolute; top: 18px; bottom: -18px; left: 8px; z-index: 1; }
   .station-name { font-size: 14px; }
   .line-label { font-size: 12px; padding: 2px 6px; border-radius: 4px; color: #fff; display: inline-block; margin-top: 2px; }
   .toggle-btn { margin-left: 8px; font-size: 12px; padding: 2px 4px; cursor: pointer; }
@@ -35,7 +35,7 @@
 <div id="routeDisplay" class="route-container"></div>
 
 <script>
-// ==== データ（ユーザー指定済みを保持） ====
+// ==== データ ==== 
 const stationLines = {
   "湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
   "燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
@@ -79,7 +79,7 @@ document.getElementById("fromLine").onchange=()=>updateStations("fromLine","from
 document.getElementById("toLine").onchange=()=>updateStations("toLine","toStation");
 initSelects();
 
-// ==== 経路描画（簡略: 同一線内のみ対応） ====
+// ==== 経路描画（同一線のみ） ====
 function showRoute(){
   const from=document.getElementById("fromStation").value;
   const to=document.getElementById("toStation").value;
@@ -110,36 +110,41 @@ function showRoute(){
     stationDiv.appendChild(circle);
 
     const nameDiv=document.createElement("div");
-    if(isFirst){ // 発駅
+
+    if(isFirst){
       nameDiv.innerHTML=`${st}<br><span class="line-label" style="background:${color}">新里鉄道${line}</span>`;
+      stationDiv.appendChild(nameDiv);
+
       const btn=document.createElement("button");
       btn.className="toggle-btn";
       btn.textContent="途中駅表示";
-      btn.onclick=()=>toggleSubs(st,path.slice(1,-1),color,stationDiv);
-      stationDiv.appendChild(nameDiv);
+      btn.onclick=()=>toggleSubs(st,path.slice(1,-1),color,stationDiv,btn);
       stationDiv.appendChild(btn);
-    }else if(isLast){ // 着駅
+
+    }else if(isLast){
       nameDiv.textContent=st;
       stationDiv.appendChild(nameDiv);
-    }else{
-      // デフォルト非表示
-      stationDiv.style.display="none";
     }
 
     display.appendChild(stationDiv);
 
-    // 線
+    // 線（次の駅がある場合のみ）
     if(i<path.length-1){
       const lineDiv=document.createElement("div");
       lineDiv.className="line";
-      lineDiv.style.height="30px";
       lineDiv.style.background=color;
       stationDiv.appendChild(lineDiv);
     }
   }
 }
 
-function toggleSubs(start,subs,color,parent){
+function toggleSubs(start,subs,color,parent,btn){
+  const existing=parent.parentNode.querySelectorAll(".sub-station");
+  if(existing.length>0){
+    existing.forEach(e=>e.remove());
+    btn.textContent="途中駅表示";
+    return;
+  }
   subs.forEach(st=>{
     const sub=document.createElement("div");
     sub.className="sub-station";
@@ -153,6 +158,7 @@ function toggleSubs(start,subs,color,parent){
     sub.appendChild(nm);
     parent.after(sub);
   });
+  btn.textContent="途中駅非表示";
 }
 </script>
 </body>
