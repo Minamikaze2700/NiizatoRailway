@@ -13,7 +13,12 @@
     h1 { font-size: 18px; margin: 0 0 8px; }
 
     /* コントロール */
-    .controls { display: grid; grid-template-columns: auto auto; gap: 8px 12px; align-items: center; }
+.controls {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 8px 0;   /* ← 横方向の間隔を0に */
+  align-items: center;
+}
     .controls select, .controls button { padding: 6px 8px; font-size: 14px; }
     .controls-row { display: grid; grid-template-columns: auto auto auto; gap: 8px 12px; align-items: center; margin-top: 8px; }
     #info { font-weight: 600; }        /* 結果・エラー表示用 */
