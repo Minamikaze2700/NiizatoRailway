@@ -2,58 +2,30 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>経路検索システム</title>
+  <title>路線図と運賃案内</title>
   <style>
     body { font-family: sans-serif; }
-    .route { margin: 10px 0; }
-    .station { margin: 4px 0; }
-    .lineLabel {
-      color: #fff;
-      padding: 2px 6px;
-      border-radius: 4px;
-      display: inline-block;
-      margin-left: 8px;
-    }
-    .toggleBtn {
-      margin-left: 6px;
-      font-size: 0.8em;
-      cursor: pointer;
-      color: blue;
-      text-decoration: underline;
-    }
-    .hidden { display: none; }
+    .station { margin: 5px 0; }
+    .line-name { color: #fff; padding: 2px 6px; border-radius: 4px; display: inline-block; margin: 4px 0; }
+    .toggle { color: blue; cursor: pointer; text-decoration: underline; margin-left: 1em; }
+    .substation { margin-left: 2em; }
   </style>
 </head>
 <body>
-  <h2>経路検索</h2>
+  <h2>発駅・着駅を選択</h2>
   <div>
-    <label>出発路線: 
-      <select id="fromLine">
-        <option value="">選択してください</option>
-      </select>
-    </label>
-    <label> 出発駅: 
-      <select id="fromStation" disabled>
-        <option value="">先に路線を選択</option>
-      </select>
-    </label>
+    発駅：
+    <select id="fromLine"></select>
+    <select id="fromStation"></select>
   </div>
   <div>
-    <label>到着路線: 
-      <select id="toLine">
-        <option value="">選択してください</option>
-      </select>
-    </label>
-    <label> 到着駅: 
-      <select id="toStation" disabled>
-        <option value="">先に路線を選択</option>
-      </select>
-    </label>
+    着駅：
+    <select id="toLine"></select>
+    <select id="toStation"></select>
   </div>
-  <button id="searchBtn">検索</button>
 
-  <h3>検索結果</h3>
-  <div id="result"></div>
+  <h2>路線図</h2>
+  <div id="routeDisplay"></div>
 
   <script>
     // ==== 駅・路線データ ====
@@ -112,100 +84,58 @@
       else return {adult:340,child:170};
     }
 
-    // ==== Dijkstra 最短経路探索 ====
-    function dijkstra(start, goal){
-      const dist = {}, prev = {}, visited = new Set();
-      Object.keys(graph).forEach(v => dist[v] = Infinity);
-      dist[start] = 0;
-      while(true){
-        let u = null, min = Infinity;
-        for(const [v,d] of Object.entries(dist)){
-          if(!visited.has(v) && d < min){ min=d; u=v; }
-        }
-        if(u===null || u===goal) break;
-        visited.add(u);
-        for(const [nb,w] of Object.entries(graph[u])){
-          if(dist[u]+w < dist[nb]){
-            dist[nb] = dist[u]+w;
-            prev[nb] = u;
-          }
-        }
-      }
-      const path = [];
-      let cur = goal;
-      while(cur){
-        path.unshift(cur);
-        cur = prev[cur];
-      }
-      return {path, distance:dist[goal]};
-    }
-
     // ==== プルダウン初期化 ====
-    function initLineSelects(){
+    function initDropdowns(){
       const fromLine = document.getElementById("fromLine");
       const toLine = document.getElementById("toLine");
-      for(const line in stationLines){
-        const opt1 = document.createElement("option");
-        opt1.value=line; opt1.textContent=line;
-        fromLine.appendChild(opt1);
-        const opt2 = document.createElement("option");
-        opt2.value=line; opt2.textContent=line;
-        toLine.appendChild(opt2);
+      fromLine.innerHTML = toLine.innerHTML = Object.keys(stationLines).map(l=>`<option>${l}</option>`).join("");
+      updateStations("fromLine","fromStation");
+      updateStations("toLine","toStation");
+      fromLine.addEventListener("change",()=>updateStations("fromLine","fromStation"));
+      toLine.addEventListener("change",()=>updateStations("toLine","toStation"));
+    }
+    function updateStations(lineId,stationId){
+      const line = document.getElementById(lineId).value;
+      const select = document.getElementById(stationId);
+      select.innerHTML = stationLines[line].map(s=>`<option>${s}</option>`).join("");
+    }
+
+    // ==== 路線図描画 ====
+    function renderRoutes(){
+      const container = document.getElementById("routeDisplay");
+      container.innerHTML = "";
+      for(const [line, stations] of Object.entries(stationLines)){
+        const lineDiv = document.createElement("div");
+        lineDiv.innerHTML = `<div class='station'>●${stations[0]}（主要）</div>`;
+        lineDiv.innerHTML += `<div class='line-name' style='background:${lineColors[line]}'>${line}</div>`;
+        const toggle = document.createElement("div");
+        toggle.className = "toggle";
+        toggle.textContent = "途中駅を表示";
+        let expanded = false;
+        toggle.addEventListener("click",()=>{
+          expanded=!expanded;
+          if(expanded){
+            toggle.textContent="途中駅を非表示";
+            let subs="";
+            for(let i=1;i<stations.length-1;i++){
+              subs+=`<div class='station substation'>●${stations[i]}（途中）</div>`;
+            }
+            subs+=`<div class='station'>●${stations[stations.length-1]}（終着）</div>`;
+            toggle.insertAdjacentHTML("afterend",subs);
+          }else{
+            toggle.textContent="途中駅を表示";
+            while(toggle.nextSibling && toggle.nextSibling.classList.contains("station")){
+              toggle.nextSibling.remove();
+            }
+          }
+        });
+        lineDiv.appendChild(toggle);
+        container.appendChild(lineDiv);
       }
     }
-    initLineSelects();
 
-    // ==== 駅プルダウン制御 ====
-    function setStationSelect(lineSelectId, stationSelectId){
-      const lineSel = document.getElementById(lineSelectId);
-      const stSel = document.getElementById(stationSelectId);
-      lineSel.addEventListener("change", ()=>{
-        stSel.innerHTML="";
-        if(!lineSel.value){ stSel.disabled=true; return;}
-        stationLines[lineSel.value].forEach(st=>{
-          const opt=document.createElement("option");
-          opt.value=st; opt.textContent=st;
-          stSel.appendChild(opt);
-        });
-        stSel.disabled=false;
-      });
-    }
-    setStationSelect("fromLine","fromStation");
-    setStationSelect("toLine","toStation");
-
-    // ==== 検索ボタン ====
-    document.getElementById("searchBtn").addEventListener("click",()=>{
-      const from = document.getElementById("fromStation").value;
-      const to = document.getElementById("toStation").value;
-      if(!from || !to){ alert("発駅と着駅を選択してください"); return;}
-      const {path,distance} = dijkstra(from,to);
-      showRoute(path,distance);
-    });
-
-    // ==== 経路表示 ====
-    function showRoute(path,distance){
-      const container=document.getElementById("result");
-      container.innerHTML="";
-      path.forEach((st,i)=>{
-        const div=document.createElement("div");
-        div.className="station";
-        div.innerHTML="●"+st;
-        const lines = Object.entries(stationLines).filter(([ln,sts])=>sts.includes(st));
-        lines.forEach(([ln])=>{
-          const span=document.createElement("span");
-          span.className="lineLabel";
-          span.style.background=lineColors[ln];
-          span.textContent=" "+ln+" ";
-          div.appendChild(span);
-        });
-        container.appendChild(div);
-      });
-      const f=fare(distance);
-      const info=document.createElement("div");
-      info.innerHTML=`総距離: ${distance.toFixed(1)} km<br>
-        運賃: 大人 ${f.adult}円 / 子供 ${f.child}円`;
-      container.appendChild(info);
-    }
+    initDropdowns();
+    renderRoutes();
   </script>
 </body>
 </html>
