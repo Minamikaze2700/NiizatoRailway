@@ -127,8 +127,19 @@
       staSel.selectedIndex=0;
     }
 
-    populateLineSelect(fromLineSel); populateStationSelect(fromLineSel, fromStaSel);
-    populateLineSelect(toLineSel);   populateStationSelect(toLineSel, toStaSel);
+// 路線と駅のリストを初期化
+populateLineSelect(fromLineSel);
+populateLineSelect(toLineSel);
+
+// デフォルトを湯の浜線 新里 に設定
+fromLineSel.value = "湯の浜線";
+populateStationSelect(fromLineSel, fromStaSel);
+fromStaSel.value = "新里";
+
+// デフォルトを燠野線 燠野温泉 に設定
+toLineSel.value = "燠野線";
+populateStationSelect(toLineSel, toStaSel);
+toStaSel.value = "燠野温泉";
 
     fromLineSel.addEventListener('change',()=>populateStationSelect(fromLineSel, fromStaSel));
     toLineSel.addEventListener('change',  ()=>populateStationSelect(toLineSel,   toStaSel));
