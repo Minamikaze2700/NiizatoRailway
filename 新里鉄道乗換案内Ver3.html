@@ -26,7 +26,7 @@
   .labels {
     display: flex;
     flex-direction: column;
-    gap: 18px; /* 主要駅のテキストブロックの間隔 */
+    gap: 18px; /* 主要駅行の間隔 */
   }
   .label-block { line-height: 1.5; }
   .station-name { font-size: 16px; line-height: 20px; }
@@ -85,12 +85,15 @@ const stationLines = {
 };
 
 const lineColors = {
-  "湯の浜線":"%2307b5f7".replace('%23','#'),
-  "燠野線":"%23fd5062".replace('%23','#'),
-  "新里線":"%230cab5e".replace('%23','#'),
-  "鶴宮線":"%23feac2c".replace('%23','#'),
-  "彩山線":"%237dca22".replace('%23','#')
+  "湯の浜線":"#07b5f7",
+  "燠野線":"#fd5062",
+  "新里線":"#0cab5e",
+  "鶴宮線":"#feac2c",
+  "彩山線":"#7dca22"
 };
+
+// 「新里鉄道◯◯線」に変換（表示専用）
+function displayLineName(line){ return `新里鉄道${line}`; }
 
 // ==== 駅間距離データ（省略なし） ====
 const rawGraph = {
@@ -254,15 +257,18 @@ function fillLineOptions(sel){
   sel.innerHTML = '';
   for (const line of Object.keys(stationLines)){
     const opt = document.createElement('option');
-    opt.value = opt.textContent = line;
+    opt.value = line;
+    opt.textContent = displayLineName(line); // 新里鉄道◯◯線
     sel.appendChild(opt);
   }
 }
 function fillStationOptions(lineSel, stationSel){
   stationSel.innerHTML = '';
-  for (const st of (stationLines[lineSel.value]||[])) {
+  const line = lineSel.value;
+  for (const st of (stationLines[line]||[])) {
     const opt = document.createElement('option');
-    opt.value = opt.textContent = st;
+    opt.value = st; // 値は駅名
+    opt.textContent = `${displayLineName(line)} ${st}`; // [路線名][駅名]
     stationSel.appendChild(opt);
   }
 }
@@ -317,7 +323,7 @@ function renderRoute(best){
       const badge = document.createElement('div');
       badge.className = 'route-badge';
       badge.style.background = lineColors[segLine] || '#888';
-      badge.textContent = segLine;
+      badge.textContent = displayLineName(segLine); // 「新里鉄道◯◯線」
       block.appendChild(badge);
 
       const btn = document.createElement('button');
@@ -350,7 +356,7 @@ function renderRoute(best){
           btn.textContent = '途中駅を表示';
           expandState[key] = false;
         }
-        // レイアウトが変わるので再描画
+        // レイアウトが変わるので再描画（丸と線のズレ防止）
         queueRedraw();
       });
 
@@ -383,8 +389,8 @@ function renderRoute(best){
 
     // 駅名のY（中心）を測る（railPaneの座標系へ変換）
     const yPts = nameEls.map(el=>{
-      const r = el.getBoundingClientRect();
-      return (r.top - paneRect.top) + (r.height / 2);
+      const rct = el.getBoundingClientRect();
+      return (rct.top - paneRect.top) + (rct.height / 2);
     });
 
     // SVG生成
@@ -395,7 +401,7 @@ function renderRoute(best){
     svg.style.left = '0';
     svg.style.top = '0';
 
-    // 1) 区間の線
+    // 1) 区間の線（次の乗換駅または着駅まで接続）
     for (let i=0;i<majors.length-1;i++){
       const a = majors[i], b = majors[i+1];
       const lineName = getLine(a,b);
@@ -412,7 +418,7 @@ function renderRoute(best){
       svg.appendChild(seg);
     }
 
-    // 2) 途中駅の小丸（展開時のみ）
+    // 2) 途中駅の小丸（展開時のみ。線の中心上に均等配置／端点は除外）
     for (let i=0;i<majors.length-1;i++){
       const a = majors[i], b = majors[i+1];
       const key = `${a}>${b}`;
@@ -436,7 +442,7 @@ function renderRoute(best){
       }
     }
 
-    // 3) 主要駅の大丸（前面）
+    // 3) 主要駅の大丸（前面）。着駅は直前区間のカラーを継承
     for (let i=0;i<majors.length;i++){
       let color;
       if (i < majors.length-1) {
@@ -455,7 +461,7 @@ function renderRoute(best){
     railPane.appendChild(svg);
   }
 
-  // レイアウト変化後に安全に再描画（requestAnimationFrameで1フレーム遅延）
+  // レイアウト変化後に安全に再描画（SVGのズレ防止）
   let redrawTimer = 0;
   function queueRedraw(){
     cancelAnimationFrame(redrawTimer);
