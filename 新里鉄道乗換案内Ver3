@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>経路検索</title>
+<style>
+  body { font-family: sans-serif; }
+  #results { margin-top: 20px; }
+
+  .route-step {
+    display: flex;
+    align-items: flex-start;
+    margin: 8px 0;
+  }
+
+  /* 左の路線カラー表示 */
+  .line-marker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-right: 10px;
+  }
+  .circle {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+  }
+  .circle.small {
+    width: 8px;
+    height: 8px;
+  }
+  .line {
+    flex-grow: 1;
+    width: 2px;
+  }
+
+  /* 駅名部分 */
+  .station-info {
+    display: flex;
+    flex-direction: column;
+  }
+  .station-name {
+    font-weight: bold;
+  }
+  .line-name {
+    font-size: 0.85em;
+    color: gray;
+  }
+
+  /* ボタン */
+  .toggle-btn {
+    margin: 10px 0;
+    padding: 4px 8px;
+    border: 1px solid #aaa;
+    border-radius: 4px;
+    background: #f0f0f0;
+    cursor: pointer;
+    font-size: 0.9em;
+  }
+</style>
+</head>
+<body>
+<h2>経路検索</h2>
+<select id="fromStation"></select> から
+<select id="toStation"></select>
+<button onclick="searchRoute()">検索</button>
+
+<div id="results"></div>
+
+<script>
+// 路線データ
+const lines = {
+  "湯の浜線": {
+    color: "#1e90ff",
+    stations: ["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"]
+  },
+  "燠野線": {
+    color: "#ff4500",
+    stations: ["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"]
+  }
+};
+
+// 駅リスト生成
+const stationList = [...new Set(Object.values(lines).flatMap(l=>l.stations))];
+const fromSel = document.getElementById("fromStation");
+const toSel = document.getElementById("toStation");
+stationList.forEach(s=>{
+  fromSel.add(new Option(s,s));
+  toSel.add(new Option(s,s));
+});
+
+// グラフ構築
+const graph = {};
+for (const [line, data] of Object.entries(lines)) {
+  data.stations.forEach((st, i)=>{
+    if (!graph[st]) graph[st]=[];
+    if (i>0) graph[st].push({to:data.stations[i-1], line});
+    if (i<data.stations.length-1) graph[st].push({to:data.stations[i+1], line});
+  });
+}
+
+// 経路探索(BFS)
+function bfs(start,goal){
+  const queue=[[start,[],[]]];
+  const visited=new Set();
+  while(queue.length){
+    const [cur,path,linesUsed]=queue.shift();
+    if(cur===goal) return [...path,cur];
+    if(visited.has(cur)) continue;
+    visited.add(cur);
+    for(const nxt of graph[cur]||[]){
+      queue.push([nxt.to,[...path,cur],[...linesUsed,nxt.line]]);
+    }
+  }
+  return null;
+}
+
+// 経路検索処理
+function searchRoute(){
+  const from=fromSel.value,to=toSel.value;
+  const path=bfs(from,to);
+  const res=document.getElementById("results");
+  res.innerHTML="";
+
+  if(!path){ res.textContent="ルートが見つかりません"; return; }
+
+  // 表示制御ボタン
+  const toggleBtn=document.createElement("button");
+  toggleBtn.textContent="途中駅を表示";
+  toggleBtn.className="toggle-btn";
+  let showIntermediates=false;
+  toggleBtn.onclick=()=>{
+    showIntermediates=!showIntermediates;
+    toggleBtn.textContent=showIntermediates?"途中駅を非表示":"途中駅を表示";
+    renderRoute();
+  };
+  res.appendChild(toggleBtn);
+
+  const routeDiv=document.createElement("div");
+  res.appendChild(routeDiv);
+
+  function renderRoute(){
+    routeDiv.innerHTML="";
+    for(let i=0;i<path.length;i++){
+      const st=path[i];
+      const prev=path[i-1], next=path[i+1];
+
+      // どの路線か判定
+      let lineName=null;
+      for(const [ln,data] of Object.entries(lines)){
+        if(data.stations.includes(st)){ lineName=ln; break; }
+      }
+      const color=lineName?lines[lineName].color:"#000";
+
+      // 中間駅を隠す処理
+      if(!showIntermediates && i!==0 && i!==path.length-1){
+        continue;
+      }
+
+      const step=document.createElement("div");
+      step.className="route-step";
+
+      // マーカー
+      const marker=document.createElement("div");
+      marker.className="line-marker";
+      const circle=document.createElement("div");
+      circle.className="circle"+((i!==0 && i!==path.length-1)? " small":"");
+      circle.style.background=color;
+      marker.appendChild(circle);
+
+      if(i<path.length-1){
+        const line=document.createElement("div");
+        line.className="line";
+        line.style.background=color;
+        marker.appendChild(line);
+      }
+      step.appendChild(marker);
+
+      // 駅情報
+      const info=document.createElement("div");
+      info.className="station-info";
+      const name=document.createElement("div");
+      name.className="station-name";
+      name.textContent=st;
+      const lname=document.createElement("div");
+      lname.className="line-name";
+      lname.textContent=lineName||"";
+      info.appendChild(name);
+      info.appendChild(lname);
+      step.appendChild(info);
+
+      routeDiv.appendChild(step);
+    }
+  }
+  renderRoute();
+}
+</script>
+</body>
+</html>
