@@ -1,14 +1,44 @@
-import React, { useState } from "react";
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>新里鉄道 乗換案内</title>
+<style>
+  body { font-family: sans-serif; }
+  .diagram { display: flex; align-items: center; margin-top: 20px; }
+  .station { display: flex; align-items: center; }
+  .station-name { margin: 0 8px; }
+  .line { height: 4px; flex-grow: 1; }
+  .circle { width: 14px; height: 14px; border-radius: 50%; background: black; }
+  .circle.small { width: 10px; height: 10px; }
+</style>
+</head>
+<body>
+<h1>新里鉄道 乗換案内</h1>
 
+<div>
+  <label>出発駅:
+    <select id="fromStation"></select>
+  </label>
+  <label>到着駅:
+    <select id="toStation"></select>
+  </label>
+  <button onclick="search()">検索</button>
+  <button onclick="toggleVia()">途中駅を表示</button>
+</div>
+
+<div id="result"></div>
+<div id="diagram" class="diagram"></div>
+
+<script>
 // ==== 駅・路線データ ====
 const stationLines = {
-  "湯の浜線": ["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
-  "燠野線": ["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
-  "鶴宮線": ["鶴宮","南鶴宮","あずさ台","橘町","燠野山口","白枝","燠野","紅葉台","桐山","湊川","彩山親水公園","彩山","蓮華寺","星宮","田ノ原"],
-  "新里線": ["新里","南新里","田ノ原","北玖川","玖川","中野原"],
-  "彩山線": ["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"]
+  "湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
+  "燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
+  "鶴宮線":["鶴宮","南鶴宮","あずさ台","橘町","燠野山口","白枝","燠野","紅葉台","桐山","湊川","彩山親水公園","彩山","蓮華寺","星宮","田ノ原"],
+  "新里線":["新里","南新里","田ノ原","北玖川","玖川","中野原"],
+  "彩山線":["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"]
 };
-
 const lineColors = {
   "湯の浜線":"#07b5f7",
   "燠野線":"#fd5062",
@@ -18,29 +48,41 @@ const lineColors = {
 };
 
 // 「新里鉄道◯◯線」に変換（表示専用）
-function displayLineName(line) {
-  return `新里鉄道${line}`;
+function displayLineName(line){
+  return line ? `新里鉄道${line}` : "";
+}
+
+// ==== 駅→路線逆引き ====
+const stationToLine = {};
+for (const [line, stations] of Object.entries(stationLines)) {
+  for (const st of stations) {
+    if (!stationToLine[st]) stationToLine[st] = [];
+    stationToLine[st].push(line);
+  }
 }
 
 // ==== 駅間距離データ（省略なし） ====
 const rawGraph = {
-  "豊町":{"東豊町":1.2}, "東豊町":{"清水浜":1.4}, "清水浜":{"安田町":1.9}, "安田町":{"南栃原":2.2},
-  "南栃原":{"栃原":0.9}, "栃原":{"宇城":2.2}, "宇城":{"須川":2.1}, "須川":{"御浜埼公園":1.9},
-  "御浜埼公園":{"御浜":0.6}, "御浜":{"伊坂":2.5}, "伊坂":{"垳下":2.6}, "垳下":{"北浜":2.3},
+  "豊町":{"東豊町":1.2}, "東豊町":{"清水浜":1.4}, "清水浜":{"安田町":1.9},
+  "安田町":{"南栃原":2.2}, "南栃原":{"栃原":0.9}, "栃原":{"宇城":2.2},
+  "宇城":{"須川":2.1}, "須川":{"御浜埼公園":1.9}, "御浜埼公園":{"御浜":0.6},
+  "御浜":{"伊坂":2.5}, "伊坂":{"垳下":2.6}, "垳下":{"北浜":2.3},
   "北浜":{"西新里":1.4}, "西新里":{"新里":1.7}, "新里":{"河岸":0.9,"南新里":2.5},
-  "河岸":{"新里海浜公園":1.7}, "新里海浜公園":{"湯の浜海岸":2.3}, "湯の浜海岸":{"湯の浜":1.5},
-  "湯の浜":{"七浦":2.5,"新里大学前":0.8}, "七浦":{"那珂町":1.6}, "那珂町":{"宇多野":2.2},
-  "宇多野":{"伊奈崎":1.8}, "伊奈崎":{"鶴宮神社":1.5}, "鶴宮神社":{"鶴宮":1.2},
-  "鶴宮":{"北鶴宮":1.1,"南鶴宮":1.7}, "新里大学前":{"綾原":0.7}, "綾原":{"福来":1.2},
-  "福来":{"燠野":1.4}, "燠野":{"湯川":2.6,"紅葉台":1.1}, "湯川":{"温泉口":1.6},
-  "温泉口":{"燠野温泉":1.9}, "南鶴宮":{"あずさ台":1.4}, "あずさ台":{"橘町":1.8},
-  "橘町":{"燠野山口":1.1}, "燠野山口":{"白枝":1.2}, "白枝":{"燠野":1.1},
-  "紅葉台":{"桐山":0.8}, "桐山":{"湊川":0.8}, "湊川":{"彩山親水公園":1.1},
-  "彩山親水公園":{"彩山":1.2}, "彩山":{"蓮華寺":0.8,"彩山口":2.1}, "蓮華寺":{"星宮":1.1},
-  "星宮":{"田ノ原":1.1}, "南新里":{"田ノ原":2.3}, "田ノ原":{"北玖川":2.4},
-  "北玖川":{"玖川":3.1}, "玖川":{"中野原":3.1}, "彩山口":{"新里国際スキー場":3.4},
+  "河岸":{"新里海浜公園":1.7}, "新里海浜公園":{"湯の浜海岸":2.3},
+  "湯の浜海岸":{"湯の浜":1.5}, "湯の浜":{"七浦":2.5,"新里大学前":0.8},
+  "七浦":{"那珂町":1.6}, "那珂町":{"宇多野":2.2}, "宇多野":{"伊奈崎":1.8},
+  "伊奈崎":{"鶴宮神社":1.5}, "鶴宮神社":{"鶴宮":1.2}, "鶴宮":{"北鶴宮":1.1,"南鶴宮":1.7},
+  "新里大学前":{"綾原":0.7}, "綾原":{"福来":1.2}, "福来":{"燠野":1.4},
+  "燠野":{"湯川":2.6,"紅葉台":1.1}, "湯川":{"温泉口":1.6}, "温泉口":{"燠野温泉":1.9},
+  "南鶴宮":{"あずさ台":1.4}, "あずさ台":{"橘町":1.8}, "橘町":{"燠野山口":1.1},
+  "燠野山口":{"白枝":1.2}, "白枝":{"燠野":1.1}, "紅葉台":{"桐山":0.8},
+  "桐山":{"湊川":0.8}, "湊川":{"彩山親水公園":1.1}, "彩山親水公園":{"彩山":1.2},
+  "彩山":{"蓮華寺":0.8,"彩山口":2.1}, "蓮華寺":{"星宮":1.1}, "星宮":{"田ノ原":1.1},
+  "南新里":{"田ノ原":2.3}, "田ノ原":{"北玖川":2.4}, "北玖川":{"玖川":3.1},
+  "玖川":{"中野原":3.1}, "彩山口":{"新里国際スキー場":3.4},
   "新里国際スキー場":{"鷹見台":10.7}, "鷹見台":{"久我原":2.7}, "久我原":{"浪原":1.5},
-  "浪原":{"深江":1.4}, "深江":{"三栗谷":1.3}, "三栗谷":{"桜川公園":1.5}, "桜川公園":{"桜川":2.2}
+  "浪原":{"深江":1.4}, "深江":{"三栗谷":1.3}, "三栗谷":{"桜川公園":1.5},
+  "桜川公園":{"桜川":2.2}
 };
 
 // ==== 双方向グラフ ====
@@ -66,92 +108,75 @@ function fare(distance){
   else return {adult:340,child:170};
 }
 
-// ==== ダイクストラ法 ====
-function dijkstra(start, goal) {
-  const dist = {};
-  const prev = {};
-  const pq = new Set(Object.keys(graph));
-
-  for (const v of pq) {
-    dist[v] = Infinity;
-    prev[v] = null;
+// ==== 駅選択肢 ====
+function populateStations(){
+  const fromSel = document.getElementById("fromStation");
+  const toSel = document.getElementById("toStation");
+  const allStations = [...new Set(Object.keys(graph))].sort();
+  for(const st of allStations){
+    const opt1 = document.createElement("option"); opt1.value = st; opt1.textContent = st;
+    const opt2 = document.createElement("option"); opt2.value = st; opt2.textContent = st;
+    fromSel.appendChild(opt1); toSel.appendChild(opt2);
   }
-  dist[start] = 0;
+}
+populateStations();
 
-  while (pq.size) {
-    let u = null;
-    for (const v of pq) {
-      if (u === null || dist[v] < dist[u]) u = v;
+// ==== 経路探索（Dijkstra）====
+function dijkstra(start,goal){
+  const dist = {}; const prev = {}; const visited = {};
+  for(const s in graph) dist[s]=Infinity;
+  dist[start]=0;
+  while(true){
+    let u=null; let min=Infinity;
+    for(const s in dist){ if(!visited[s] && dist[s]<min){ min=dist[s]; u=s; } }
+    if(u===null) break;
+    if(u===goal) break;
+    visited[u]=true;
+    for(const [v,d] of Object.entries(graph[u])){
+      const alt=dist[u]+d;
+      if(alt<dist[v]){ dist[v]=alt; prev[v]=u; }
     }
-    pq.delete(u);
-
-    if (u === goal) break;
-
-    for (const [neighbor, d] of Object.entries(graph[u])) {
-      const alt = dist[u] + d;
-      if (alt < dist[neighbor]) {
-        dist[neighbor] = alt;
-        prev[neighbor] = u;
-      }
-    }
   }
-
-  const path = [];
-  let u = goal;
-  while (u) {
-    path.unshift(u);
-    u = prev[u];
-  }
-  return {distance: dist[goal], path};
+  const path=[]; let u=goal;
+  while(u){ path.unshift(u); u=prev[u]; }
+  return {distance:dist[goal],path};
 }
 
-// ==== React UI ====
-export default function App() {
-  const allStations = Object.values(stationLines).flat();
-  const [from, setFrom] = useState("新里");
-  const [to, setTo] = useState("湯の浜");
-  const [result, setResult] = useState(null);
+let showVia=false;
+function toggleVia(){ showVia=!showVia; search(); }
 
-  const handleSearch = () => {
-    if (from === to) return;
-    const res = dijkstra(from, to);
-    setResult(res);
-  };
+function search(){
+  const from=document.getElementById("fromStation").value;
+  const to=document.getElementById("toStation").value;
+  if(!from||!to||from===to) return;
+  const {distance,path}=dijkstra(from,to);
+  const f=fare(distance);
+  document.getElementById("result").innerHTML=
+    `距離:${distance.toFixed(1)}km<br>運賃: 大人${f.adult}円 子供${f.child}円`;
 
-  return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">新里鉄道 運賃計算</h1>
-      
-      <div className="flex gap-4 mb-4">
-        <select value={from} onChange={e=>setFrom(e.target.value)} className="border p-2 rounded">
-          {allStations.map(st=><option key={st}>{st}</option>)}
-        </select>
-        <span className="self-center">→</span>
-        <select value={to} onChange={e=>setTo(e.target.value)} className="border p-2 rounded">
-          {allStations.map(st=><option key={st}>{st}</option>)}
-        </select>
-        <button onClick={handleSearch} className="px-4 py-2 bg-blue-500 text-white rounded">検索</button>
-      </div>
-
-      {result && (
-        <div className="p-4 border rounded bg-gray-50">
-          <p>距離: {result.distance.toFixed(1)} km</p>
-          <p>運賃: 大人 {fare(result.distance).adult}円 / 子供 {fare(result.distance).child}円</p>
-          <p className="mt-2 font-semibold">経路:</p>
-          <div className="flex flex-wrap gap-2 mt-1">
-            {result.path.map((station, i) => {
-              // 駅が属する路線を調べる
-              const line = Object.keys(stationLines).find(line => stationLines[line].includes(station));
-              const color = line ? lineColors[line] : "#ccc";
-              return (
-                <span key={i} className="px-2 py-1 rounded text-white" style={{background: color}}>
-                  {station}{line ? `（${displayLineName(line)}）` : ""}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  const dia=document.getElementById("diagram");
+  dia.innerHTML="";
+  for(let i=0;i<path.length;i++){
+    const st=path[i];
+    const div=document.createElement("div");
+    div.className="station";
+    const circle=document.createElement("div");
+    circle.className="circle";
+    if(i>0 && i<path.length-1 && showVia) circle.classList.add("small");
+    const label=document.createElement("div");
+    label.className="station-name"; label.textContent=st;
+    div.appendChild(circle); div.appendChild(label);
+    dia.appendChild(div);
+    if(i<path.length-1){
+      const next=path[i+1];
+      const common=stationToLine[st].find(l=>stationToLine[next].includes(l));
+      const color=lineColors[common]||"gray";
+      const line=document.createElement("div");
+      line.className="line"; line.style.background=color;
+      dia.appendChild(line);
+    }
+  }
 }
+</script>
+</body>
+</html>
