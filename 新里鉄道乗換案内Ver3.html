@@ -229,7 +229,7 @@
         }
 
         // ラベルや路線ピルが重ならないように余裕を確保
-        gap = Math.max(gap, fontH + pillH + 40);
+        gap = Math.max(gap, fontH + pillH + 80);  // ← 40 を 80 に変更
 
         const lineName = segmentLineBetween(path, a, b);
         segmentMeta.push({a,b,subs,key,show,gap,lineName});
