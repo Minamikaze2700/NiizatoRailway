@@ -285,9 +285,71 @@
         // 路線名ピル（発駅・乗換駅のみ＝次があれば表示）
         if(nextSt && metaNext && metaNext.lineName){
           const color = lineColors[metaNext.lineName];
-          const pillGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
-          pillGroup.setAttribute('transform', 'translate(0, 16)');
-          label.appendChild(pillGroup);
+// ラベル（駅名＋路線ピル＋ボタン）を縦に等間隔で配置
+const label = document.createElementNS('http://www.w3.org/2000/svg','g');
+label.setAttribute('class','label');
+label.setAttribute('transform', `translate(${cx + 22}, ${cy})`);
+svg.appendChild(label);
+
+let offsetY = 0;
+
+// 駅名
+const nameText = document.createElementNS('http://www.w3.org/2000/svg','text');
+nameText.setAttribute('class','name');
+nameText.setAttribute('dominant-baseline','hanging');
+nameText.textContent = st;
+label.appendChild(nameText);
+offsetY += 30;  // 次の要素までの間隔
+
+// 路線名ピル
+if(nextSt && metaNext && metaNext.lineName){
+  const color = lineColors[metaNext.lineName];
+  const pillGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
+  pillGroup.setAttribute('transform', `translate(0, ${offsetY})`);
+  label.appendChild(pillGroup);
+
+  const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+  text.setAttribute('class','line-pill');
+  text.textContent = `新里鉄道${metaNext.lineName}`;
+  pillGroup.appendChild(text);
+
+  const bbox = text.getBBox();
+  const bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
+  bg.setAttribute('class','pill-bg');
+  bg.setAttribute('x', bbox.x - 6);
+  bg.setAttribute('y', bbox.y - 2);
+  bg.setAttribute('width', bbox.width + 12);
+  bg.setAttribute('height', bbox.height + 6);
+  bg.setAttribute('fill', color);
+  pillGroup.insertBefore(bg, text);
+
+  offsetY += 30; // 次の要素までの間隔
+
+  // ボタン
+  const btn = document.createElementNS('http://www.w3.org/2000/svg','foreignObject');
+  btn.setAttribute('x', bbox.x);
+  btn.setAttribute('y', offsetY);
+  btn.setAttribute('width', Math.max(120, bbox.width));
+  btn.setAttribute('height', 28);
+
+  const div = document.createElementNS('http://www.w3.org/1999/xhtml','div');
+  div.className = 'seg-btn';
+  const key = metaNext.key;
+  const on = !!segToggle.get(key);
+  div.textContent = on ? '途中駅を非表示' : '途中駅を表示';
+  div.style.cursor = 'pointer';
+  div.style.background = '#f3f3f3';
+  div.style.border = '1px solid #ccc';
+  div.style.borderRadius = '6px';
+  div.style.display = 'inline-block';
+  div.style.padding = '2px 6px';
+  div.addEventListener('click', ()=>{
+    segToggle.set(key, !segToggle.get(key));
+    drawRoute(path);
+  });
+  btn.appendChild(div);
+  label.appendChild(btn);
+}
 
           const text = document.createElementNS('http://www.w3.org/2000/svg','text');
           text.setAttribute('class','line-pill');
