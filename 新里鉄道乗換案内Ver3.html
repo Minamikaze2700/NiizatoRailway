@@ -8,10 +8,9 @@
     select, button { margin: 5px; padding: 5px; }
     .result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
     svg { width: 100%; height: 200px; margin-top: 20px; }
-    .station { text-anchor: middle; }
-    .midstation { font-size: 12px; fill: #333; }
-    .line { stroke-width: 4; }
-    .midcircle { fill: black; r: 4; }
+    .station { text-anchor: middle; font-weight: bold; }
+    .midstation { text-anchor: middle; font-size: 12px; fill: #333; }
+    .midcircle { fill: black; r: 3; }
   </style>
 </head>
 <body>
@@ -35,7 +34,7 @@
   <svg id="routeMap"></svg>
 
   <script>
-    // ==== 駅・路線データ ====
+    // ==== 路線ごとの駅 ====
     const stationLines = {
       "湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
       "燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
@@ -43,15 +42,8 @@
       "新里線":["新里","南新里","田ノ原","北玖川","玖川","中野原"],
       "彩山線":["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"]
     };
-    const lineColors = {
-      "湯の浜線":"#07b5f7",
-      "燠野線":"#fd5062",
-      "新里線":"#0cab5e",
-      "鶴宮線":"#feac2c",
-      "彩山線":"#7dca22"
-    };
 
-    // ==== 駅間距離データ ====
+    // ==== 駅間距離データ（無向グラフ化）====
     const rawGraph = {
       "豊町":{"東豊町":1.2}, "東豊町":{"清水浜":1.4}, "清水浜":{"安田町":1.9}, "安田町":{"南栃原":2.2},
       "南栃原":{"栃原":0.9}, "栃原":{"宇城":2.2}, "宇城":{"須川":2.1}, "須川":{"御浜埼公園":1.9},
@@ -182,30 +174,24 @@
 
       // 駅
       path.forEach((st,i)=>{
-        if(i!==0 && i!==path.length-1 && !showMid) return;
         const cx=margin+i*step, cy=h/2;
+        if(i!==0 && i!==path.length-1 && !showMid){
+          // 中間駅非表示時はスキップ
+          return;
+        }
         const circle=document.createElementNS("http://www.w3.org/2000/svg","circle");
-        circle.setAttribute("cx",cx); circle.setAttribute("cy",cy); circle.setAttribute("r",6);
-        circle.setAttribute("fill","white"); circle.setAttribute("stroke","black");
+        circle.setAttribute("cx",cx); circle.setAttribute("cy",cy);
+        circle.setAttribute("r", i===0||i===path.length-1 ? 6 : 3);
+        circle.setAttribute("fill", i===0||i===path.length-1 ? "white" : "black");
+        circle.setAttribute("stroke","black");
         svg.appendChild(circle);
 
         const text=document.createElementNS("http://www.w3.org/2000/svg","text");
         text.setAttribute("x",cx); text.setAttribute("y",cy-10);
-        text.setAttribute("class",i===0||i===path.length-1?"station":"midstation");
+        text.setAttribute("class", i===0||i===path.length-1 ? "station":"midstation");
         text.textContent=st;
         svg.appendChild(text);
       });
-
-      // 途中駅小丸
-      if(showMid){
-        for(let i=1;i<path.length-1;i++){
-          const cx=margin+i*step, cy=h/2;
-          const mc=document.createElementNS("http://www.w3.org/2000/svg","circle");
-          mc.setAttribute("cx",cx); mc.setAttribute("cy",cy); mc.setAttribute("r",3);
-          mc.setAttribute("fill","black");
-          svg.appendChild(mc);
-        }
-      }
     }
   </script>
 </body>
