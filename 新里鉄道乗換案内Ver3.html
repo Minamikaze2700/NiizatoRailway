@@ -333,14 +333,17 @@
 
         // 途中駅（この主要駅から次の主要駅の間）
         if(metaNext && metaNext.show){
-          const y1 = cy + MAJOR_R; // 下端
-          const y2 = ys[i+1] - MAJOR_R; // 次の●の上端
+          const y1 = cy + MAJOR_R + 40;  // 下端から少し余白
           const subs = metaNext.subs;
-          const step = (y2 - y1) / (subs.length + 1);
+          const fixedStep = 50; // ← 停車駅同士の間隔（px）を固定
+
           subs.forEach((name, idx)=>{
-            const sy = y1 + step*(idx+1);
+            const sy = y1 + fixedStep * idx;
             drawStation({name, x: cx, y: sy, isMajor:false, line: metaNext.lineName});
           });
+
+          // 次の主要駅の位置も調整
+          ys[i+1] = y1 + fixedStep * subs.length + 60; // 余白を確保して再配置
         }
       }
     }
