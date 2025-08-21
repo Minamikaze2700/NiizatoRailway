@@ -1,246 +1,241 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>新里鉄道路線案内</title>
-<style>
-  body{font-family:sans-serif;margin:20px;}
-  .controls{margin-bottom:10px;}
-  select{margin:0 5px;}
-  #map{border:1px solid #ccc;width:360px;height:640px;overflow:auto;}
-  svg{width:100%;height:auto;}
-  .station-label{font-size:14px;}
-  .line-pill{font-size:12px;fill:#fff;}
-  .seg-btn{font-size:12px;}
-</style>
+  <meta charset="UTF-8">
+  <title>新里鉄道 乗換案内</title>
+  <style>
+    body { font-family: sans-serif; }
+    .seg-btn {
+      font-size: 12px;
+      background: #f3f3f3;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      display: inline-block;
+      padding: 2px 6px;
+    }
+  </style>
 </head>
 <body>
-  <h2>新里鉄道 乗換案内</h2>
-  <div class="controls">
-    出発駅：
-    <select id="fromLine"></select>
-    <select id="fromStation"></select>
-    到着駅：
-    <select id="toLine"></select>
-    <select id="toStation"></select>
-    <button id="searchBtn">検索</button>
-  </div>
+  <h1>新里鉄道 乗換案内</h1>
+  出発駅:
+  <select id="fromLine"></select><select id="fromStation"></select>
+  到着駅:
+  <select id="toLine"></select><select id="toStation"></select>
+  <button id="searchBtn">検索</button>
   <div id="result"></div>
-  <div id="map"><svg id="svgmap"></svg></div>
+  <svg id="map" width="400" height="800"></svg>
 
-<script>
-// ==== 路線データ ====
-const stationLines = {
-  "湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜"],
-  "燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
-  "鶴宮線":["田ノ原","鶴宮"],
-  "彩山線":["彩山","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"]
-};
+  <script>
+    // ==== 駅・路線データ（変更不可）====
+    const stationLines = {
+      "湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜"],
+      "燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
+      "鶴宮線":["新里","田ノ原","北玖川","玖川","中野原","彩山"],
+      "彩山線":["彩山","蓮華寺","星宮","田ノ原","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"]
+    };
 
-// ==== 距離グラフ ====
-const rawGraph = {
-  "豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},"安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},
-  "栃原":{"宇城":2.2},"宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},"御浜":{"伊坂":2.5},
-  "伊坂":{"垳下":2.6},"垳下":{"北浜":2.3},"北浜":{"西新里":1.4},"西新里":{"新里":1.7},"新里":{"河岸":0.9,"南新里":2.5},
-  "河岸":{"新里海浜公園":1.7},"新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5},
-  "湯の浜":{"七浦":2.5,"新里大学前":0.8},
-  "新里大学前":{"綾原":0.7},"綾原":{"福来":1.2},"福来":{"燠野":1.4},
-  "燠野":{"湯川":2.6,"紅葉台":1.1},"湯川":{"温泉口":1.6},"温泉口":{"燠野温泉":1.9},
-  "七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},"伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},
-  "田ノ原":{"鷹見台":10.7},"鷹見台":{"久我原":2.7},"久我原":{"浪原":1.5},"浪原":{"深江":1.4},
-  "深江":{"三栗谷":1.3},"三栗谷":{"桜川公園":1.5},"桜川公園":{"桜川":2.2}
-};
+    const lineColors = {
+      "湯の浜線":"#07b5f7",
+      "燠野線":"#e74c3c",
+      "鶴宮線":"#f39c12",
+      "彩山線":"#27ae60"
+    };
 
-// ==== 運賃テーブル ====
-function fare(distance){
-  if(distance<=3) return {adult:130,child:70};
-  else if(distance<=6) return {adult:160,child:80};
-  else if(distance<=10) return {adult:190,child:100};
-  else if(distance<=15) return {adult:220,child:110};
-  else if(distance<=20) return {adult:250,child:130};
-  else if(distance<=25) return {adult:280,child:140};
-  else if(distance<=30) return {adult:310,child:160};
-  else return {adult:340,child:170};
-}
+    // ==== グラフデータ ====
+    const rawGraph = {
+      "豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},"安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},
+      "栃原":{"宇城":2.2},"宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},"御浜":{"伊坂":2.5},
+      "伊坂":{"垳下":2.6},"垳下":{"北浜":2.3},"北浜":{"西新里":1.4},"西新里":{"新里":1.7},"新里":{"河岸":0.9,"南新里":2.5},
+      "河岸":{"新里海浜公園":1.7},"新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5},"湯の浜":{"七浦":2.5,"新里大学前":0.8},
+      "七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},"伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},
+      "鶴宮":{"北鶴宮":1.1,"南鶴宮":1.7},"新里大学前":{"綾原":0.7},"綾原":{"福来":1.2},"福来":{"燠野":1.4},
+      "燠野":{"湯川":2.6,"紅葉台":1.1},"湯川":{"温泉口":1.6},"温泉口":{"燠野温泉":1.9},"南鶴宮":{"あずさ台":1.4},
+      "あずさ台":{"橘町":1.8},"橘町":{"燠野山口":1.1},"燠野山口":{"白枝":1.2},"白枝":{"燠野":1.1},"紅葉台":{"桐山":0.8},
+      "桐山":{"湊川":0.8},"湊川":{"彩山親水公園":1.1},"彩山親水公園":{"彩山":1.2},"彩山":{"蓮華寺":0.8,"彩山口":2.1},
+      "蓮華寺":{"星宮":1.1},"星宮":{"田ノ原":1.1},"南新里":{"田ノ原":2.3},"田ノ原":{"北玖川":2.4},"北玖川":{"玖川":3.1},
+      "玖川":{"中野原":3.1},"彩山口":{"新里国際スキー場":3.4},"新里国際スキー場":{"鷹見台":10.7},"鷹見台":{"久我原":2.7},
+      "久我原":{"浪原":1.5},"浪原":{"深江":1.4},"深江":{"三栗谷":1.3},"三栗谷":{"桜川公園":1.5},"桜川公園":{"桜川":2.2}
+    };
 
-// ==== Graph Utility ====
-function buildGraph(){
-  const g={};
-  for(const a in rawGraph){
-    for(const b in rawGraph[a]){
-      const d=rawGraph[a][b];
-      if(!g[a]) g[a]={};
-      if(!g[b]) g[b]={};
-      g[a][b]=d; g[b][a]=d;
+    // ==== 運賃 ====
+    function fare(distance){
+      if(distance<=3) return {adult:130,child:70};
+      else if(distance<=6) return {adult:160,child:80};
+      else if(distance<=10) return {adult:190,child:100};
+      else if(distance<=15) return {adult:220,child:110};
+      else if(distance<=20) return {adult:250,child:130};
+      else if(distance<=25) return {adult:280,child:140};
+      else if(distance<=30) return {adult:310,child:160};
+      else return {adult:340,child:170};
     }
-  }
-  return g;
-}
-const graph=buildGraph();
 
-// ==== 経路探索 (Dijkstra) ====
-function shortestPath(start,goal){
-  const dist={},prev={},Q=new Set();
-  for(const v in graph){dist[v]=Infinity;Q.add(v);}
-  dist[start]=0;
-  while(Q.size){
-    let u=null,min=Infinity;
-    for(const v of Q){if(dist[v]<min){min=dist[v];u=v;}}
-    if(u===null) break;
-    Q.delete(u);
-    if(u===goal) break;
-    for(const nb in graph[u]){
-      const alt=dist[u]+graph[u][nb];
-      if(alt<dist[nb]){dist[nb]=alt;prev[nb]=u;}
+    // ==== 最短経路探索 ====
+    function shortestPath(start,goal){
+      const dist={},prev={},Q=new Set(Object.keys(rawGraph));
+      for(const v of Q) dist[v]=Infinity;
+      dist[start]=0;
+      while(Q.size){
+        let u=null,du=Infinity;
+        for(const v of Q){ if(dist[v]<du){du=dist[v];u=v;} }
+        if(u===goal) break;
+        Q.delete(u);
+        for(const v in rawGraph[u]){
+          const alt=dist[u]+rawGraph[u][v];
+          if(alt<dist[v]){dist[v]=alt;prev[v]=u;}
+        }
+      }
+      const path=[];
+      let u=goal;
+      while(u){path.unshift(u);u=prev[u];}
+      return {path,distance:dist[goal]};
     }
-  }
-  const path=[];let u=goal;
-  while(u){path.unshift(u);u=prev[u];}
-  return {path,distance:dist[goal]};
-}
 
-// ==== 駅が属する路線を調べる ====
-function findLine(a,b){
-  for(const line in stationLines){
-    const arr=stationLines[line];
-    for(let i=0;i<arr.length-1;i++){
-      if(arr[i]===a && arr[i+1]===b) return line;
-      if(arr[i]===b && arr[i+1]===a) return line;
+    // ==== SVG描画 ====
+    const svg=document.getElementById("map");
+    let segToggle=new Map();
+
+    function drawStation({name,x,y,isMajor,line}){
+      const g=document.createElementNS("http://www.w3.org/2000/svg","g");
+      const circle=document.createElementNS("http://www.w3.org/2000/svg","circle");
+      circle.setAttribute("cx",x);
+      circle.setAttribute("cy",y);
+      circle.setAttribute("r",isMajor?8:6);
+      circle.setAttribute("fill","#fff");
+      circle.setAttribute("stroke",lineColors[line]||"#000");
+      circle.setAttribute("stroke-width",3);
+      g.appendChild(circle);
+      const text=document.createElementNS("http://www.w3.org/2000/svg","text");
+      text.setAttribute("x",x+20);
+      text.setAttribute("y",y+4);
+      text.textContent=name;
+      g.appendChild(text);
+      svg.appendChild(g);
     }
-  }
-  return null;
-}
 
-// ==== 途中駅列挙 ====
-function getSubs(line,a,b){
-  const arr=stationLines[line];
-  const ia=arr.indexOf(a), ib=arr.indexOf(b);
-  if(ia<0||ib<0) return [];
-  const [s,e]=ia<ib?[ia,ib]:[ib,ia];
-  return arr.slice(s+1,e);
-}
-
-// ==== 描画 ====
-const svg=document.getElementById("svgmap");
-let segToggle=new Map();
-
-function clearSVG(){while(svg.firstChild)svg.removeChild(svg.firstChild);}
-
-function drawStation({name,x,y,isMajor,line}){
-  const color={湯の浜線:"deepskyblue",燠野線:"crimson",鶴宮線:"orange",彩山線:"green"}[line]||"#666";
-  const r=isMajor?8:6;
-  const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
-  c.setAttribute("cx",x);c.setAttribute("cy",y);c.setAttribute("r",r);
-  c.setAttribute("fill",color);svg.appendChild(c);
-
-  if(isMajor){
-    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
-    t.setAttribute("x",x+20);t.setAttribute("y",y+4);
-    t.setAttribute("class","station-label");t.textContent=name;
-    svg.appendChild(t);
-    const pill=document.createElementNS("http://www.w3.org/2000/svg","rect");
-    pill.setAttribute("x",x+20);pill.setAttribute("y",y+10);
-    pill.setAttribute("width",100);pill.setAttribute("height",20);
-    pill.setAttribute("fill",color);pill.setAttribute("rx",6);pill.setAttribute("ry",6);
-    svg.appendChild(pill);
-    const tt=document.createElementNS("http://www.w3.org/2000/svg","text");
-    tt.setAttribute("x",x+24);tt.setAttribute("y",y+25);
-    tt.setAttribute("class","line-pill");tt.textContent="新里鉄道"+line;
-    svg.appendChild(tt);
-  }
-}
-
-function drawRoute(path){
-  clearSVG();
-  const cx=40;let y=40;
-  const ys=[y];for(let i=1;i<path.length;i++){y+=60;ys.push(y);}
-  const lineColor={湯の浜線:"deepskyblue",燠野線:"crimson",鶴宮線:"orange",彩山線:"green"};
-
-  for(let i=0;i<path.length-1;i++){
-    const line=findLine(path[i],path[i+1]);
-    const l=document.createElementNS("http://www.w3.org/2000/svg","line");
-    l.setAttribute("x1",cx);l.setAttribute("y1",ys[i]);
-    l.setAttribute("x2",cx);l.setAttribute("y2",ys[i+1]);
-    l.setAttribute("stroke",lineColor[line]||"#888");
-    l.setAttribute("stroke-width",5);svg.appendChild(l);
-  }
-
-  for(let i=0;i<path.length;i++){
-    const name=path[i];
-    const prev=findLine(path[i-1],path[i]);
-    const next=findLine(path[i],path[i+1]);
-    if(i===0||i===path.length-1||(prev&&next&&prev!==next)){
-      drawStation({name,x:cx,y:ys[i],isMajor:true,line:prev||next});
+    function findLine(a,b){
+      if(!a||!b) return null;
+      for(const [line,sts] of Object.entries(stationLines)){
+        const i=sts.indexOf(a);
+        if(i>=0 && sts[i+1]===b || sts[i-1]===b) return line;
+      }
+      return null;
     }
-    if(i<path.length-1){
-      const line=findLine(path[i],path[i+1]);
-      if(line){
-        const key=`${path[i]}-${path[i+1]}`;
-        let offsetYmid=ys[i]+20;
-        const fo=document.createElementNS("http://www.w3.org/2000/svg","foreignObject");
-        fo.setAttribute("x",cx+20);fo.setAttribute("y",offsetYmid-14);
-        fo.setAttribute("width",140);fo.setAttribute("height",28);
-        const div=document.createElementNS("http://www.w3.org/1999/xhtml","div");
-        div.className="seg-btn";const on=!!segToggle.get(key);
-        div.textContent=on?"途中駅を非表示":"途中駅を表示";
-        div.style.cursor="pointer";
-        div.style.background="#f3f3f3";div.style.border="1px solid #ccc";
-        div.style.borderRadius="6px";div.style.display="inline-block";
-        div.style.padding="2px 6px";
-        div.addEventListener("click",()=>{segToggle.set(key,!segToggle.get(key));drawRoute(path);});
-        fo.appendChild(div);svg.appendChild(fo);
 
-        if(segToggle.get(key)){
-          const subs=getSubs(line,path[i],path[i+1]);
-          for(let j=0;j<subs.length;j++){
-            const subY=ys[i]+((j+1)*(ys[i+1]-ys[i])/(subs.length+1));
-            drawStation({name:subs[j],x:cx,y:subY,isMajor:false,line:line});
+    function getSubs(line,a,b){
+      const arr=stationLines[line];
+      const ia=arr.indexOf(a),ib=arr.indexOf(b);
+      if(ia<0||ib<0) return [];
+      if(ia<ib) return arr.slice(ia+1,ib);
+      else return arr.slice(ib+1,ia).reverse();
+    }
+
+    function drawRoute(path){
+      svg.innerHTML="";
+      const cx=40;
+      const ys=[];
+      const segLen=60;
+      for(let i=0;i<path.length;i++) ys.push(40+i*segLen);
+
+      for(let i=0;i<path.length-1;i++){
+        const a=path[i],b=path[i+1];
+        const line=findLine(a,b);
+        const lineElem=document.createElementNS("http://www.w3.org/2000/svg","line");
+        lineElem.setAttribute("x1",cx);
+        lineElem.setAttribute("y1",ys[i]);
+        lineElem.setAttribute("x2",cx);
+        lineElem.setAttribute("y2",ys[i+1]);
+        lineElem.setAttribute("stroke",lineColors[line]||"#000");
+        lineElem.setAttribute("stroke-width",6);
+        svg.appendChild(lineElem);
+      }
+
+      for(let i=0;i<path.length;i++){
+        const name=path[i];
+        const prevLine=findLine(path[i-1],path[i]);
+        const nextLine=findLine(path[i],path[i+1]);
+
+        if(i===0 || i===path.length-1 || (prevLine && nextLine && prevLine!==nextLine)){
+          drawStation({name,x:cx,y:ys[i],isMajor:true,line:prevLine||nextLine});
+        }
+
+        if(i<path.length-1){
+          const lineName=findLine(path[i],path[i+1]);
+          if(lineName){
+            const key=`${path[i]}-${path[i+1]}`;
+            let offsetYmid=ys[i]+20;
+
+            const fo=document.createElementNS("http://www.w3.org/2000/svg","foreignObject");
+            fo.setAttribute("x",cx+20);
+            fo.setAttribute("y",offsetYmid-14);
+            fo.setAttribute("width",140);
+            fo.setAttribute("height",28+20); // 20px余白
+            const div=document.createElementNS("http://www.w3.org/1999/xhtml","div");
+            div.className="seg-btn";
+            const on=!!segToggle.get(key);
+            div.textContent=on?"途中駅を非表示":"途中駅を表示";
+            div.style.cursor="pointer";
+            div.addEventListener("click",()=>{
+              segToggle.set(key,!segToggle.get(key));
+              drawRoute(path);
+            });
+            fo.appendChild(div);
+            svg.appendChild(fo);
+
+            if(segToggle.get(key)){
+              const subs=getSubs(lineName,path[i],path[i+1]);
+              for(let j=0;j<subs.length;j++){
+                const subY=ys[i]+((j+1)*(ys[i+1]-ys[i])/(subs.length+1));
+                drawStation({name:subs[j],x:cx,y:subY,isMajor:false,line:lineName});
+              }
+            }
           }
         }
       }
     }
-  }
-}
 
-// ==== UI ====
-const fromLine=document.getElementById("fromLine");
-const fromStation=document.getElementById("fromStation");
-const toLine=document.getElementById("toLine");
-const toStation=document.getElementById("toStation");
+    // ==== UI構築 ====
+    function populateStations(selLine,selStation){
+      selStation.innerHTML="";
+      const line=selLine.value;
+      if(!line)return;
+      for(const st of stationLines[line]){
+        const opt=document.createElement("option");
+        opt.value=st;opt.textContent=st;
+        selStation.appendChild(opt);
+      }
+    }
 
-function populateLineSelect(sel){
-  sel.innerHTML="";for(const l in stationLines){
-    const opt=document.createElement("option");opt.value=l;opt.textContent=l;sel.appendChild(opt);
-  }
-}
-function populateStationSelect(lineSel,staSel){
-  staSel.innerHTML="";stationLines[lineSel.value].forEach(st=>{
-    const opt=document.createElement("option");opt.value=st;opt.textContent=st;staSel.appendChild(opt);
-  });
-}
+    const fromLine=document.getElementById("fromLine");
+    const fromStation=document.getElementById("fromStation");
+    const toLine=document.getElementById("toLine");
+    const toStation=document.getElementById("toStation");
 
-populateLineSelect(fromLine);populateLineSelect(toLine);
-populateStationSelect(fromLine,fromStation);populateStationSelect(toLine,toStation);
+    for(const l in stationLines){
+      for(const sel of [fromLine,toLine]){
+        const opt=document.createElement("option");
+        opt.value=l;opt.textContent=l;
+        sel.appendChild(opt.cloneNode(true));
+      }
+    }
 
-fromLine.addEventListener("change",()=>populateStationSelect(fromLine,fromStation));
-toLine.addEventListener("change",()=>populateStationSelect(toLine,toStation));
+    fromLine.addEventListener("change",()=>populateStations(fromLine,fromStation));
+    toLine.addEventListener("change",()=>populateStations(toLine,toStation));
 
-document.getElementById("searchBtn").addEventListener("click",()=>{
-  const s=fromStation.value,g=toStation.value;
-  if(!s||!g)return;
-  const {path,distance}=shortestPath(s,g);
-  const f=fare(distance);
-  document.getElementById("result").textContent=
-    `経路: ${path.join("→")} / 距離:${distance.toFixed(1)}km / 運賃:大人${f.adult}円 子供${f.child}円`;
-  segToggle=new Map();
-  drawRoute(path);
-});
+    document.getElementById("searchBtn").addEventListener("click",()=>{
+      const s=fromStation.value,g=toStation.value;
+      if(!s||!g)return;
+      const {path}=shortestPath(s,g);
+      segToggle=new Map();
+      drawRoute(path);
+    });
 
-// デフォルト検索
-fromLine.value="湯の浜線";populateStationSelect(fromLine,fromStation);fromStation.value="新里";
-toLine.value="燠野線";populateStationSelect(toLine,toStation);toStation.value="燠野温泉";
-document.getElementById("searchBtn").click();
-
-</script>
+    fromLine.value="湯の浜線";
+    populateStations(fromLine,fromStation);
+    fromStation.value="新里";
+    toLine.value="燠野線";
+    populateStations(toLine,toStation);
+    toStation.value="燠野温泉";
+    document.getElementById("searchBtn").click();
+  </script>
 </body>
 </html>
