@@ -14,15 +14,16 @@ button { padding: 2px 6px; }
 
 /* 新しい出力デザイン */
 .route-container { display: flex; flex-direction: column; margin: 10px 0; }
-.route-row { display: flex; align-items: flex-start; margin: 4px 0; }
-.route-marker { width: 16px; height: 16px; border-radius: 50%; margin-right: 8px; position: relative; }
-.route-marker.small { width: 10px; height: 10px; }
+.route-row { display: flex; align-items: flex-start; margin: 4px 0; position: relative; }
+.route-marker { width: 16px; height: 16px; border-radius: 50%; margin-right: 8px; position: relative; flex: 0 0 16px; }
+.route-marker.small { width: 10px; height: 10px; flex-basis: 10px; }
 .route-line-vertical { position: absolute; left: 50%; top: 16px; width: 2px; height: calc(100% - 16px); transform: translateX(-50%); }
 .station-label { display: flex; flex-direction: column; }
 .station-name { font-size: 14px; font-weight: bold; }
-.station-line { font-size: 12px; color: #fff; padding:2px 6px; border-radius:4px; margin-top:2px; }
+.station-line { font-size: 12px; color: #fff; padding:2px 6px; border-radius:4px; margin-top:2px; display: inline-block; }
 .hidden { display: none; }
 .toggle-btn { font-size: 12px; margin-top: 2px; }
+.error { color: #c00; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -148,66 +149,101 @@ function findLine(st1,st2){
   return null;
 }
 
+/* ▼ 途中駅表示トグル用のグローバル状態（デフォルト非表示） ▼ */
+let showIntermediate = false;
+
 // --- 検索結果表示 ---
 function showAllRoutes(){
-  let start=document.getElementById("start").value;
-  let goal=document.getElementById("goal").value;
-  let res=shortestPath(start,goal);
-  let container=document.createElement("div");
+  const start=document.getElementById("start").value;
+  const goal=document.getElementById("goal").value;
+  const result=document.getElementById("result");
+  result.innerHTML="";
+
+  // 同一駅エラー
+  if(start===goal){
+    result.innerHTML = "<p class='error'>発駅と着駅が同じです</p>";
+    return;
+  }
+
+  const res=shortestPath(start,goal);
+  if(!res.path || !res.path.length || !isFinite(res.distance)){
+    result.innerHTML = "<p class='error'>ルートが見つかりません</p>";
+    return;
+  }
+
+  const container=document.createElement("div");
   container.className="route-container";
 
-  let showIntermediate=false;
-
   for(let i=0;i<res.path.length;i++){
-    let st=res.path[i];
-    let row=document.createElement("div"); row.className="route-row";
-    let marker=document.createElement("div"); marker.className="route-marker";
-    // 中間駅なら小さい丸
-    if(i>0 && i<res.path.length-1) marker.classList.add("small");
-    let line=findLine(res.path[i-1],st)||findLine(st,res.path[i+1]);
-    marker.style.background=line?lineColors[line]:"#aaa";
+    const st=res.path[i];
+    const row=document.createElement("div"); row.className="route-row";
+
+    // 路線判定
+    const prevLine = findLine(res.path[i-1], st);
+    const nextLine = findLine(st, res.path[i+1]);
+    const line = prevLine || nextLine;
+
+    // 乗換駅判定（前後で路線が変わる中間駅）
+    const isTransfer = (i>0 && i<res.path.length-1 && prevLine && nextLine && prevLine !== nextLine);
+
+    // マーカー
+    const marker=document.createElement("div"); marker.className="route-marker";
+    if(i>0 && i<res.path.length-1 && !isTransfer) marker.classList.add("small");
+    marker.style.background = line ? lineColors[line] : "#aaa";
+
+    // 縦線（次の駅があるとき）
     if(i<res.path.length-1){
-      let vline=document.createElement("div");
+      const vline=document.createElement("div");
       vline.className="route-line-vertical";
-      vline.style.background=marker.style.background;
+      vline.style.background = marker.style.background;
       marker.appendChild(vline);
     }
-    let label=document.createElement("div"); label.className="station-label";
-    let name=document.createElement("div"); name.className="station-name"; name.textContent=st;
+
+    // ラベル
+    const label=document.createElement("div"); label.className="station-label";
+    const name=document.createElement("div"); name.className="station-name"; name.textContent=st;
     label.appendChild(name);
 
-    // 発駅または着駅、乗換駅のときだけ路線名とボタン
-    let prevLine=findLine(res.path[i-1],st);
-    let nextLine=findLine(st,res.path[i+1]);
-    if(i===0 || i===res.path.length-1 || (prevLine && nextLine && prevLine!==nextLine)){
+    // 発駅と乗換駅だけ路線名ラベルと「途中駅を表示」ボタン
+    if(i===0 || isTransfer){
       if(line){
-        let ln=document.createElement("div"); ln.className="station-line"; 
-        ln.textContent=line; ln.style.background=lineColors[line];
+        const ln=document.createElement("div");
+        ln.className="station-line";
+        ln.textContent = "新里鉄道 " + line;
+        ln.style.background = lineColors[line];
         label.appendChild(ln);
       }
-      // 途中駅表示切替ボタン
-      let btn=document.createElement("button"); 
+      const btn=document.createElement("button");
       btn.className="toggle-btn";
-      btn.textContent="途中駅を表示";
-      btn.onclick=()=>{
-        showIntermediate=!showIntermediate;
-        showAllRoutes();
+      btn.textContent = showIntermediate ? "途中駅を隠す" : "途中駅を表示";
+      btn.onclick = ()=>{
+        showIntermediate = !showIntermediate;
+        showAllRoutes(); // 再描画
       };
       label.appendChild(btn);
     }
 
-    // 中間駅はデフォルト非表示
-    if(i>0 && i<res.path.length-1 && !showIntermediate){
+    // 非表示判定：中間かつ乗換でない駅は、トグルがOFFなら隠す
+    if(i>0 && i<res.path.length-1 && !isTransfer && !showIntermediate){
       row.classList.add("hidden");
     }
 
-    row.appendChild(marker); row.appendChild(label);
+    row.appendChild(marker);
+    row.appendChild(label);
     container.appendChild(row);
   }
 
-  document.getElementById("result").innerHTML="";
-  document.getElementById("result").appendChild(container);
-  document.getElementById("result").innerHTML+="<p>距離："+res.distance.toFixed(1)+" km</p>";
+  result.appendChild(container);
+
+  // 距離・運賃
+  const distP = document.createElement("p");
+  distP.textContent = "距離：" + res.distance.toFixed(1) + " km";
+  result.appendChild(distP);
+
+  const price = fare(res.distance);
+  const fareP = document.createElement("p");
+  fareP.textContent = `運賃：大人 ${price.adult}円／小児 ${price.child}円`;
+  result.appendChild(fareP);
 }
 </script>
 </body>
