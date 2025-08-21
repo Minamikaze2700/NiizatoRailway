@@ -37,7 +37,7 @@
     line.segment { stroke-width: var(--seg-width); stroke-linecap: round; }
 
     /* 途中駅トグルボタン（ピルの下に置く） */
-    .seg-btn { font-size: 13px; padding: 2px 6px; margin-top: 6px; }
+    .seg-btn { font-size: 13px; padding: 2px 6px; margin-top: 26px; }
   </style>
 </head>
 <body>
@@ -207,7 +207,7 @@
       const majors = extractMajorStations(path);
 
       // 区間ごとの表示・高さを決める
-      const top = 34; const minGap = 90; const basePad = 90;
+      const top = 20; const minGap = 90; const basePad = 30;
       const segmentMeta = [];
       for(let i=0;i<majors.length-1;i++){
         const a = majors[i], b = majors[i+1];
