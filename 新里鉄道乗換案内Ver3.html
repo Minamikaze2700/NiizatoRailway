@@ -43,13 +43,13 @@
       "燠野線":"#e94d64"
     };
 
-    // ==== 駅データ（例：本来は全線を定義）====
+    // ==== 路線・駅データ ====
     const stationLines={
       "湯の浜線":["新里","河岸","新里海浜公園","湯の浜海岸","湯の浜"],
       "燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"]
     };
 
-    // ==== 距離グラフ（既存のものを使う）====
+    // ==== 距離グラフ（変えないで）====
     const rawGraph = {
       "新里":{"河岸":0.9},"河岸":{"新里海浜公園":1.7},"新里海浜公園":{"湯の浜海岸":2.3},
       "湯の浜海岸":{"湯の浜":1.5},"湯の浜":{"新里大学前":0.8},
@@ -57,7 +57,7 @@
       "燠野":{"湯川":2.6},"湯川":{"温泉口":1.6},"温泉口":{"燠野温泉":1.9}
     };
 
-    // ==== 運賃 ====
+    // ==== 運賃（変えないで）====
     function fare(distance){
       if(distance<=3) return {adult:130,child:70};
       else if(distance<=6) return {adult:160,child:80};
@@ -69,7 +69,7 @@
       else return {adult:340,child:170};
     }
 
-    // ==== 駅間距離探索 ====
+    // ==== 最短経路探索（変えないで）====
     function shortestPath(start,goal){
       const dist={},prev={},Q=new Set(Object.keys(rawGraph).concat(...Object.values(rawGraph).map(Object.keys)).flat());
       for(const v of Q) dist[v]=Infinity;
@@ -88,7 +88,7 @@
       return {path,distance:dist[goal]};
     }
 
-    // ==== 出発駅・到着駅選択 ====
+    // ==== 出発駅・到着駅セレクト ====
     const fromLineSel=document.getElementById("fromLine");
     const fromStaSel=document.getElementById("fromStation");
     const toLineSel=document.getElementById("toLine");
@@ -117,22 +117,23 @@
     fillStations(fromLineSel,fromStaSel);
     fillStations(toLineSel,toStaSel);
 
-    // ==== 途中駅管理 ====
+    // ==== 途中駅表示管理 ====
     let segToggle=new Map();
 
+    // 修正: 主要駅は除外
     function getSubs(lineName,from,to){
       const line=stationLines[lineName];
       const i1=line.indexOf(from),i2=line.indexOf(to);
       if(i1<0||i2<0) return [];
       const [a,b]=i1<i2?[i1,i2]:[i2,i1];
-      return line.slice(a+1,b); // 端点を除外
+      return line.slice(a+1,b);
     }
 
     function findLine(a,b){
       if(!a||!b) return null;
       for(const [line,sts] of Object.entries(stationLines)){
         const i=sts.indexOf(a);
-        if(i>=0 && sts[i+1]===b || sts[i-1]===b) return line;
+        if((i>=0 && sts[i+1]===b) || (i>=0 && sts[i-1]===b)) return line;
       }
       return null;
     }
@@ -174,7 +175,7 @@
           const key=`${path[i]}-${path[i+1]}`;
           const midY=(ys[i]+ys[i+1])/2;
 
-          // ボタン
+          // ==== 途中駅ボタン ====
           const fo=document.createElementNS("http://www.w3.org/2000/svg","foreignObject");
           fo.setAttribute("x",cx+20);
           fo.setAttribute("y",midY-14);
@@ -190,10 +191,11 @@
           fo.appendChild(div);
           svg.appendChild(fo);
 
+          // ==== 途中駅を描画（ボタン下5pxから） ====
           if(segToggle.get(key)){
             const subs=getSubs(lineName,path[i],path[i+1]);
             if(subs.length>0){
-              const startY=midY+28+5; // ボタンのすぐ下+5pxから
+              const startY=midY+28+5; // ボタン下5pxから開始
               const subGap=(ys[i+1]-startY)/(subs.length+1);
               for(let j=0;j<subs.length;j++){
                 const subY=startY+(j+1)*subGap;
@@ -205,6 +207,7 @@
       }
     }
 
+    // ==== 検索ボタン ====
     document.getElementById("searchBtn").addEventListener("click",()=>{
       const s=fromStaSel.value,g=toStaSel.value;
       if(!s||!g) return;
