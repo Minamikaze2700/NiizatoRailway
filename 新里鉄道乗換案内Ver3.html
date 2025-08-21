@@ -2,26 +2,57 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>ルート検索</title>
+  <title>経路検索システム</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    select, button { margin: 5px; padding: 5px; }
-    .route-line { margin-left: 20px; border-left: 3px solid #ccc; padding-left: 10px; }
-    .station { margin: 5px 0; }
-    .line-name { font-weight: bold; cursor: pointer; }
+    body { font-family: sans-serif; }
+    .route { margin: 10px 0; }
+    .station { margin: 4px 0; }
+    .lineLabel {
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-left: 8px;
+    }
+    .toggleBtn {
+      margin-left: 6px;
+      font-size: 0.8em;
+      cursor: pointer;
+      color: blue;
+      text-decoration: underline;
+    }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <h1>ルート検索システム</h1>
-
+  <h2>経路検索</h2>
   <div>
-    出発駅:
-    <select id="startStation"></select>
-    到着駅:
-    <select id="endStation"></select>
-    <button onclick="searchRoute()">検索</button>
+    <label>出発路線: 
+      <select id="fromLine">
+        <option value="">選択してください</option>
+      </select>
+    </label>
+    <label> 出発駅: 
+      <select id="fromStation" disabled>
+        <option value="">先に路線を選択</option>
+      </select>
+    </label>
   </div>
+  <div>
+    <label>到着路線: 
+      <select id="toLine">
+        <option value="">選択してください</option>
+      </select>
+    </label>
+    <label> 到着駅: 
+      <select id="toStation" disabled>
+        <option value="">先に路線を選択</option>
+      </select>
+    </label>
+  </div>
+  <button id="searchBtn">検索</button>
 
+  <h3>検索結果</h3>
   <div id="result"></div>
 
   <script>
@@ -81,98 +112,99 @@
       else return {adult:340,child:170};
     }
 
-    // ==== ダイクストラ法 ====
-    function dijkstra(start,end){
-      const dist={}, prev={}, pq=[[0,start]];
-      for(const s in graph) dist[s]=Infinity;
-      dist[start]=0;
-      while(pq.length){
-        pq.sort((a,b)=>a[0]-b[0]);
-        const [d,u]=pq.shift();
-        if(u===end) break;
-        for(const [v,w] of Object.entries(graph[u])){
-          const nd=d+w;
-          if(nd<dist[v]){
-            dist[v]=nd;
-            prev[v]=u;
-            pq.push([nd,v]);
+    // ==== Dijkstra 最短経路探索 ====
+    function dijkstra(start, goal){
+      const dist = {}, prev = {}, visited = new Set();
+      Object.keys(graph).forEach(v => dist[v] = Infinity);
+      dist[start] = 0;
+      while(true){
+        let u = null, min = Infinity;
+        for(const [v,d] of Object.entries(dist)){
+          if(!visited.has(v) && d < min){ min=d; u=v; }
+        }
+        if(u===null || u===goal) break;
+        visited.add(u);
+        for(const [nb,w] of Object.entries(graph[u])){
+          if(dist[u]+w < dist[nb]){
+            dist[nb] = dist[u]+w;
+            prev[nb] = u;
           }
         }
       }
-      const path=[];
-      for(let u=end;u;u=prev[u]) path.unshift(u);
-      return {distance:dist[end],path};
+      const path = [];
+      let cur = goal;
+      while(cur){
+        path.unshift(cur);
+        cur = prev[cur];
+      }
+      return {path, distance:dist[goal]};
     }
 
-    // ==== 駅一覧をプルダウンに反映 ====
-    const stations = [...new Set(Object.keys(graph))].sort();
-    const startSel=document.getElementById("startStation");
-    const endSel=document.getElementById("endStation");
-    stations.forEach(st=>{
-      startSel.add(new Option(st,st));
-      endSel.add(new Option(st,st));
+    // ==== プルダウン初期化 ====
+    function initLineSelects(){
+      const fromLine = document.getElementById("fromLine");
+      const toLine = document.getElementById("toLine");
+      for(const line in stationLines){
+        const opt1 = document.createElement("option");
+        opt1.value=line; opt1.textContent=line;
+        fromLine.appendChild(opt1);
+        const opt2 = document.createElement("option");
+        opt2.value=line; opt2.textContent=line;
+        toLine.appendChild(opt2);
+      }
+    }
+    initLineSelects();
+
+    // ==== 駅プルダウン制御 ====
+    function setStationSelect(lineSelectId, stationSelectId){
+      const lineSel = document.getElementById(lineSelectId);
+      const stSel = document.getElementById(stationSelectId);
+      lineSel.addEventListener("change", ()=>{
+        stSel.innerHTML="";
+        if(!lineSel.value){ stSel.disabled=true; return;}
+        stationLines[lineSel.value].forEach(st=>{
+          const opt=document.createElement("option");
+          opt.value=st; opt.textContent=st;
+          stSel.appendChild(opt);
+        });
+        stSel.disabled=false;
+      });
+    }
+    setStationSelect("fromLine","fromStation");
+    setStationSelect("toLine","toStation");
+
+    // ==== 検索ボタン ====
+    document.getElementById("searchBtn").addEventListener("click",()=>{
+      const from = document.getElementById("fromStation").value;
+      const to = document.getElementById("toStation").value;
+      if(!from || !to){ alert("発駅と着駅を選択してください"); return;}
+      const {path,distance} = dijkstra(from,to);
+      showRoute(path,distance);
     });
 
-    // ==== 検索処理 ====
-    function searchRoute(){
-      const start=startSel.value, end=endSel.value;
-      if(start===end){ alert("同じ駅が選ばれています"); return; }
-      const {distance,path}=dijkstra(start,end);
+    // ==== 経路表示 ====
+    function showRoute(path,distance){
+      const container=document.getElementById("result");
+      container.innerHTML="";
+      path.forEach((st,i)=>{
+        const div=document.createElement("div");
+        div.className="station";
+        div.innerHTML="●"+st;
+        const lines = Object.entries(stationLines).filter(([ln,sts])=>sts.includes(st));
+        lines.forEach(([ln])=>{
+          const span=document.createElement("span");
+          span.className="lineLabel";
+          span.style.background=lineColors[ln];
+          span.textContent=" "+ln+" ";
+          div.appendChild(span);
+        });
+        container.appendChild(div);
+      });
       const f=fare(distance);
-
-      let html=`<h2>検索結果</h2>
-        <p>経路: ${path.join(" → ")}</p>
-        <p>距離: ${distance.toFixed(1)} km</p>
-        <p>運賃: 大人 ${f.adult}円 / 子供 ${f.child}円</p>
-        <h3>経路詳細</h3>`;
-
-      // 詳細ルートの展開表示
-      for(let i=0;i<path.length;i++){
-        const st=path[i];
-        html+=`<div class="station">●${st}</div>`;
-        if(i<path.length-1){
-          const next=path[i+1];
-          const line=findLine(st,next);
-          if(line){
-            html+=`<div class="route-line" style="border-color:${lineColors[line]}">
-              ｜<span class="line-name" onclick="toggleDetails(this)">${line} (途中駅を表示)</span>
-              <div class="details" style="display:none">${expandLine(st,next,line)}</div>
-            </div>`;
-          }
-        }
-      }
-
-      document.getElementById("result").innerHTML=html;
-    }
-
-    // ==== どの路線か判定 ====
-    function findLine(a,b){
-      for(const [line,sts] of Object.entries(stationLines)){
-        const i=sts.indexOf(a), j=sts.indexOf(b);
-        if(i>=0 && j>=0 && Math.abs(i-j)===1) return line;
-      }
-      return null;
-    }
-
-    // ==== 途中駅展開 ====
-    function expandLine(a,b,line){
-      const sts=stationLines[line];
-      const i=sts.indexOf(a), j=sts.indexOf(b);
-      if(i<0||j<0) return "";
-      const slice=sts.slice(Math.min(i,j)+1,Math.max(i,j));
-      return slice.map(s=>"●"+s).join("<br>｜");
-    }
-
-    // ==== 詳細表示切替 ====
-    function toggleDetails(el){
-      const div=el.nextElementSibling;
-      if(div.style.display==="none"){
-        div.style.display="block";
-        el.textContent=el.textContent.replace("途中駅を表示","途中駅を非表示");
-      }else{
-        div.style.display="none";
-        el.textContent=el.textContent.replace("途中駅を非表示","途中駅を表示");
-      }
+      const info=document.createElement("div");
+      info.innerHTML=`総距離: ${distance.toFixed(1)} km<br>
+        運賃: 大人 ${f.adult}円 / 子供 ${f.child}円`;
+      container.appendChild(info);
     }
   </script>
 </body>
