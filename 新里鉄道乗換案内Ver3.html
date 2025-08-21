@@ -7,12 +7,7 @@
     body { font-family: system-ui, sans-serif; margin: 18px; }
     h1 { font-size: 18px; margin: 0 0 8px; }
 
-    .controls {
-      display: grid;
-      grid-template-rows: auto auto;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
+    .controls { display: grid; grid-template-rows: auto auto; gap: 8px; margin-bottom: 8px; }
     .controls label { font-weight: 600; }
     .controls select { margin-left: 6px; margin-right: 6px; padding: 4px 6px; font-size: 14px; }
 
@@ -29,7 +24,6 @@
 
     line.segment { stroke-width: 5px; stroke-linecap: round; }
     .line-pill { font-size: 13px; fill: #fff; dominant-baseline: middle; }
-    .pill-bg { rx: 6; ry: 6; }
     .seg-btn { font-size: 13px; }
   </style>
 </head>
@@ -195,7 +189,7 @@
       svg.appendChild(g);
     }
 
-    // 経路描画（中央揃え版）
+    // 経路描画（発着駅＋乗換駅のみデフォルト）
     function drawRoute(path){
       clearSVG();
       if(!path.length) return;
@@ -204,13 +198,11 @@
       const basePad=30;
       const ys=[offsetY];
 
-      // 駅の座標を計算
       for(let i=1;i<path.length;i++){
         offsetY+=basePad;
         ys.push(offsetY);
       }
 
-      // 線分
       for(let i=0;i<path.length-1;i++){
         const line=document.createElementNS('http://www.w3.org/2000/svg','line');
         line.setAttribute('x1',cx); line.setAttribute('y1',ys[i]);
@@ -221,37 +213,34 @@
         svg.appendChild(line);
       }
 
-      // 駅・ラベル描画
       for(let i=0;i<path.length;i++){
         const name=path[i];
         drawStation({name,x:cx,y:ys[i],isMajor:true,line:findLine(path[i-1],path[i])||findLine(path[i],path[i+1])});
+
         if(i<path.length-1){
           let offsetYmid=ys[i]+20;
-
-          // 路線ラベル
           const lineName=findLine(path[i],path[i+1]);
           if(lineName){
             const color=lineColors[lineName];
-            const g=document.createElementNS('http://www.w3.org/2000/svg','g');
-            g.setAttribute('transform',`translate(0,${offsetYmid})`);
+            // ラベル背景
+            const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+            rect.setAttribute('x',cx+14);
+            rect.setAttribute('y',offsetYmid-12);
+            rect.setAttribute('width',`120`);
+            rect.setAttribute('height',22);
+            rect.setAttribute('fill',color);
+            rect.setAttribute('rx',6);
+            rect.setAttribute('ry',6);
+            svg.appendChild(rect);
+            // テキスト
             const text=document.createElementNS('http://www.w3.org/2000/svg','text');
             text.setAttribute('class','line-pill');
             text.setAttribute('x',cx+20);
-            text.setAttribute('dominant-baseline','middle');
+            text.setAttribute('y',offsetYmid+2);
             text.textContent=`新里鉄道${lineName}`;
-            g.appendChild(text);
-            const bbox=text.getBBox();
-            const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
-            rect.setAttribute('class','pill-bg');
-            rect.setAttribute('x',bbox.x-6);
-            rect.setAttribute('y',bbox.y-10);
-            rect.setAttribute('width',bbox.width+12);
-            rect.setAttribute('height',bbox.height+6);
-            rect.setAttribute('fill',color);
-            g.insertBefore(rect,text);
-            svg.appendChild(g);
-            offsetYmid+=20;
+            svg.appendChild(text);
 
+            offsetYmid+=20;
             // ボタン
             const fo=document.createElementNS('http://www.w3.org/2000/svg','foreignObject');
             fo.setAttribute('x',cx+20);
@@ -275,9 +264,8 @@
             });
             fo.appendChild(div);
             svg.appendChild(fo);
-            offsetYmid+=30;
 
-            // 途中駅
+            offsetYmid+=30;
             if(segToggle.get(key)){
               const subs=getSubs(lineName,path[i],path[i+1]);
               for(let j=0;j<subs.length;j++){
