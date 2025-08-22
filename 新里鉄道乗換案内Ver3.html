@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="ja">
 <head>
@@ -39,7 +40,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 
 .stationText{display:flex;flex-direction:column;align-items:flex-start}
 .stationName{font-weight:700;font-size:16px;line-height:1.25}
-.lineBadge{display:inline-block;color:#fff;font-size:13px;line-height:1;padding:4px 8px;border-radius:6px;margin-top:6px;white-space:nowrap}
+.lineBadge{display:inline-block;color:#fff;font-size:12px;line-height:1;padding:2px 6px;border-radius:6px;margin-top:2px;white-space:nowrap}
 .toggleWrap{margin-top:4px}
 .toggleBtn{cursor:pointer;padding:4px 8px;font-size:12px;border-radius:4px}
 
@@ -96,6 +97,7 @@ function fareFromTotalDistance(km){if(km<=1)return 130;if(km<=2)return 140;if(km
 function findLineOfSegment(a,b){for(const [line,stations] of Object.entries(stationLines)){const ia=stations.indexOf(a),ib=stations.indexOf(b);if(ia!==-1&&ib!==-1&&Math.abs(ia-ib)===1) return line;}return null;}
 function shortestPath(start,goal){if(!graph[start]||!graph[goal]) return {path:[],distance:Infinity};const dist={},prev={},Q=new Set(allStations);allStations.forEach(s=>{dist[s]=Infinity;prev[s]=null;});dist[start]=0;while(Q.size){let u=null,best=Infinity;for(const v of Q){ if(dist[v]<best){u=v;best=dist[v];} }if(u===null) break;Q.delete(u);if(u===goal) break;for(const [v,w] of Object.entries(graph[u]||{})){const alt=dist[u]+w;if(alt<dist[v]){dist[v]=alt;prev[v]=u;}}}if(!isFinite(dist[goal])) return {path:[],distance:Infinity};const path=[];for(let cur=goal;cur!=null;cur=prev[cur]) path.unshift(cur);return {path,distance:dist[goal]};}
 function majorStops(path){if(path.length<=1) return {majors:path};const majors=[path[0]];let curLine=findLineOfSegment(path[0],path[1]);for(let i=1;i<path.length;i++){const prev=path[i-1],here=path[i];const ln=findLineOfSegment(prev,here);if(ln!==curLine){majors.push(prev);curLine=ln;}}majors.push(path[path.length-1]);return {majors};}
+function findCommonLines(a,b){const list=[];for(const [line,stations] of Object.entries(stationLines)){if(stations.indexOf(a)!==-1 && stations.indexOf(b)!==-1) list.push(line);}return list;}
 
 const fromLineSel=document.getElementById('fromLine');
 const toLineSel=document.getElementById('toLine');
@@ -123,29 +125,63 @@ searchBtn.addEventListener('click',()=>{
   const {majors}=majorStops(path);
   const headerHtml=`<div class="card"><div class="resultHeader"><div style="font-weight:800">検索結果</div><div class="meta"><div>合計距離: <strong>${distance.toFixed(1)} km</strong></div><div>合計運賃: <strong>${totalFare} 円</strong></div></div></div></div>`;
   let routeHtml='<div class="card"><div class="routeLine">';
+
   majors.forEach((st,idx)=>{
-    let color="#999", lineName="";
-    if(idx<majors.length-1){
-      const ln=findLineOfSegment(majors[idx],majors[idx+1]);
-      lineName=ln?ln:""; // 常に取得
-      color=lineColors[ln]||"#999";
+    let nextStation = idx < majors.length-1 ? majors[idx+1] : null;
+    // 主要駅間の色を取得
+    let color = "#999";
+    if(nextStation){
+        const iFrom = path.indexOf(st);
+        const iTo = path.indexOf(nextStation);
+        for(let i=iFrom; i<iTo; i++){
+            const ln = findLineOfSegment(path[i], path[i+1]);
+            if(ln){
+                color = lineColors[ln];
+                break;
+            }
+        }
     }
-    const bigLineId=`bigline-${idx}`;
-    routeHtml+=`<div class="rowStation"><div class="railCol"><div class="railDot" style="background:${color}"></div>${idx<majors.length-1?`<div id="${bigLineId}" class="railLineMajor" style="background:${color}"></div>`:`<div class="spacer6"></div>`}</div><div class="stationText"><div class="stationName">${st}</div>${lineName?`<div class="lineBadge" style="background:${color}">新里鉄道${lineName}</div>`:''}${idx<majors.length-1?`<div class="toggleWrap"><button class="toggleBtn" data-seg="${idx}" data-open="false">停車駅を表示</button></div>`:``}</div></div>`;
-    if(idx<majors.length-1){
-      const iFrom=path.indexOf(majors[idx]);
-      const iTo=path.indexOf(majors[idx+1]);
-      const between=path.slice(iFrom+1,iTo);
-      if(between.length>0){
-        routeHtml+=`<div id="between-${idx}" class="betweenList">`;
-        between.forEach((s,bi)=>{
-          const isLast=(bi===between.length-1);
-          routeHtml+=`<div class="rowBetween"><div class="railCol"><div class="railDot" style="background:${color}; width:var(--dotMinor); height:var(--dotMinor)"></div><div class="railLineMinor" style="background:${color}; ${isLast?'height:22px':''}"></div></div><div class="stationText"><div class="minorName">${s}</div></div></div>`;
-        });
-        routeHtml+='</div>';
-      }
+
+    const commonLines = nextStation ? findCommonLines(st,nextStation) : [];
+    let lineListHtml = '';
+    if(commonLines.length>0){
+        lineListHtml = commonLines.map(l=>`<div class="lineBadge" style="background:${lineColors[l]};color:#fff">新里鉄道${l}</div>`).join('');
+    }
+
+    const bigLineId = `bigline-${idx}`;
+    routeHtml += `<div class="rowStation">
+      <div class="railCol">
+        <div class="railDot" style="background:${color}"></div>
+        ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" style="background:${color}"></div>` : `<div class="spacer6"></div>`}
+      </div>
+      <div class="stationText">
+        <div class="stationName">${st}</div>
+        ${lineListHtml}
+        ${nextStation ? `<div class="toggleWrap"><button class="toggleBtn" data-seg="${idx}" data-open="false">停車駅を表示</button></div>` : ''}
+      </div>
+    </div>`;
+
+    if(nextStation){
+        const iFrom = path.indexOf(st);
+        const iTo = path.indexOf(nextStation);
+        const between = path.slice(iFrom+1,iTo);
+        if(between.length>0){
+            routeHtml += `<div id="between-${idx}" class="betweenList">`;
+            between.forEach((s,bi)=>{
+                const isLast = (bi === between.length-1);
+                routeHtml += `<div class="rowBetween">
+                  <div class="railCol">
+                    <div class="railDot" style="background:${color}; width:var(--dotMinor); height:var(--dotMinor)"></div>
+                    <div class="railLineMinor" style="background:${color}; ${isLast?'height:22px':''}"></div>
+                  </div>
+                  <div class="stationText"><div class="minorName">${s}</div></div>
+                </div>`;
+            });
+            routeHtml += '</div>';
+        }
     }
   });
+
   routeHtml+='</div></div>';
   resultArea.innerHTML=headerHtml+routeHtml;
 
@@ -161,6 +197,7 @@ searchBtn.addEventListener('click',()=>{
       adjustMajorLines();
     });
   });
+
   adjustMajorLines();
 });
 </script>
