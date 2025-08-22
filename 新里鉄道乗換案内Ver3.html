@@ -107,7 +107,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
   font-weight:400;
   margin:0;
   position:relative;
-  top:-4px; /* ← ここで4px上にずらす */
+  top:-4px; /* ← ここで4px上にずらす（位置以外は変更無し） */
 }
 
 /* 線の高さも広めに */
@@ -253,6 +253,16 @@ populateLineSelects();
 populateStationSelect(fromLineSel.value,fromStationSel);
 populateStationSelect(toLineSel.value,toStationSel);
 
+// === ここだけ変更：デフォルト選択を「湯の浜線 新里」→「燠野線 燠野温泉」に設定 ===
+fromLineSel.value = '湯の浜線';
+populateStationSelect(fromLineSel.value,fromStationSel);
+fromStationSel.value = '新里';
+
+toLineSel.value = '燠野線';
+populateStationSelect(toLineSel.value,toStationSel);
+toStationSel.value = '燠野温泉';
+// =======================================================================
+
 function adjustMajorLines(){
   const rows = Array.from(document.querySelectorAll('.rowStation'));
   rows.forEach((row, idx) => {
@@ -287,7 +297,7 @@ function adjustMajorLines(){
     const parentRect = railCol.getBoundingClientRect();
     const dotRect = dot.getBoundingClientRect();
     minorLine.style.top = (dotRect.top - parentRect.top) + 'px';
-    minorLine.style.height = '48px'; 
+    minorLine.style.height = '48px'; // ← 広めに固定
   });
 }
 
