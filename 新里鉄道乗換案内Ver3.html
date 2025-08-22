@@ -31,13 +31,13 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 
 /* 路線図レイアウト */
 .routeLine{display:flex;flex-direction:column;gap:0;margin-top:4px}
-.rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;align-items:start;column-gap:10px;}
-.railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
+.rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;column-gap:10px;align-items:center;}
+.railCol{display:flex;flex-direction:column;align-items:center;position:relative;justify-content:flex-start;}
 .railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);flex:0 0 auto;z-index:1;}
-.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;top:50%;left:50%;transform:translateX(-50%);z-index:0;}
+.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:0;}
 .railLineMinor{width:var(--lineWMinor);border-radius:1px;}
 
-.stationText{display:flex;flex-direction:column;align-items:flex-start}
+.stationText{display:flex;flex-direction:column;align-items:flex-start; justify-content:center;}
 .stationName{font-weight:700;font-size:16px;line-height:1.25}
 .lineBadge{display:inline-block;color:#fff;font-size:12px;line-height:1;padding:2px 6px;border-radius:6px;margin-top:2px;white-space:nowrap}
 .toggleWrap{margin-top:4px}
@@ -48,8 +48,9 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
   display:grid;
   grid-template-columns:var(--gutter) 1fr;
   column-gap:10px;
-  align-items:center; /* ←丸と駅名の縦中央揃え */
+  align-items:center; /* 丸と駅名を縦中央に */
 }
+.rowBetween .railCol{display:flex;align-items:center;justify-content:center;position:relative;} /* 丸を駅名に合わせる */
 .minorName{font-size:14px;font-weight:400}
 .spacer4{height:4px}
 .spacer6{height:6px}
@@ -100,125 +101,106 @@ const allStations=Array.from(new Set([...Object.keys(graph),...Object.values(gra
 function fareFromTotalDistance(km){if(km<=1)return 130;if(km<=2)return 140;if(km<=3)return 150;if(km<=5)return 170;if(km<=8)return 200;if(km<=12)return 240;if(km<=20)return 290;if(km<=30)return 350;if(km<=40)return 420;if(km<=50)return 490;if(km<=59)return 540;return 540;}
 function findLineOfSegment(a,b){for(const [line,stations] of Object.entries(stationLines)){const ia=stations.indexOf(a),ib=stations.indexOf(b);if(ia!==-1&&ib!==-1&&Math.abs(ia-ib)===1) return line;}return null;}
 function shortestPath(start,goal){if(!graph[start]||!graph[goal]) return {path:[],distance:Infinity};const dist={},prev={},Q=new Set(allStations);allStations.forEach(s=>{dist[s]=Infinity;prev[s]=null;});dist[start]=0;while(Q.size){let u=null,best=Infinity;for(const v of Q){ if(dist[v]<best){u=v;best=dist[v];} }if(u===null) break;Q.delete(u);if(u===goal) break;for(const [v,w] of Object.entries(graph[u]||{})){const alt=dist[u]+w;if(alt<dist[v]){dist[v]=alt;prev[v]=u;}}}if(!isFinite(dist[goal])) return {path:[],distance:Infinity};const path=[];for(let cur=goal;cur!=null;cur=prev[cur]) path.unshift(cur);return {path,distance:dist[goal]};}
-function majorStops(path){if(path.length<=1) return {majors:path};const majors=[path[0]];let curLine=findLineOfSegment(path[0],path[1]);for(let i=1;i<path.length;i++){const prev=path[i-1],here=path[i];const ln=findLineOfSegment(prev,here);if(ln!==curLine){majors.push(prev);curLine=ln;}}majors.push(path[path.length-1]);return {majors};}
-function findCommonLines(a,b){const list=[];for(const [line,stations] of Object.entries(stationLines)){if(stations.indexOf(a)!==-1 && stations.indexOf(b)!==-1) list.push(line);}return list;}
-
-const fromLineSel=document.getElementById('fromLine');
-const toLineSel=document.getElementById('toLine');
-const fromStationSel=document.getElementById('fromStation');
-const toStationSel=document.getElementById('toStation');
-const searchBtn=document.getElementById('searchBtn');
-const resultArea=document.getElementById('resultArea');
-
-function populateLineSelects(){const lines=Object.keys(stationLines);[fromLineSel,toLineSel].forEach(sel=>{sel.innerHTML='';lines.forEach(l=>{ const o=document.createElement('option'); o.value=l;o.textContent=l;sel.appendChild(o); });});}
-function populateStationSelect(line,sel){sel.innerHTML='';(stationLines[line]||[]).forEach(st=>{const o=document.createElement('option');o.value=st;o.textContent=st;sel.appendChild(o);});}
-fromLineSel.addEventListener('change',()=>populateStationSelect(fromLineSel.value,fromStationSel));
-toLineSel.addEventListener('change',()=>populateStationSelect(toLineSel.value,toStationSel));
-populateLineSelects();
-populateStationSelect(fromLineSel.value,fromStationSel);
-populateStationSelect(toLineSel.value,toStationSel);
-
-function adjustMajorLines(){
-  const rows=document.querySelectorAll('.rowStation');
-  rows.forEach((row,idx)=>{
-    const dot=row.querySelector('.railDot');
-    const line=row.querySelector('.railLineMajor');
-    if(!line) return;
-    const nextRow=rows[idx+1];
-    if(!nextRow) return;
-    const dotRect=dot.getBoundingClientRect();
-    const nextDotRect=nextRow.querySelector('.railDot').getBoundingClientRect();
-    const height=nextDotRect.top + nextDotRect.height/2 - (dotRect.top + dotRect.height/2);
-    line.style.height=height+'px';
-  });
+  function majorStops(path) {
+  // 途中駅も含む駅情報を整理
+  return path.map(station => ({
+    name: station,
+    line: Object.entries(stationLines).find(([line, stations]) => stations.includes(station))[0],
+    isMajor: stationLines[Object.entries(stationLines).find(([line, stations]) => stations.includes(station))[0]].indexOf(station) === 0 || 
+             stationLines[Object.entries(stationLines).find(([line, stations]) => stations.includes(station))[0]].indexOf(station) ===
+             stationLines[Object.entries(stationLines).find(([line, stations]) => stations.includes(station))[0]].length - 1
+  }));
 }
 
-searchBtn.addEventListener('click',()=>{
-  const from=fromStationSel.value,to=toStationSel.value;
-  if(!from||!to||from===to){alert('駅を選択してください');return;}
-  const {path,distance}=shortestPath(from,to);
-  if(!path.length){resultArea.innerHTML='<div class="card">経路が見つかりませんでした。</div>';return;}
-  const totalFare=fareFromTotalDistance(distance);
-  const {majors}=majorStops(path);
-  const headerHtml=`<div class="card"><div class="resultHeader"><div style="font-weight:800">検索結果</div><div class="meta"><div>合計距離: <strong>${distance.toFixed(1)} km</strong></div><div>合計運賃: <strong>${totalFare} 円</strong></div></div></div></div>`;
-  let routeHtml='<div class="card"><div class="routeLine">';
+function drawRoute(path) {
+  const routeArea = document.getElementById("resultArea");
+  routeArea.innerHTML = "";
 
-  majors.forEach((st,idx)=>{
-    let nextStation = idx < majors.length-1 ? majors[idx+1] : null;
-    let color="#999";
+  const routeDiv = document.createElement("div");
+  routeDiv.className = "routeLine";
 
-    if(nextStation){
-        const iFrom = path.indexOf(st);
-        const iTo = path.indexOf(nextStation);
-        for(let i=iFrom; i<iTo; i++){
-            const ln = findLineOfSegment(path[i], path[i+1]);
-            if(ln){ color = lineColors[ln]; }
-        }
-    } else if(idx>0){
-        const prevStation = majors[idx-1];
-        const iFrom = path.indexOf(prevStation);
-        const iTo = path.indexOf(st);
-        for(let i=iFrom; i<iTo; i++){
-            const ln = findLineOfSegment(path[i], path[i+1]);
-            if(ln){ color = lineColors[ln]; }
-        }
+  const stops = majorStops(path);
+
+  for (let i = 0; i < stops.length; i++) {
+    const stop = stops[i];
+
+    const row = document.createElement("div");
+    row.className = "rowStation";
+
+    const railCol = document.createElement("div");
+    railCol.className = "railCol";
+
+    // 丸の作成
+    const dot = document.createElement("div");
+    dot.className = "railDot";
+    dot.style.backgroundColor = lineColors[stop.line];
+    railCol.appendChild(dot);
+
+    // 線を追加（最後の駅は伸ばさない）
+    if (i < stops.length - 1) {
+      const lineDiv = document.createElement("div");
+      lineDiv.className = stop.isMajor ? "railLineMajor" : "railLineMinor";
+      lineDiv.style.height = "20px"; // 丸から丸まで20pxに統一
+      lineDiv.style.backgroundColor = lineColors[stop.line];
+      railCol.appendChild(lineDiv);
     }
 
-    const commonLines = nextStation ? findCommonLines(st,nextStation) : [];
-    let lineListHtml = '';
-    if(commonLines.length>0){
-        lineListHtml = commonLines.map(l=>`<div class="lineBadge" style="background:${lineColors[l]};color:#fff">新里鉄道${l}</div>`).join('');
-    }
+    // 駅名
+    const stationText = document.createElement("div");
+    stationText.className = "stationText";
+    const nameDiv = document.createElement("div");
+    nameDiv.className = stop.isMajor ? "stationName" : "minorName";
+    nameDiv.innerText = stop.name;
+    stationText.appendChild(nameDiv);
 
-    const bigLineId = `bigline-${idx}`;
-    routeHtml += `<div class="rowStation">
-      <div class="railCol">
-        <div class="railDot" style="background:${color}"></div>
-        ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" style="background:${color}"></div>` : `<div class="spacer6"></div>`}
-      </div>
-      <div class="stationText">
-        <div class="stationName">${st}</div>
-        ${lineListHtml}
-        ${nextStation ? `<div class="toggleWrap"><button class="toggleBtn" data-seg="${idx}" data-open="false">停車駅を表示</button></div>` : ''}
-      </div>
-    </div>`;
+    row.appendChild(railCol);
+    row.appendChild(stationText);
+    routeDiv.appendChild(row);
+  }
 
-    if(nextStation){
-      const iFrom = path.indexOf(st);
-      const iTo = path.indexOf(nextStation);
-      const between = path.slice(iFrom+1,iTo);
-      if(between.length>0){
-        routeHtml += `<div id="between-${idx}" class="betweenList">`;
-        between.forEach((s,bi)=>{
-          routeHtml += `<div class="rowBetween">
-            <div class="railCol">
-              <div class="railDot" style="background:${color}; width:var(--dotMinor); height:var(--dotMinor)"></div>
-              <div class="railLineMinor" style="background:${color}; height:20px;"></div>
-            </div>
-            <div class="stationText"><div class="minorName">${s}</div></div>
-          </div>`;
-        });
-        routeHtml += '</div>';
-      }
-    }
-  });
+  routeArea.appendChild(routeDiv);
+}
 
-  routeHtml += '</div></div>';
-  resultArea.innerHTML = headerHtml + routeHtml;
-
-  document.querySelectorAll('.toggleBtn').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      const idx=btn.dataset.seg;
-      const open=btn.dataset.open==='true';
-      document.getElementById(`between-${idx}`).style.display=open?'none':'block';
-      btn.dataset.open = (!open).toString();
-      btn.textContent=open?'停車駅を表示':'停車駅を非表示';
-      adjustMajorLines();
-    });
-  });
-
-  adjustMajorLines();
+document.getElementById("searchBtn").addEventListener("click", () => {
+  const fromStation = document.getElementById("fromStation").value;
+  const toStation = document.getElementById("toStation").value;
+  if (!fromStation || !toStation) return;
+  const {path} = shortestPath(fromStation, toStation);
+  drawRoute(path);
 });
+
+// セレクトボックス初期化
+function initSelectors() {
+  const fromLineSelect = document.getElementById("fromLine");
+  const fromStationSelect = document.getElementById("fromStation");
+  const toLineSelect = document.getElementById("toLine");
+  const toStationSelect = document.getElementById("toStation");
+
+  Object.keys(stationLines).forEach(line => {
+    const opt1 = document.createElement("option"); opt1.value=line; opt1.innerText=line; fromLineSelect.appendChild(opt1);
+    const opt2 = document.createElement("option"); opt2.value=line; opt2.innerText=line; toLineSelect.appendChild(opt2);
+  });
+
+  function updateStations(selectLine, stationSelect) {
+    const line = selectLine.value;
+    stationSelect.innerHTML = "";
+    stationLines[line].forEach(station => {
+      const opt = document.createElement("option");
+      opt.value = station;
+      opt.innerText = station;
+      stationSelect.appendChild(opt);
+    });
+  }
+
+  fromLineSelect.addEventListener("change", () => updateStations(fromLineSelect, fromStationSelect));
+  toLineSelect.addEventListener("change", () => updateStations(toLineSelect, toStationSelect));
+
+  // 初期表示
+  updateStations(fromLineSelect, fromStationSelect);
+  updateStations(toLineSelect, toStationSelect);
+}
+
+initSelectors();
 </script>
 </body>
 </html>
