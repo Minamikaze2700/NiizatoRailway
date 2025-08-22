@@ -1,3 +1,70 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>新里鉄道 乗換案内</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --bg:#f1f5f9;
+  --card:#fff;
+  --muted:#667085;
+  --radius:12px;
+  --gutter:34px;
+  --dotMajor:16px;
+  --dotMinor:12px;
+  --lineWMajor:5px;
+  --lineWMinor:5px;
+  --font-sans:"Hiragino Kaku Gothic ProN","Meiryo",system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif;
+}
+html,body{height:100%;margin:0;font-family:var(--font-sans);background:var(--bg);color:#0b1324}
+.wrap{max-width:980px;margin:28px auto;padding:20px}
+h1{margin:0 0 12px;font-size:20px}
+.card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:0 8px 24px rgba(2,6,23,0.07);margin-bottom:12px}
+.row{display:flex;gap:12px;align-items:center}
+.col{display:flex;flex-direction:column;gap:6px;position:relative}
+select,button{font-size:14px;padding:8px 10px;border-radius:4px;border:1px solid #d1d5db;background:#fff}
+label{font-size:13px;color:var(--muted)}
+button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
+.resultHeader{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.resultHeader .meta{display:flex;gap:18px;color:#111}
+
+/* 路線図レイアウト */
+.routeLine{display:flex;flex-direction:column;gap:0;margin-top:4px}
+.rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;align-items:start;column-gap:10px;}
+.railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
+.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);flex:0 0 auto;z-index:1;}
+.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;top:50%;left:50%;transform:translateX(-50%);z-index:0;}
+.railLineMinor{width:var(--lineWMinor);border-radius:1px;}
+
+.stationText{display:flex;flex-direction:column;align-items:flex-start}
+.stationName{font-weight:700;font-size:16px;line-height:1.25}
+.lineBadge{display:inline-block;color:#fff;font-size:12px;line-height:1;padding:2px 6px;border-radius:6px;margin-top:2px;white-space:nowrap}
+.toggleWrap{margin-top:4px}
+.toggleBtn{cursor:pointer;padding:4px 8px;font-size:12px;border-radius:4px}
+
+.betweenList{display:none;}
+.rowBetween{display:grid;grid-template-columns:var(--gutter) 1fr;column-gap:10px;align-items:center;}
+.minorName{font-size:14px;font-weight:400}
+.spacer4{height:4px}
+.spacer6{height:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>新里鉄道 乗換案内</h1>
+<div class="card">
+  <div class="row">
+    <div class="col" style="flex:1"><label>出発路線</label><select id="fromLine"></select></div>
+    <div class="col" style="flex:1"><label>出発駅</label><select id="fromStation"></select></div>
+    <div class="col" style="flex:1"><label>到着路線</label><select id="toLine"></select></div>
+    <div class="col" style="flex:1"><label>到着駅</label><select id="toStation"></select></div>
+    <div style="display:flex;align-items:flex-end;"><button id="searchBtn" class="primary">検索</button></div>
+  </div>
+</div>
+<div id="resultArea"></div>
+</div>
+
 <script>
 const stationLines = {
   "湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
@@ -53,7 +120,6 @@ function adjustMajorLines(){
     if(!line) return;
     const nextRow = rows[idx+1];
     if(!nextRow) return;
-
     const dot = row.querySelector('.railDot');
     const nextDot = nextRow.querySelector('.railDot');
     const dotRect = dot.getBoundingClientRect();
@@ -80,31 +146,31 @@ searchBtn.addEventListener('click',()=>{
   const headerHtml=`<div class="card"><div class="resultHeader"><div style="font-weight:800">検索結果</div><div class="meta"><div>合計距離: <strong>${distance.toFixed(1)} km</strong></div><div>合計運賃: <strong>${totalFare} 円</strong></div></div></div></div>`;
   let routeHtml='<div class="card"><div class="routeLine">';
 
-  majors.forEach((st, idx) => {
-    const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
-    // ここで区間で最後に通る路線の色を取得
-    let color = "#999";
+  majors.forEach((st,idx)=>{
+    let nextStation = idx < majors.length-1 ? majors[idx+1] : null;
+    let color="#999";
+
     if(nextStation){
-      const iFrom = path.indexOf(st);
-      const iTo = path.indexOf(nextStation);
-      for(let i=iFrom; i<iTo; i++){
-        const ln = findLineOfSegment(path[i], path[i+1]);
-        if(ln) color = lineColors[ln];
-      }
+        const iFrom = path.indexOf(st);
+        const iTo = path.indexOf(nextStation);
+        for(let i=iFrom; i<iTo; i++){
+            const ln = findLineOfSegment(path[i], path[i+1]);
+            if(ln){ color = lineColors[ln]; }
+        }
     } else if(idx>0){
-      const prevStation = majors[idx-1];
-      const iFrom = path.indexOf(prevStation);
-      const iTo = path.indexOf(st);
-      for(let i=iFrom; i<iTo; i++){
-        const ln = findLineOfSegment(path[i], path[i+1]);
-        if(ln) color = lineColors[ln];
-      }
+        const prevStation = majors[idx-1];
+        const iFrom = path.indexOf(prevStation);
+        const iTo = path.indexOf(st);
+        for(let i=iFrom; i<iTo; i++){
+            const ln = findLineOfSegment(path[i], path[i+1]);
+            if(ln){ color = lineColors[ln]; }
+        }
     }
 
     const commonLines = nextStation ? findCommonLines(st,nextStation) : [];
     let lineListHtml = '';
     if(commonLines.length>0){
-      lineListHtml = commonLines.map(l=>`<div class="lineBadge" style="background:${lineColors[l]};color:#fff">新里鉄道${l}</div>`).join('');
+        lineListHtml = commonLines.map(l=>`<div class="lineBadge" style="background:${lineColors[l]};color:#fff">新里鉄道${l}</div>`).join('');
     }
 
     const bigLineId = `bigline-${idx}`;
@@ -127,11 +193,10 @@ searchBtn.addEventListener('click',()=>{
       if(between.length>0){
         routeHtml += `<div id="between-${idx}" class="betweenList">`;
         between.forEach((s,bi)=>{
-          const isLast = (bi === between.length-1);
           routeHtml += `<div class="rowBetween">
             <div class="railCol">
               <div class="railDot" style="background:${color}; width:var(--dotMinor); height:var(--dotMinor)"></div>
-              <div class="railLineMinor" style="background:${color};"></div>
+              <div class="railLineMinor" style="background:${color}; height:20px;"></div>
             </div>
             <div class="stationText"><div class="minorName">${s}</div></div>
           </div>`;
@@ -158,3 +223,5 @@ searchBtn.addEventListener('click',()=>{
   adjustMajorLines();
 });
 </script>
+</body>
+</html>
