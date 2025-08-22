@@ -68,7 +68,7 @@ const rawGraph = {
   "宇多野":{"伊奈崎":1.8},
   "伊奈崎":{"鶴宮神社":1.5},
   "鶴宮神社":{"鶴宮":1.2},
-  "鶮宮":{"北鶴宮":1.1,"南鶴宮":1.7},
+  "鶮宮":{"北鶮宮":1.1,"南鶴宮":1.7},
   "新里大学前":{"綾原":0.7},
   "綾原":{"福来":1.2},
   "福来":{"燠野":1.4},
@@ -171,14 +171,22 @@ function drawRoute(result){
     let st=result.path[i];
     let prevLine=(i>0)?findLineSegment(result.path[i-1],st):null;
     let nextLine=(i<result.path.length-1)?findLineSegment(st,result.path[i+1]):null;
-    let isMajor=(i===0 || i===result.path.length-1 || (prevLine && nextLine && prevLine!==nextLine));
+
+    // 乗換駅判定
+    let isTransfer=(prevLine && nextLine && prevLine!==nextLine);
+    // 発駅・着駅は常に主要
+    let isMajor=(i===0 || i===result.path.length-1 || isTransfer);
+
+    if(i>0){
+      let lineColor=lineColors[prevLine]||"#000";
+      svg.innerHTML+=`<line x1="${x}" y1="${y}" x2="${x+120}" y2="${y}" stroke="${lineColor}" stroke-width="5"/>`;
+      x+=120;
+    }
+
     if(isMajor){
-      if(i>0){
-        let lineColor=lineColors[prevLine]||"#000";
-        svg.innerHTML+=`<line x1="${x}" y1="${y}" x2="${x+120}" y2="${y}" stroke="${lineColor}" stroke-width="5"/>`;
-        x+=120;
-      }
-      svg.innerHTML+=`<circle cx="${x}" cy="${y}" r="8" fill="${lineColors[nextLine||prevLine]||"#000"}"/>`;
+      // ●の色 = 次の路線カラー (乗換時) or 現在の路線カラー
+      let circleColor=isTransfer ? (lineColors[nextLine]||"#000") : (lineColors[nextLine||prevLine]||"#000");
+      svg.innerHTML+=`<circle cx="${x}" cy="${y}" r="8" fill="${circleColor}"/>`;
       svg.innerHTML+=`<text x="${x}" y="${y-12}" text-anchor="middle">${st}</text>`;
       let lineName=nextLine||prevLine;
       if(lineName) svg.innerHTML+=`<text x="${x}" y="${y+20}" text-anchor="middle" font-size="12">${lineName}</text>`;
