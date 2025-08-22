@@ -44,7 +44,12 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .toggleBtn{cursor:pointer;padding:4px 8px;font-size:12px;border-radius:4px}
 
 .betweenList{display:none;}
-.rowBetween{display:grid;grid-template-columns:var(--gutter) 1fr;column-gap:10px;align-items:center;}
+.rowBetween{
+  display:grid;
+  grid-template-columns:var(--gutter) 1fr;
+  column-gap:10px;
+  align-items:center; /* ←丸と駅名の縦中央揃え */
+}
 .minorName{font-size:14px;font-weight:400}
 .spacer4{height:4px}
 .spacer6{height:6px}
@@ -114,25 +119,17 @@ populateStationSelect(fromLineSel.value,fromStationSel);
 populateStationSelect(toLineSel.value,toStationSel);
 
 function adjustMajorLines(){
-  const rows = document.querySelectorAll('.rowStation');
-  rows.forEach((row, idx) => {
-    const line = row.querySelector('.railLineMajor');
+  const rows=document.querySelectorAll('.rowStation');
+  rows.forEach((row,idx)=>{
+    const dot=row.querySelector('.railDot');
+    const line=row.querySelector('.railLineMajor');
     if(!line) return;
-    const nextRow = rows[idx+1];
+    const nextRow=rows[idx+1];
     if(!nextRow) return;
-    const dot = row.querySelector('.railDot');
-    const nextDot = nextRow.querySelector('.railDot');
-    const dotRect = dot.getBoundingClientRect();
-    const nextDotRect = nextDot.getBoundingClientRect();
-    line.style.height = (nextDotRect.top + nextDotRect.height/2) - (dotRect.top + dotRect.height/2) + 'px';
-
-    const between = document.getElementById(`between-${idx}`);
-    if(between){
-      between.querySelectorAll('.rowBetween').forEach(r=>{
-        const l = r.querySelector('.railLineMinor');
-        if(l) l.style.height='20px';
-      });
-    }
+    const dotRect=dot.getBoundingClientRect();
+    const nextDotRect=nextRow.querySelector('.railDot').getBoundingClientRect();
+    const height=nextDotRect.top + nextDotRect.height/2 - (dotRect.top + dotRect.height/2);
+    line.style.height=height+'px';
   });
 }
 
