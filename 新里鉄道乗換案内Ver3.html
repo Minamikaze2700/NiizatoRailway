@@ -128,11 +128,24 @@ searchBtn.addEventListener('click',()=>{
 
   majors.forEach((st,idx)=>{
     let nextStation = idx < majors.length-1 ? majors[idx+1] : null;
-    // 主要駅間の色を取得
-    let color = "#999";
+    let color="#999";
+
+    // 直前の線の色を取得
     if(nextStation){
         const iFrom = path.indexOf(st);
         const iTo = path.indexOf(nextStation);
+        for(let i=iFrom; i<iTo; i++){
+            const ln = findLineOfSegment(path[i], path[i+1]);
+            if(ln){
+                color = lineColors[ln];
+                break;
+            }
+        }
+    } else if(idx>0){
+        // 着駅は前の線の色を適用
+        const prevStation = majors[idx-1];
+        const iFrom = path.indexOf(prevStation);
+        const iTo = path.indexOf(st);
         for(let i=iFrom; i<iTo; i++){
             const ln = findLineOfSegment(path[i], path[i+1]);
             if(ln){
@@ -182,22 +195,20 @@ searchBtn.addEventListener('click',()=>{
     }
   });
 
-  routeHtml+='</div></div>';
-  resultArea.innerHTML=headerHtml+routeHtml;
+  routeHtml += '</div></div>';
+  resultArea.innerHTML = headerHtml + routeHtml;
 
+  // toggleボタン処理
   document.querySelectorAll('.toggleBtn').forEach(btn=>{
-    btn.addEventListener('click',()=>{
+    btn.addEventListener('click',e=>{
       const idx=btn.dataset.seg;
-      const open=btn.dataset.open==="true";
-      const div=document.getElementById(`between-${idx}`);
-      if(!div) return;
-      div.style.display=open?'none':'block';
-      btn.dataset.open=!open;
+      const open=btn.dataset.open==='true';
+      document.getElementById(`between-${idx}`).style.display=open?'none':'block';
+      btn.dataset.open = (!open).toString();
       btn.textContent=open?'停車駅を表示':'停車駅を非表示';
       adjustMajorLines();
     });
   });
-
   adjustMajorLines();
 });
 </script>
