@@ -205,7 +205,18 @@ function fareImabashi(km){ return 0; }
 function fareSakuragawa(km){ return 0; }
 function fareSakatsu(km){ return 0; }
 function fareSakatsuPortliner(km){ return 0; }
-function fareSuzuhama(km){ return 0; }
+function fareSuzuhama(km){
+  if(km <= 4) return 140;
+  if(km <= 6) return 160;
+  if(km <= 9) return 190;
+  if(km <= 12) return 210;
+  if(km <= 15) return 230;
+  if(km <= 19) return 230;
+  if(km <= 24) return 320;
+  if(km <= 30) return 360;
+  if(km <= 37) return 390;
+  return 390;
+}
 function fareToyono(km){ return 0; }
 function fareTouhashi(km){ return 0; }
 function fareNiizato(km){
