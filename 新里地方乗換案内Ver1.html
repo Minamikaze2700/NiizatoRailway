@@ -246,8 +246,10 @@ const boundaryStations = [
 ];
 
 // 境界駅判定（真ん中が境界駅）
-function isBoundaryStation(st){
-  return boundaryStations.some(arr => arr[1] === st);
+function isBoundaryStation(prev, here, next){
+  return boundaryStations.some(arr =>
+    arr[0] === prev && arr[1] === here && arr[2] === next
+  );
 }
 
 // ============ 会社別運賃ロジック ============
@@ -592,6 +594,14 @@ function renderRouteCardForPart(part, partIndex){
   `;
 
   majors.forEach((st, idx)=>{
+  const prevStation = idx > 0 ? majors[idx-1] : null;
+  const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
+
+  // 路線境界駅条件に合致する場合
+  if(prevStation && nextStation && isBoundaryStation(prevStation, st, nextStation)){
+    // major としては描画しない（＝スキップ）
+    return;
+  }
     const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
 
     // 線色：該当区間で見つかった路線色を採用
