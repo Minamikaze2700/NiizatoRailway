@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>新里地方 乗換案内（条件付き途中駅対応・到着色修正）</title>
+<title>新里地方 乗換案内（条件付き途中駅・表示修正）</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{
@@ -57,7 +57,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 </head>
 <body>
 <div class="wrap">
-<h1>新里地方 乗換案内</h1>
+<h1>新里地方 乗換案内（条件付き途中駅・表示修正）</h1>
 
 <div class="card">
   <div id="stationSelector">
@@ -294,6 +294,14 @@ function indexesOf(arr, value){
   const out=[]; for(let i=0;i<arr.length;i++) if(arr[i]===value) out.push(i); return out;
 }
 function betweenExclusive(idx, a, b){ return (a < idx && idx < b) || (b < idx && idx < a); }
+
+// find next index of station in path starting from 'start'
+function findIndexFrom(path, station, start){
+  for(let i=start;i<path.length;i++){
+    if(path[i] === station) return i;
+  }
+  return -1;
+}
 
 // --- 主要駅抽出（元のロジックを維持しつつ「接続駅が条件成立ならその駅のみ途中駅にする」） ---
 function majorStops(path){
@@ -541,10 +549,25 @@ function splitByCompany(path){
   return segments.filter(s => !!s.company && s.from !== s.to);
 }
 
-// 1パート分の描画（UIは元のまま。ただし到着駅のバッジ非表示・色は直前線に依存）
+// 1パート分の描画（UIは元のまま。ただし路線バッジ・色の選択を修正、toggle時に大線を隠す）
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
   const { majors } = majorStops(path);
+
+  // majors が path 内でどのインデックスに対応するかを順に求める（重複駅に備える）
+  const majorIndices = [];
+  let scanStart = 0;
+  for(let m = 0; m < majors.length; m++){
+    const mi = findIndexFrom(path, majors[m], scanStart);
+    if(mi === -1){
+      // fallback: indexOf
+      majorIndices.push(path.indexOf(majors[m]));
+      scanStart = (majorIndices[majorIndices.length-1] >= 0) ? majorIndices[majorIndices.length-1] + 1 : scanStart+1;
+    } else {
+      majorIndices.push(mi);
+      scanStart = mi + 1;
+    }
+  }
 
   let routeHtml = `
     <div class="card">
@@ -554,8 +577,13 @@ function renderRouteCardForPart(part, partIndex){
       <div class="routeLine">
   `;
 
-  majors.forEach((st, idx)=>{
+  for(let idx = 0; idx < majors.length; idx++){
+    const st = majors[idx];
     const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
+
+    // determine indices in path for this major and next major
+    const iFrom = majorIndices[idx];
+    const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
 
     // default color
     let color = "#999";
@@ -563,12 +591,10 @@ function renderRouteCardForPart(part, partIndex){
     // determine color and line badges based on actual lines in the path segment
     let lineListHtml = '';
 
-    if(nextStation){
-      const iFrom = path.indexOf(st);
-      const iTo = path.indexOf(nextStation);
+    if(nextStation && iFrom !== -1 && iTo !== -1){
       // collect lines used between iFrom..iTo-1
       const usedLines = [];
-      const usedPairs = []; // store pairs with line for later use
+      const usedPairs = [];
       for(let i=iFrom;i<iTo;i++){
         const ln = findLineOfSegment(path[i], path[i+1]);
         usedPairs.push({pair:[path[i], path[i+1]], line:ln, idx:i});
@@ -579,7 +605,6 @@ function renderRouteCardForPart(part, partIndex){
       const topPair = usedPairs.find(p=>p.idx===iFrom && p.line);
       if(topPair && topPair.line && lineColors[topPair.line]) color = lineColors[topPair.line];
       else {
-        // fallback: first usedLines with a defined color
         for(const ln of usedLines){
           if(lineColors[ln]){ color = lineColors[ln]; break; }
         }
@@ -590,26 +615,28 @@ function renderRouteCardForPart(part, partIndex){
       if(badges.length > 0){
         lineListHtml = badges.map(l => `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${l}</div>`).join('');
       }
-    } else {
-      // 到着駅（nextStation が無い）：路線名表示は不要（空にする）
+    } else if(!nextStation){
+      // 到着駅（nextStation が無い）：路線名表示は不要
       lineListHtml = '';
 
       // 色は「直前の線の色」に依存する（直前の path のペア）
-      const idxInPath = path.lastIndexOf(st);
-      if(idxInPath > 0){
-        const ln = findLineOfSegment(path[idxInPath-1], path[idxInPath]);
+      if(iFrom > 0){
+        const ln = findLineOfSegment(path[iFrom-1], path[iFrom]);
         if(ln && lineColors[ln]) color = lineColors[ln];
-      } else {
-        // fallback: try to get any line in the part
-        if(path.length >= 2){
-          const ln0 = findLineOfSegment(path[0], path[1]);
-          if(ln0 && lineColors[ln0]) color = lineColors[ln0];
-        }
+      } else if(path.length >= 2){
+        const ln0 = findLineOfSegment(path[0], path[1]);
+        if(ln0 && lineColors[ln0]) color = lineColors[ln0];
       }
-      // ここでは到着駅は路線バッジを表示しない（仕様）
+    } else {
+      // fallback (shouldn't normally happen)
+      if(path.length >= 2){
+        const ln0 = findLineOfSegment(path[0], path[1]);
+        if(ln0 && lineColors[ln0]) color = lineColors[ln0];
+      }
     }
 
     const bigLineId = `part${partIndex}-bigline-${idx}`;
+
     routeHtml += `
       <div class="rowStation">
         <div class="railCol">
@@ -624,19 +651,18 @@ function renderRouteCardForPart(part, partIndex){
       </div>
     `;
 
-    // between (途中駅) の描画
-    if(nextStation){
-      const iFrom = path.indexOf(st);
-      const iTo = path.indexOf(nextStation);
-      const between = path.slice(iFrom+1, iTo);
-      if(between.length > 0){
+    // between (途中駅) の描画 — インデックス範囲を使って描画（重複駅に対応）
+    if(nextStation && iFrom !== -1 && iTo !== -1){
+      if(iTo - iFrom > 1){
         routeHtml += `<div id="part${partIndex}-between-${idx}" class="betweenList">`;
-        between.forEach(s=>{
+        for(let j = iFrom + 1; j < iTo; j++){
+          const s = path[j];
+
           // 条件付き途中駅かどうか判定してクラスを変更
           let isCondMinor = false;
           const cond = connectingStations.find(c => c.station === s);
           if(cond){
-            const idxS = path.indexOf(s);
+            const idxS = j;
             const idxsA = indexesOf(path, cond.endpoints[0]);
             const idxsB = indexesOf(path, cond.endpoints[1]);
             if(idxsA.length > 0 && idxsB.length > 0){
@@ -651,11 +677,9 @@ function renderRouteCardForPart(part, partIndex){
 
           // Determine color for this between row: pick line used at this pair if possible
           let pairColor = '#999';
-          // find first occurrence of pair (s preceded by something or followed by something)
-          const idxInPath = path.indexOf(s);
           const adjPairs = [];
-          if(idxInPath > 0) adjPairs.push([path[idxInPath-1], s]);
-          if(idxInPath < path.length - 1) adjPairs.push([s, path[idxInPath+1]]);
+          if(j > 0) adjPairs.push([path[j-1], path[j]]);
+          if(j < path.length - 1) adjPairs.push([path[j], path[j+1]]);
           for(const p of adjPairs){
             const ln = findLineOfSegment(p[0], p[1]);
             if(ln && lineColors[ln]){ pairColor = lineColors[ln]; break; }
@@ -670,30 +694,38 @@ function renderRouteCardForPart(part, partIndex){
               <div class="stationText"><div class="${minorClass}">${s}</div></div>
             </div>
           `;
-        });
+        }
         routeHtml += `</div>`;
       }
     }
-  });
+  }
 
   routeHtml += `</div></div>`;
   return routeHtml;
 }
 
-// トグルボタンのイベント
+// トグルボタンのイベント：between を開くときは major-major の大線を非表示にする（閉じると復活）
 function wireToggleButtons(){
   document.querySelectorAll('.toggleBtn').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
+    btn.removeEventListener('click', btn._routeToggleListener); // 防御的に既存リスナを削除
+    const listener = ()=>{
       const part = btn.dataset.part;
       const idx = btn.dataset.seg;
       const list = document.getElementById(`part${part}-between-${idx}`);
+      const bigLine = document.getElementById(`part${part}-bigline-${idx}`);
       if(!list) return;
       const isOpen = getComputedStyle(list).display !== 'block';
       list.style.display = isOpen ? 'block' : 'none';
       btn.dataset.open = isOpen.toString();
       btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
+      // 重要: 停車駅を表示しているときは、主要駅同士を結ぶ大線は非表示にする
+      if(bigLine){
+        bigLine.style.display = isOpen ? 'none' : '';
+      }
       runAdjustments();
-    });
+    };
+    btn.addEventListener('click', listener);
+    btn._routeToggleListener = listener;
   });
 }
 
