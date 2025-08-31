@@ -352,8 +352,9 @@ function shortestPathWithinCompany(start, goal, company){
   return {path, distance: dist[goal]};
 }
 
-// --- 主要駅抽出（拡張版） ---
-// specialMajorStations: 「主要だけど停車駅扱いする条件」を列挙（必要なら追加）
+// --- 主要駅抽出（改善版） ---
+// specialMajorStations: 「主要だけど条件付きで停車駅扱いにする駅（元ロジックを保持）」
+// 北鶴宮は specialMajorStations に入れない（途中駅扱い対象）
 const specialMajorStations = ["新里","湯の浜","鶴宮"];
 
 // connectingStations: 接続駅と endpoints（経路上に endpoints が両方あり、且つ接続駅が endpoints の間に来る場合のみ途中駅扱い）
@@ -364,6 +365,46 @@ const connectingStations = [
   {station:"桜川", endpoints:["桜川公園","豊野月見台"]},
   {station:"北鶴宮", endpoints:["鶴宮","鬼越峠"]}
 ];
+
+// isMajorStop: 接続駅（connectingStations）の判定を最優先し、その後 specialMajorStations のロジックを適用する
+function isMajorStop(station, path, idx){
+  // 1) connectingStations 判定（優先）
+  for(const conn of connectingStations){
+    if(station === conn.station){
+      const a = conn.endpoints[0];
+      const b = conn.endpoints[1];
+      // endpoints の全ての出現位置を列挙
+      const indicesA = path.map((s,i)=> s===a ? i : -1).filter(i=>i!==-1);
+      const indicesB = path.map((s,i)=> s===b ? i : -1).filter(i=>i!==-1);
+      if(indicesA.length>0 && indicesB.length>0){
+        for(const ia of indicesA){
+          for(const ib of indicesB){
+            if((ia < idx && idx < ib) || (ib < idx && idx < ia)){
+              // endpoints のどの組み合わせでも here が間に入るなら途中駅扱い（majorではない）
+              return false;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 2) specialMajorStations の元ロジック：同一路線で前後に連続する場合は途中駅扱い（= major ではない）
+  //    （元コードは specialMajorStations のときに isSpecialSkip = true を立てていた＝途中駅化）
+  if(specialMajorStations.includes(station)){
+    if(idx > 0 && idx < path.length - 1){
+      const before = path[idx-1];
+      const after = path[idx+1];
+      if(findLineOfSegment(before, station) && findLineOfSegment(station, after)){
+        // specialMajorStations にあるが「前後が同一路線で連続している」 → 途中駅扱い
+        return false;
+      }
+    }
+  }
+
+  // 3) その他は主要駅扱い（true）
+  return true;
+}
 
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
@@ -378,43 +419,8 @@ function majorStops(path){
     // 会社や路線が変わるポイント
     let isBoundary = (ln !== curLine);
 
-    // ★特殊ルール：specialMajorStations の場合（元ロジック通り）
-    let isSpecialSkip = false;
-    if(specialMajorStations.includes(here) && i > 0 && i < path.length-1){
-      const before = path[i-1];
-      const after  = path[i+1];
-      if(findLineOfSegment(before, here) && findLineOfSegment(here, after)){
-        isSpecialSkip = true;
-      }
-    }
-
-    // ★改善版：connectingStations の場合 — endpoints の全出現位置を調べて here が間にあるか判定
-    for(const conn of connectingStations){
-      if(here === conn.station){
-        const a = conn.endpoints[0];
-        const b = conn.endpoints[1];
-        // path 内で endpoints のすべてのインデックスを列挙
-        const indicesA = path.map((s, idx) => s === a ? idx : -1).filter(idx => idx !== -1);
-        const indicesB = path.map((s, idx) => s === b ? idx : -1).filter(idx => idx !== -1);
-        if(indicesA.length > 0 && indicesB.length > 0){
-          let skipFound = false;
-          for(const ia of indicesA){
-            for(const ib of indicesB){
-              // here の index は i（現在のループ変数）
-              if((ia < i && i < ib) || (ib < i && i < ia)){
-                skipFound = true;
-                break;
-              }
-            }
-            if(skipFound) break;
-          }
-          if(skipFound){
-            isSpecialSkip = true;
-            break;
-          }
-        }
-      }
-    }
+    // 途中駅判定（isMajorStop を使って優先的に決める）
+    const isSpecialSkip = !isMajorStop(here, path, i);
 
     if(isBoundary && !isSpecialSkip){
       majors.push(prev);
