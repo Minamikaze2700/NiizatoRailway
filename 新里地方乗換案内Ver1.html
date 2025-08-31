@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>新里地方 乗換案内（条件付き途中駅対応）</title>
+<title>新里地方 乗換案内（条件付き途中駅対応・路線バッジ修正）</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{
@@ -33,106 +33,23 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .routeLine{display:flex;flex-direction:column;gap:10px;margin-top:4px}
 .rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;align-items:start;column-gap:10px;position:relative;}
 .railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
-
-/* ドットは railCol の上端に固定（top:0）する */
-.railDot{
-  border-radius:50%;
-  width:var(--dotMajor);
-  height:var(--dotMajor);
-  z-index:2;
-  border:2px solid #fff;
-  position:absolute;
-  left:50%;
-  top:0;
-  transform:translateX(-50%);
-  box-sizing:content-box;
-}
-.rowBetween .railDot{
-  width:var(--dotMinor);
-  height:var(--dotMinor);
-  border:2px solid #fff;
-  position:absolute;
-  left:50%;
-  top:0;
-  transform:translateX(-50%);
-  z-index:2;
-}
-
-/* 線は railCol 内で絶対配置。top と height は JS で調整する */
-.railLineMajor{
-  width:var(--lineWMajor);
-  border-radius:2px;
-  position:absolute;
-  left:50%;
-  transform:translateX(-50%);
-  z-index:1;
-  top:0;
-  height:0;
-  background:#999;
-}
-.railLineMinor{
-  width:var(--lineWMinor);
-  border-radius:1px;
-  position:absolute;
-  left:50%;
-  transform:translateX(-50%);
-  z-index:1;
-  top:0;
-  height:0;
-  background:#999;
-}
-
+.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:2;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;}
+.rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:2;}
+.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
+.railLineMinor{width:var(--lineWMinor);border-radius:1px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
 .stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
 .stationName{font-weight:700;font-size:16px;line-height:1.25;margin:0}
-.lineBadge{display:inline-block;color:#fff;font-size:13.5px;line-height:1;padding:2px 6px;border-radius:6px;margin-top:6px;white-space:nowrap}
+.lineBadge{display:inline-block;color:#fff;font-size:13.5px;line-height:1;padding:2px 6px;border-radius:6px;margin-top:6px;white-space:nowrap;margin-right:6px}
 .toggleWrap{margin-top:6px}
 .toggleBtn{cursor:pointer;padding:4px 8px;font-size:12px}
-
-/* minor stations: 駅名上端を dot の上端と揃える（余白は無し） */
-.rowBetween{
-  display:grid;
-  grid-template-columns:var(--gutter) 1fr;
-  column-gap:10px;
-  align-items:start;
-  height:auto;
-  padding-top:12px;
-}
-.rowBetween .stationText{
-  display:flex;
-  align-items:flex-start;
-  padding-top:0;
-}
-/* 途中駅（通常）*/
-.minorName{
-  font-size:14px;
-  font-weight:400;
-  margin:0;
-  position:relative;
-  top:-4px;
-}
-
-/* 条件付き途中駅（細字表示） — さらに細く見せたい場合はフォントウエイトを300に */
-.condMinorName{
-  font-size:14px;
-  font-weight:300;
-  margin:0;
-  position:relative;
-  top:-4px;
-  color: #333;
-}
-
-/* 線の高さも広めに */
-.rowBetween .railLineMinor{
-  height:48px;
-}
-
-/* デフォルトで非表示（主要駅のみ） */
+.rowBetween{display:grid;grid-template-columns:var(--gutter) 1fr;column-gap:10px;align-items:start;height:auto;padding-top:12px;}
+.rowBetween .stationText{display:flex;align-items:flex-start;padding-top:0;}
+.minorName{font-size:14px;font-weight:400;margin:0;position:relative;top:-4px;}
+.condMinorName{font-size:14px;font-weight:300;margin:0;position:relative;top:-4px;color:#333;}
+.rowBetween .railLineMinor{height:48px;}
 .betweenList{ display:none; }
-
 .spacer4{height:4px}
 .spacer6{height:6px}
-
-/* 経由地UI */
 .viaList{display:flex;flex-direction:column;gap:6px;margin:6px 0;align-items:flex-start}
 .viaRow{display:flex;align-items:center;gap:6px;justify-content:flex-start}
 .viaRow button{font-size:12px;padding:4px 6px}
@@ -361,7 +278,6 @@ function shortestPathWithinCompany(start, goal, company){
 }
 
 // ==== 途中駅扱いの「接続」定義（5駅） ====
-// 接続駅は「この station が endpoints の間にある場合のみ途中駅表示」にする
 const connectingStations = [
   { station: "北鶴宮", endpoints: ["鶴宮","鬼越峠"] },
   { station: "鶴宮",   endpoints: ["鶴宮神社","南鶴宮"] },
@@ -382,7 +298,6 @@ function betweenExclusive(idx, a, b){ return (a < idx && idx < b) || (b < idx &&
 // --- 主要駅抽出（元のロジックを維持しつつ「接続駅が条件成立ならその駅のみ途中駅にする」） ---
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
-
   const majors = [path[0]];
   let curLine = findLineOfSegment(path[0], path[1]);
 
@@ -423,12 +338,10 @@ function majorStops(path){
       }
     }
 
-    // 境界かつ specialSkip でも connectionSkipPrev でもない場合に prev を主要駅に追加
     if(isBoundary && !isSpecialSkip && !connectionSkipPrev){
       majors.push(prev);
       curLine = ln;
     } else {
-      // curLine は常に更新（次の判定のため）
       curLine = ln;
     }
   }
@@ -437,6 +350,7 @@ function majorStops(path){
   return {majors};
 }
 
+// findCommonLines: two駅を共に含む路線名を返す
 function findCommonLines(a,b){
   const list = [];
   for(const [line,stations] of Object.entries(stationLines)){
@@ -596,8 +510,6 @@ function buildRoutePartsAvoidingDuplicates(from, viaStations, to){
 }
 
 // === 会社境界で区切る ===
-// 入力: path（駅配列）
-// 出力: [{from, to, company}]
 function splitByCompany(path){
   if(path.length < 2) return [];
   let segments = [];
@@ -629,7 +541,7 @@ function splitByCompany(path){
   return segments.filter(s => !!s.company && s.from !== s.to);
 }
 
-// 1パート分の描画（元ファイルのUIそのまま。ただし条件付き途中駅は majors に含まれないため自動的に between 側に表示され、小丸細字となる）
+// 1パート分の描画（UIは元のまま。ただし路線バッジ・色の選択を修正）
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
   const { majors } = majorStops(path);
@@ -645,29 +557,59 @@ function renderRouteCardForPart(part, partIndex){
   majors.forEach((st, idx)=>{
     const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
 
-    // 線色：該当区間で見つかった路線色を採用
+    // default color
     let color = "#999";
+
+    // determine color and line badges based on actual lines in the path segment
+    let lineListHtml = '';
+
     if(nextStation){
       const iFrom = path.indexOf(st);
       const iTo = path.indexOf(nextStation);
+      // collect lines used between iFrom..iTo-1
+      const usedLines = [];
+      const usedPairs = []; // store pairs with line for later use
       for(let i=iFrom;i<iTo;i++){
         const ln = findLineOfSegment(path[i], path[i+1]);
-        if(ln) color = lineColors[ln] || "#999";
+        usedPairs.push({pair:[path[i], path[i+1]], line:ln, idx:i});
+        if(ln && usedLines.indexOf(ln)===-1) usedLines.push(ln);
+      }
+
+      // choose color: prefer line used at the top of the segment (iFrom -> iFrom+1)
+      const topLn = usedPairs.find(p=>p.idx===iFrom && p.line);
+      if(topLn && topLn.line && lineColors[topLn.line]) color = lineColors[topLn.line];
+      else {
+        // fallback: first usedLines with a defined color
+        for(const ln of usedLines){
+          if(lineColors[ln]){ color = lineColors[ln]; break; }
+        }
+      }
+
+      // build badges: show unique usedLines; if none, fallback to commonLines detection
+      const badges = usedLines.length > 0 ? usedLines : findCommonLines(st, nextStation);
+      if(badges.length > 0){
+        lineListHtml = badges.map(l => `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${l}</div>`).join('');
       }
     } else if(idx > 0){
+      // for the last major, attempt to get color from previous segment
       const prevStation = majors[idx-1];
       const iFrom = path.indexOf(prevStation);
       const iTo = path.indexOf(st);
+      const usedLines = [];
+      const usedPairs = [];
       for(let i=iFrom;i<iTo;i++){
         const ln = findLineOfSegment(path[i], path[i+1]);
-        if(ln) color = lineColors[ln] || "#999";
+        usedPairs.push({pair:[path[i], path[i+1]], line:ln, idx:i});
+        if(ln && usedLines.indexOf(ln)===-1) usedLines.push(ln);
       }
-    }
-
-    const commonLines = nextStation ? findCommonLines(st, nextStation) : [];
-    let lineListHtml = '';
-    if(commonLines.length > 0){
-      lineListHtml = commonLines.map(l => `<div class="lineBadge" style="background:${lineColors[l]};color:#fff">${l}</div>`).join('');
+      const topLn = usedPairs[0] && usedPairs[0].line ? usedPairs[0].line : null;
+      if(topLn && lineColors[topLn]) color = lineColors[topLn];
+      else if(usedLines.length>0){
+        for(const ln of usedLines){ if(lineColors[ln]){ color = lineColors[ln]; break; } }
+      }
+      if(usedLines.length>0){
+        lineListHtml = usedLines.map(l => `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${l}</div>`).join('');
+      }
     }
 
     const bigLineId = `part${partIndex}-bigline-${idx}`;
@@ -685,6 +627,7 @@ function renderRouteCardForPart(part, partIndex){
       </div>
     `;
 
+    // between (途中駅) の描画
     if(nextStation){
       const iFrom = path.indexOf(st);
       const iTo = path.indexOf(nextStation);
@@ -692,11 +635,10 @@ function renderRouteCardForPart(part, partIndex){
       if(between.length > 0){
         routeHtml += `<div id="part${partIndex}-between-${idx}" class="betweenList">`;
         between.forEach(s=>{
-          // 条件付き途中駅に該当するか判定してクラスを変える（ここは冗長だが、between 側の駅が条件付きで細字にしたい場合に備える）
+          // 条件付き途中駅かどうか判定してクラスを変更
           let isCondMinor = false;
           const cond = connectingStations.find(c => c.station === s);
           if(cond){
-            // endpoints が path 内にあり、s の index が endpoints の間にあれば条件成立
             const idxS = path.indexOf(s);
             const idxsA = indexesOf(path, cond.endpoints[0]);
             const idxsB = indexesOf(path, cond.endpoints[1]);
@@ -708,14 +650,25 @@ function renderRouteCardForPart(part, partIndex){
               }
             }
           }
-
           const minorClass = isCondMinor ? 'condMinorName' : 'minorName';
+
+          // Determine color for this between row: pick line used at this pair if possible
+          let pairColor = '#999';
+          // find first occurrence of pair (s preceded by something or followed by something)
+          const idxInPath = path.indexOf(s);
+          const adjPairs = [];
+          if(idxInPath > 0) adjPairs.push([path[idxInPath-1], s]);
+          if(idxInPath < path.length - 1) adjPairs.push([s, path[idxInPath+1]]);
+          for(const p of adjPairs){
+            const ln = findLineOfSegment(p[0], p[1]);
+            if(ln && lineColors[ln]){ pairColor = lineColors[ln]; break; }
+          }
 
           routeHtml += `
             <div class="rowBetween">
               <div class="railCol">
-                <div class="railDot" style="background:${color}"></div>
-                <div class="railLineMinor" style="background:${color}"></div>
+                <div class="railDot" style="background:${pairColor}"></div>
+                <div class="railLineMinor" style="background:${pairColor}"></div>
               </div>
               <div class="stationText"><div class="${minorClass}">${s}</div></div>
             </div>
@@ -748,7 +701,7 @@ function wireToggleButtons(){
 }
 
 /* ===========================
-   検索：会社境界での運賃合算を実装（元ロジック通り）
+   検索：会社境界での運賃合算を実装
    =========================== */
 searchBtn.addEventListener('click', ()=>{
   // 最新の選択状態
