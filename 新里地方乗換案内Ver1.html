@@ -167,7 +167,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 </div>
 
 <script>
-// ==== 駅・路線データ ====  （元ファイルのまま。接続駅は駅配列に含めている）
+// ==== 駅・路線データ ====  （元ファイルのまま、接続駅は各路線の配列中に配置）
 const stationLines = {
  "新里鉄道湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
  "新里鉄道燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
@@ -353,20 +353,15 @@ function shortestPathWithinCompany(start, goal, company){
 }
 
 // --- 主要駅抽出（拡張版） ---
-// specialMajorStations: 「主要だけど停車駅扱いする条件」を列挙（今回は北鶴宮は含めない）
-const specialMajorStations = ["新里","湯の浜","鶴宮"]; 
+// specialMajorStations: 「主要だけど停車駅扱いする条件」を列挙（必要なら追加）
+const specialMajorStations = ["新里","湯の浜","鶴宮"];
 
-// connectingStations: 接続駅と、両側の目印駅（経路上で両方通る場合にのみ途中駅扱い）
+// connectingStations: 接続駅と endpoints（経路上に endpoints が両方あり、且つ接続駅が endpoints の間に来る場合のみ途中駅扱い）
 const connectingStations = [
-  // 鶴宮神社 -> 鶴宮 -> 南鶴宮 の場合に鶴宮を途中駅扱い
   {station:"鶴宮", endpoints:["鶴宮神社","南鶴宮"]},
-  // 湯の浜海岸 -> 湯の浜 -> 新里大学前 の場合に湯の浜を途中駅扱い
   {station:"湯の浜", endpoints:["湯の浜海岸","新里大学前"]},
-  // 彩山親水公園 -> 彩山 -> 彩山口 の場合に彩山を途中駅扱い
   {station:"彩山", endpoints:["彩山親水公園","彩山口"]},
-  // 桜川公園 -> 桜川 -> 豊野月見台 の場合に桜川を途中駅扱い
   {station:"桜川", endpoints:["桜川公園","豊野月見台"]},
-  // 鶴宮 -> 北鶴宮 -> 鬼越峠 の順で通る場合に北鶴宮を途中駅扱い
   {station:"北鶴宮", endpoints:["鶴宮","鬼越峠"]}
 ];
 
@@ -383,7 +378,7 @@ function majorStops(path){
     // 会社や路線が変わるポイント
     let isBoundary = (ln !== curLine);
 
-    // ★特殊ルール：specialMajorStations の場合は同一路線の3駅なら停車駅扱い（元ロジック）
+    // ★特殊ルール：specialMajorStations の場合（元ロジック通り）
     let isSpecialSkip = false;
     if(specialMajorStations.includes(here) && i > 0 && i < path.length-1){
       const before = path[i-1];
@@ -393,19 +388,27 @@ function majorStops(path){
       }
     }
 
-    // ★新ルール：connectingStations の場合 — 経路が endpoints の両方を含み、here が endpoints の間に来る場合のみ途中駅扱い
+    // ★改善版：connectingStations の場合 — endpoints の全出現位置を調べて here が間にあるか判定
     for(const conn of connectingStations){
       if(here === conn.station){
         const a = conn.endpoints[0];
         const b = conn.endpoints[1];
-        const idxA = path.indexOf(a);
-        const idxB = path.indexOf(b);
-        const idxHere = i;
-        if(idxA !== -1 && idxB !== -1){
-          // 順方向または逆方向で here が真ん中に来るか（strictly between）
-          const forward = (idxA < idxHere && idxHere < idxB);
-          const backward = (idxB < idxHere && idxHere < idxA);
-          if(forward || backward){
+        // path 内で endpoints のすべてのインデックスを列挙
+        const indicesA = path.map((s, idx) => s === a ? idx : -1).filter(idx => idx !== -1);
+        const indicesB = path.map((s, idx) => s === b ? idx : -1).filter(idx => idx !== -1);
+        if(indicesA.length > 0 && indicesB.length > 0){
+          let skipFound = false;
+          for(const ia of indicesA){
+            for(const ib of indicesB){
+              // here の index は i（現在のループ変数）
+              if((ia < i && i < ib) || (ib < i && i < ia)){
+                skipFound = true;
+                break;
+              }
+            }
+            if(skipFound) break;
+          }
+          if(skipFound){
             isSpecialSkip = true;
             break;
           }
@@ -715,7 +718,7 @@ function wireToggleButtons(){
 }
 
 /* ===========================
-   検索：会社境界での運賃合算を実装（元ロジック）
+   検索：会社境界での運賃合算を実装
    =========================== */
 searchBtn.addEventListener('click', ()=>{
   // 最新の選択状態
@@ -734,7 +737,7 @@ searchBtn.addEventListener('click', ()=>{
     return;
   }
 
-  // パート分割（元ロジックを流用）
+  // パート分割（元ロジック）
   const parts = buildRoutePartsAvoidingDuplicates(from, viaStations, to);
   if(!parts || parts.length === 0){
     resultArea.innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
@@ -744,7 +747,7 @@ searchBtn.addEventListener('click', ()=>{
   // 表示用：実際に通る距離の総和
   const totalDistance = parts.reduce((acc,p)=>acc+p.distance, 0);
 
-  // 会社境界で区切って、その会社内の最短距離で各社運賃を合算
+  // ★会社境界で区切って、その会社内の最短距離で各社運賃を合算
   let totalFare = 0;
   for(const part of parts){
     const companySegments = splitByCompany(part.path);
