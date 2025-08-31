@@ -121,11 +121,6 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .spacer4{height:4px}
 .spacer6{height:6px}
 
-/* 経由地UI */
-.viaList{display:flex;flex-direction:column;gap:6px;margin:6px 0;align-items:flex-start}
-.viaRow{display:flex;align-items:center;gap:6px;justify-content:flex-start}
-.viaRow button{font-size:12px;padding:4px 6px}
-
 /* 路線境界駅用 */
 .boundaryName {
   font-size: 14px;
@@ -135,6 +130,10 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .boundaryStation .lineBadge {
   margin-top: 4px;
 }
+/* 経由地UI */
+.viaList{display:flex;flex-direction:column;gap:6px;margin:6px 0;align-items:flex-start}
+.viaRow{display:flex;align-items:center;gap:6px;justify-content:flex-start}
+.viaRow button{font-size:12px;padding:4px 6px}
 </style>
 </head>
 <body>
@@ -175,7 +174,6 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 
 <div id="resultArea"></div>
 </div>
-
 <script>
 // ==== 駅・路線データ ====  （元ファイルのまま）
 const stationLines = {
