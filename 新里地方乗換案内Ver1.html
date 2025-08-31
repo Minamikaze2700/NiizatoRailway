@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>新里地方 乗換案内（完全版 — 条件付き途中駅表示）</title>
+<title>新里地方 乗換案内（条件付き途中駅対応）</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{
@@ -102,12 +102,23 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
   align-items:flex-start;
   padding-top:0;
 }
+/* 途中駅（通常）*/
 .minorName{
   font-size:14px;
   font-weight:400;
   margin:0;
   position:relative;
   top:-4px;
+}
+
+/* 条件付き途中駅（細字表示） — さらに細く見せたい場合はフォントウエイトを300に */
+.condMinorName{
+  font-size:14px;
+  font-weight:300;
+  margin:0;
+  position:relative;
+  top:-4px;
+  color: #333;
 }
 
 /* 線の高さも広めに */
@@ -235,8 +246,6 @@ const graph = buildGraphBidirectional(rawGraph);
 const allStations = Array.from(new Set([...Object.keys(graph), ...Object.values(graph).flatMap(x => Object.keys(x))])).sort();
 
 // ============ 会社別運賃ロジック ============
-
-// --- 各社運賃（元プログラムと同じ） ---
 function fareImabashi(km){ return 0; }
 function fareSakuragawa(km){ return 0; }
 function fareSakatsu(km){ return 0; }
@@ -270,7 +279,6 @@ function fareNiizato(km){
   return 540;
 }
 
-// --- 路線名から会社名を判定 ---
 function companyFromLineName(line){
   if(line.startsWith("今橋鉄道")) return "今橋鉄道";
   if(line.startsWith("桜川電気鉄道")) return "桜川電気鉄道";
@@ -283,7 +291,6 @@ function companyFromLineName(line){
   return null;
 }
 
-// --- 会社名と距離から運賃を取得 ---
 function fareByCompany(company, km){
   switch(company){
     case "今橋鉄道": return fareImabashi(km);
@@ -298,7 +305,6 @@ function fareByCompany(company, km){
   }
 }
 
-// --- 路線判定（元ファイルのまま） ---
 function findLineOfSegment(a,b){
   for(const [line,stations] of Object.entries(stationLines)){
     const ia = stations.indexOf(a), ib = stations.indexOf(b);
@@ -354,10 +360,8 @@ function shortestPathWithinCompany(start, goal, company){
   return {path, distance: dist[goal]};
 }
 
-// ==== 途中駅扱いの「接続」定義 ====
-// ここで定義した接続駅は、条件成立（両端の endpoints を経路が通り、その接続駅が endpoints の間に位置する）
-// のときに「主要駅扱い（元の specialMajorStations）」を覆してその駅だけを途中駅表示にします。
-// それ以外は元の主要駅設定がそのまま優先されます。
+// ==== 途中駅扱いの「接続」定義（5駅） ====
+// 接続駅は「この station が endpoints の間にある場合のみ途中駅表示」にする
 const connectingStations = [
   { station: "北鶴宮", endpoints: ["鶴宮","鬼越峠"] },
   { station: "鶴宮",   endpoints: ["鶴宮神社","南鶴宮"] },
@@ -366,18 +370,16 @@ const connectingStations = [
   { station: "桜川",   endpoints: ["桜川公園","豊野月見台"] }
 ];
 
-// 元のプログラムが持っていた「主要駅候補（特別扱い）」はそのまま保持
+// 元の主要駅候補（そのまま維持）
 const specialMajorStations = ["新里","湯の浜","鶴宮"];
 
-// ユーティリティ
-function indexesOf(arr, val){
-  const out = [];
-  for(let i=0;i<arr.length;i++) if(arr[i]===val) out.push(i);
-  return out;
+// ヘルパー
+function indexesOf(arr, value){
+  const out=[]; for(let i=0;i<arr.length;i++) if(arr[i]===value) out.push(i); return out;
 }
 function betweenExclusive(idx, a, b){ return (a < idx && idx < b) || (b < idx && idx < a); }
 
-// --- 主要駅抽出（元ロジックを維持しつつ、接続駅条件が成立したときはその主要駅だけを途中駅に変える） ---
+// --- 主要駅抽出（元のロジックを維持しつつ「接続駅が条件成立ならその駅のみ途中駅にする」） ---
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
 
@@ -392,8 +394,7 @@ function majorStops(path){
     // 会社や路線が変わるポイント
     let isBoundary = (ln !== curLine);
 
-    // --- 元の specialMajorStations の判定（元ロジックそのまま） ---
-    // original code treated 'here' specially: if here is in specialMajorStations and before/after are on same line, skip boundary
+    // 元の specialMajorStations によるスキップ判定（元ロジック）
     let isSpecialSkip = false;
     if(specialMajorStations.includes(here) && i > 0 && i < path.length-1){
       const before = path[i-1];
@@ -403,38 +404,31 @@ function majorStops(path){
       }
     }
 
-    // --- 新仕様：接続駅条件（優先判定の一部） ---
-    // 要件: 「主要駅の設定は元のまま変えない。条件が成立したらその主要駅だけを途中駅の表示に変える」
-    // -> ここでは prev（境界直前の駅）が specialMajorStations に含まれている場合のみ、
-    //    connectingStations の定義と照らし合わせ、prev のみを途中駅に変えるか判定します。
+    // 新：接続駅が prev（境界直前の駅）の場合に、条件成立なら prev を途中駅扱いにする
     let connectionSkipPrev = false;
-    // only consider when prev is one of the specialMajorStations (to avoid changing non-major stations)
-    if(specialMajorStations.includes(prev) || connectingStations.some(c=>c.station===prev)){
-      // find a connecting definition for prev (if any)
-      const conn = connectingStations.find(c => c.station === prev);
-      if(conn){
-        const endpoints = conn.endpoints;
-        // get all indices where endpoints appear in path
-        const idxsA = indexesOf(path, endpoints[0]);
-        const idxsB = indexesOf(path, endpoints[1]);
-        if(idxsA.length > 0 && idxsB.length > 0){
-          // if any pair of indices indicates that prev (index i-1) lies between them -> skip (make prev intermediate)
-          const idxPrev = i - 1;
-          outer: for(const ia of idxsA){
-            for(const ib of idxsB){
-              if(betweenExclusive(idxPrev, ia, ib)){
-                connectionSkipPrev = true;
-                break outer;
-              }
+    const conn = connectingStations.find(c => c.station === prev);
+    if(conn){
+      const idxPrev = i - 1;
+      const idxsA = indexesOf(path, conn.endpoints[0]);
+      const idxsB = indexesOf(path, conn.endpoints[1]);
+      if(idxsA.length > 0 && idxsB.length > 0){
+        outer: for(const ia of idxsA){
+          for(const ib of idxsB){
+            if(betweenExclusive(idxPrev, ia, ib)){
+              connectionSkipPrev = true;
+              break outer;
             }
           }
         }
       }
     }
 
-    // Decide: if it's a boundary and neither original special-skip nor connection-skip applies, we add prev to majors.
+    // 境界かつ specialSkip でも connectionSkipPrev でもない場合に prev を主要駅に追加
     if(isBoundary && !isSpecialSkip && !connectionSkipPrev){
       majors.push(prev);
+      curLine = ln;
+    } else {
+      // curLine は常に更新（次の判定のため）
       curLine = ln;
     }
   }
@@ -635,7 +629,7 @@ function splitByCompany(path){
   return segments.filter(s => !!s.company && s.from !== s.to);
 }
 
-// 1パート分の描画（元ファイルのUIそのまま）
+// 1パート分の描画（元ファイルのUIそのまま。ただし条件付き途中駅は majors に含まれないため自動的に between 側に表示され、小丸細字となる）
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
   const { majors } = majorStops(path);
@@ -698,13 +692,32 @@ function renderRouteCardForPart(part, partIndex){
       if(between.length > 0){
         routeHtml += `<div id="part${partIndex}-between-${idx}" class="betweenList">`;
         between.forEach(s=>{
+          // 条件付き途中駅に該当するか判定してクラスを変える（ここは冗長だが、between 側の駅が条件付きで細字にしたい場合に備える）
+          let isCondMinor = false;
+          const cond = connectingStations.find(c => c.station === s);
+          if(cond){
+            // endpoints が path 内にあり、s の index が endpoints の間にあれば条件成立
+            const idxS = path.indexOf(s);
+            const idxsA = indexesOf(path, cond.endpoints[0]);
+            const idxsB = indexesOf(path, cond.endpoints[1]);
+            if(idxsA.length > 0 && idxsB.length > 0){
+              outer2: for(const ia of idxsA){
+                for(const ib of idxsB){
+                  if(betweenExclusive(idxS, ia, ib)){ isCondMinor = true; break outer2; }
+                }
+              }
+            }
+          }
+
+          const minorClass = isCondMinor ? 'condMinorName' : 'minorName';
+
           routeHtml += `
             <div class="rowBetween">
               <div class="railCol">
                 <div class="railDot" style="background:${color}"></div>
                 <div class="railLineMinor" style="background:${color}"></div>
               </div>
-              <div class="stationText"><div class="minorName">${s}</div></div>
+              <div class="stationText"><div class="${minorClass}">${s}</div></div>
             </div>
           `;
         });
@@ -735,7 +748,7 @@ function wireToggleButtons(){
 }
 
 /* ===========================
-   検索：会社境界での運賃合算を実装
+   検索：会社境界での運賃合算を実装（元ロジック通り）
    =========================== */
 searchBtn.addEventListener('click', ()=>{
   // 最新の選択状態
