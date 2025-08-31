@@ -605,7 +605,7 @@ function renderRouteCardForPart(part, partIndex){
       return;
     }
 
-    // 線色：該当区間で見つかった路線色を採用
+    // 線色：該当区間で見つかった路線色を採用（主要駅を結ぶラインの色は元どおり）
     let color = "#999";
     if(nextStation){
       const iFrom = path.indexOf(st);
@@ -650,7 +650,7 @@ function renderRouteCardForPart(part, partIndex){
       const iTo = path.indexOf(nextStation);
       const between = path.slice(iFrom+1, iTo);
       if(between.length > 0){
-        // between 内に路線境界駅が含まれるか判定
+        // between 内に路線境界駅が含まれるか判定（含まれる場合は常時表示）
         const hasBoundary = between.some(s=>{
           const si = path.indexOf(s);
           const p = path[si-1];
@@ -659,23 +659,33 @@ function renderRouteCardForPart(part, partIndex){
         });
         const containerClass = hasBoundary ? 'betweenList alwaysVisible' : 'betweenList';
         routeHtml += `<div id="part${partIndex}-between-${idx}" class="${containerClass}">`;
+
         between.forEach(s=>{
           const si = path.indexOf(s);
           const prev = path[si-1];
           const next = path[si+1];
           const isBoundary = prev && next && isBoundaryStation(prev, s, next);
+
+          // 途中駅から伸びる線（minor）の色は「その駅と次の駅が両方含まれる路線」の色を使う
+          let minorColor = color; // デフォルトは親区間の色
+          if(next){
+            const common = findCommonLines(s, next);
+            if(common.length > 0){
+              minorColor = lineColors[common[0]] || minorColor;
+            }
+          }
+
           routeHtml += `
             <div class="rowBetween${isBoundary ? ' alwaysVisible' : ''}">
               <div class="railCol">
-                <div class="railDot" style="background:${color}"></div>
-                <div class="railLineMinor" style="background:${color}"></div>
+                <div class="railDot" style="background:${minorColor}"></div>
+                <div class="railLineMinor" style="background:${minorColor}"></div>
               </div>
-              <div class="stationText">
-                <div class="minorName"${isBoundary ? ' style="font-weight:700"' : ''}>${s}</div>
-              </div>
+              <div class="stationText"><div class="minorName"${isBoundary ? ' style="font-weight:700"' : ''}>${s}</div></div>
             </div>
           `;
         });
+
         routeHtml += `</div>`;
       }
     }
@@ -691,10 +701,13 @@ function wireToggleButtons(){
     btn.addEventListener('click', ()=>{
       const part = btn.dataset.part;
       const idx = btn.dataset.seg;
-      const list = document.getElementById(`part${part}-between-${idx}`);
-      if(!list) return;
-      const isOpen = getComputedStyle(list).display !== 'block';
-      list.style.display = isOpen ? 'block' : 'none';
+      const list = document.getElementById(`part${part}-between-${idx`);
+      // fallback if id mismatch (older browsers) - try alternate id
+      const listAlt = document.getElementById(`part${part}-between-${idx}`);
+      const target = list || listAlt;
+      if(!target) return;
+      const isOpen = getComputedStyle(target).display !== 'block';
+      target.style.display = isOpen ? 'block' : 'none';
       btn.dataset.open = isOpen.toString();
       btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
       runAdjustments();
