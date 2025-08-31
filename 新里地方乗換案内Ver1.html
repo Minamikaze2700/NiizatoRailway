@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>新里地方 乗換案内（条件付き途中駅対応・路線バッジ修正）</title>
+<title>新里地方 乗換案内（条件付き途中駅対応・到着色修正）</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{
@@ -541,7 +541,7 @@ function splitByCompany(path){
   return segments.filter(s => !!s.company && s.from !== s.to);
 }
 
-// 1パート分の描画（UIは元のまま。ただし路線バッジ・色の選択を修正）
+// 1パート分の描画（UIは元のまま。ただし到着駅のバッジ非表示・色は直前線に依存）
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
   const { majors } = majorStops(path);
@@ -576,8 +576,8 @@ function renderRouteCardForPart(part, partIndex){
       }
 
       // choose color: prefer line used at the top of the segment (iFrom -> iFrom+1)
-      const topLn = usedPairs.find(p=>p.idx===iFrom && p.line);
-      if(topLn && topLn.line && lineColors[topLn.line]) color = lineColors[topLn.line];
+      const topPair = usedPairs.find(p=>p.idx===iFrom && p.line);
+      if(topPair && topPair.line && lineColors[topPair.line]) color = lineColors[topPair.line];
       else {
         // fallback: first usedLines with a defined color
         for(const ln of usedLines){
@@ -590,26 +590,23 @@ function renderRouteCardForPart(part, partIndex){
       if(badges.length > 0){
         lineListHtml = badges.map(l => `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${l}</div>`).join('');
       }
-    } else if(idx > 0){
-      // for the last major, attempt to get color from previous segment
-      const prevStation = majors[idx-1];
-      const iFrom = path.indexOf(prevStation);
-      const iTo = path.indexOf(st);
-      const usedLines = [];
-      const usedPairs = [];
-      for(let i=iFrom;i<iTo;i++){
-        const ln = findLineOfSegment(path[i], path[i+1]);
-        usedPairs.push({pair:[path[i], path[i+1]], line:ln, idx:i});
-        if(ln && usedLines.indexOf(ln)===-1) usedLines.push(ln);
+    } else {
+      // 到着駅（nextStation が無い）：路線名表示は不要（空にする）
+      lineListHtml = '';
+
+      // 色は「直前の線の色」に依存する（直前の path のペア）
+      const idxInPath = path.lastIndexOf(st);
+      if(idxInPath > 0){
+        const ln = findLineOfSegment(path[idxInPath-1], path[idxInPath]);
+        if(ln && lineColors[ln]) color = lineColors[ln];
+      } else {
+        // fallback: try to get any line in the part
+        if(path.length >= 2){
+          const ln0 = findLineOfSegment(path[0], path[1]);
+          if(ln0 && lineColors[ln0]) color = lineColors[ln0];
+        }
       }
-      const topLn = usedPairs[0] && usedPairs[0].line ? usedPairs[0].line : null;
-      if(topLn && lineColors[topLn]) color = lineColors[topLn];
-      else if(usedLines.length>0){
-        for(const ln of usedLines){ if(lineColors[ln]){ color = lineColors[ln]; break; } }
-      }
-      if(usedLines.length>0){
-        lineListHtml = usedLines.map(l => `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${l}</div>`).join('');
-      }
+      // ここでは到着駅は路線バッジを表示しない（仕様）
     }
 
     const bigLineId = `part${partIndex}-bigline-${idx}`;
