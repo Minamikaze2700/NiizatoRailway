@@ -441,20 +441,27 @@ if(stationLines['新里鉄道燠野線'] && stationLines['新里鉄道燠野線'
 }
 
 // 経由地追加（無制限）
+// 経由地追加（修正版）
 addViaBtn.addEventListener('click', ()=>{
   const viaRow = document.createElement('div');
   viaRow.className = 'viaRow';
+
   const lineSel = document.createElement('select');
   lineSel.className = 'lineSelect';
   populateLineSelect(lineSel);
+
   const stationSel = document.createElement('select');
   stationSel.className = 'stationSelect';
-  populateStationSelect(lineSel, stationSel);
+  populateStationSelect(lineSel, stationSel); // 初期化
+
+  // ここが重要：lineSel の change イベントで stationSel を更新
   lineSel.addEventListener('change', ()=> populateStationSelect(lineSel, stationSel));
+
   const delBtn = document.createElement('button');
   delBtn.type = 'button';
   delBtn.textContent = '削除';
   delBtn.addEventListener('click', ()=> { viaListDiv.removeChild(viaRow); });
+
   viaRow.appendChild(lineSel);
   viaRow.appendChild(stationSel);
   viaRow.appendChild(delBtn);
