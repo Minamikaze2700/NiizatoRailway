@@ -651,7 +651,9 @@ function renderRouteCardForPart(part, partIndex){
       if(between.length > 0){
         routeHtml += `<div id="part${partIndex}-between-${idx}" class="betweenList">`;
 between.forEach(s => {
-  if(isBoundaryStation(prevStation, s, nextStation)) {
+  const prevSt = path[iFrom];
+  const nextSt = path[iTo];
+  if(isBoundaryStation(prevSt, s, nextSt)) {
     // 路線境界駅 → 常時表示・太字
     routeHtml += `
       <div class="rowBetween alwaysVisible">
@@ -660,8 +662,7 @@ between.forEach(s => {
           <div class="railLineMinor" style="background:${color}"></div>
         </div>
         <div class="stationText">
-          <div class="stationName">${s}</div>
-          ${lineListHtml}
+          <div class="minorName" style="font-weight:700">${s}</div>
         </div>
       </div>
     `;
@@ -680,12 +681,7 @@ between.forEach(s => {
     `;
   }
 });
-        routeHtml += `</div>`;
-      }
-    }
-  });
-
-  routeHtml += `</div></div>`;
+routeHtml += `</div>`; // betweenList の閉じタグ
   return routeHtml;
 }
 
