@@ -610,15 +610,11 @@ function renderRouteCardForPart(part, partIndex){
     majorsColors[idx] = color;
   }
 
-  // ---------- connectingStations の station が majors にある場合、次の停車駅の色に揃える ----------
-  const connStationsSet = new Set(connectingStations.map(c => c.station));
-  for(let idx = 0; idx < majors.length - 1; idx++){
-    const st = majors[idx];
-    if(connStationsSet.has(st)){
-      // 次の major の色で上書き（次が存在する場合のみ）
-      majorsColors[idx] = majorsColors[idx+1];
-    }
-  }
+  // ---------- 【重要】変更点 ----------
+  // 前回は "majors の中に接続駅があれば majorsColors を次の major の色で上書き" していましたが、
+  // 今回のご要望により「主要駅（majors）の場合は接続駅ルールを適用しない」ため、
+  // majors に対する上書き処理は行いません（＝ここでは何もしません）。
+  // なお、経路中の「途中駅（between）」で接続駅条件が成立する場合の色揃えは引き続き適用します。
 
   // ---------- 描画開始 ----------
   let routeHtml = `
@@ -730,11 +726,9 @@ function renderRouteCardForPart(part, partIndex){
             }
           }
 
-          // ======= 重要: connectingStations の該当途中駅は「次の停車駅（major）の丸の色」に揃える =======
+          // ======= 重要: connectingStations の該当途中駅は「次の停車駅（major）の丸の色」に揃える（ただしこれは途中駅に限る） =======
           if(isCondMinor){
             // j が between の範囲にあり、isCondMinor が true のとき、次の major の色（majorsColors[idx+1]）を使う
-            // majorsColors のインデックスは外側ループの idx に対応するため、このスコープでは idx が有効
-            // ここで idx は外側の majors インデックスを参照している（クロージャ上に存在）
             const nextMajorColor = majorsColors[idx+1] || pairColor;
             pairColor = nextMajorColor;
           }
