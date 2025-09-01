@@ -557,7 +557,7 @@ function renderRouteCardForPart(part, partIndex){
     }
   }
 
-  // ---------- 新実装: まず各 major セグメントの色を決めて配列に保持 ----------
+  // ---------- 各 major セグメントの色を決めて配列に保持 ----------
   const majorsColors = new Array(majors.length).fill("#999");
 
   for(let idx = 0; idx < majors.length; idx++){
@@ -589,7 +589,6 @@ function renderRouteCardForPart(part, partIndex){
 
       const badges = usedLines.length > 0 ? usedLines : findCommonLines(st, nextStation);
       // badges 表示は後で使う（描画時に html にする）
-      // majorsColors[idx] = color; // 保持は後で
     } else if(!nextStation){
       // 到着駅：表示なし、色は直前の線の色（major の位置 iFrom を使う）
       if(iFrom > 0){
@@ -610,11 +609,9 @@ function renderRouteCardForPart(part, partIndex){
     majorsColors[idx] = color;
   }
 
-  // ---------- 【重要】変更点 ----------
-  // 前回は "majors の中に接続駅があれば majorsColors を次の major の色で上書き" していましたが、
-  // 今回のご要望により「主要駅（majors）の場合は接続駅ルールを適用しない」ため、
-  // majors に対する上書き処理は行いません（＝ここでは何もしません）。
-  // なお、経路中の「途中駅（between）」で接続駅条件が成立する場合の色揃えは引き続き適用します。
+  // ---------- ここで majors への接続上書きは行いません（主要駅には接続ルールを適用しない） ----------
+  // （ただし途中駅の色を主要駅ではなく途中駅と同じにしたい、という要望に合わせ、
+  //  以下の between 描画側では「途中駅自身の色(pairColor)を採用」します）
 
   // ---------- 描画開始 ----------
   let routeHtml = `
@@ -726,12 +723,9 @@ function renderRouteCardForPart(part, partIndex){
             }
           }
 
-          // ======= 重要: connectingStations の該当途中駅は「次の停車駅（major）の丸の色」に揃える（ただしこれは途中駅に限る） =======
-          if(isCondMinor){
-            // j が between の範囲にあり、isCondMinor が true のとき、次の major の色（majorsColors[idx+1]）を使う
-            const nextMajorColor = majorsColors[idx+1] || pairColor;
-            pairColor = nextMajorColor;
-          }
+          // ======= 変更点: 接続駅（isCondMinor）の場合は「次の主要駅の色で上書きせず」、
+          // ======= 途中駅自身の色(pairColor)を使う（＝色は主要駅ではなく途中駅と同じになる） =======
+          // （つまり以前の majorsColors[idx+1] を使うコードを削除しました）
 
           routeHtml += `
             <div class="rowBetween">
