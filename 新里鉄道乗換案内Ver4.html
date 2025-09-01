@@ -226,12 +226,22 @@ function fareByCompany(company, km){
   }
 }
 
-function findLineOfSegment(a,b){
-  for(const [line,stations] of Object.entries(stationLines)){
-    const ia = stations.indexOf(a), ib = stations.indexOf(b);
-    if(ia !== -1 && ib !== -1 && Math.abs(ia-ib) === 1) return line;
+// 新：2駅間（隣接）のすべての路線候補を返す（両方含み、かつインデックス差が1）
+function findLinesOfSegment(a,b){
+  const candidates = [];
+  for(const [line, stations] of Object.entries(stationLines)){
+    const ia = stations.indexOf(a);
+    const ib = stations.indexOf(b);
+    if(ia !== -1 && ib !== -1 && Math.abs(ia - ib) === 1){
+      candidates.push(line);
+    }
   }
-  return null;
+  return candidates;
+}
+// 従来互換：最初の候補を返す（存在しなければ null）
+function findLineOfSegment(a,b){
+  const cs = findLinesOfSegment(a,b);
+  return cs.length ? cs[0] : null;
 }
 
 // --- Dijkstra 最短経路（全体） ---
@@ -663,14 +673,14 @@ function renderRouteCardForPart(part, partIndex){
     // between を描画（iFrom..iTo の正確な範囲）
     if(nextStation && iFrom !== -1 && iTo !== -1){
       if(iTo - iFrom > 1){
-        // --- ここが今回の重要箇所 ---
-        // まず between の各駅について pairColor を先に計算して配列に格納する（後で参照するため）
+        // --- ここで「途中駅とその次の停車駅が両方含まれる路線」を最優先で選ぶ ---
         const betweenStart = iFrom + 1;
         const betweenEnd = iTo - 1;
         const betweenCount = betweenEnd - betweenStart + 1;
         const pairColors = new Array(Math.max(0, betweenCount)).fill('#999');
         const isCondArr = new Array(Math.max(0, betweenCount)).fill(false);
 
+        // 1回目ループ: 各途中駅について、まず (途中駅, 次の駅) ペアがどの路線に属するかを確認
         for(let bj = betweenStart; bj <= betweenEnd; bj++){
           const jIndex = bj;
           const s = path[jIndex];
@@ -691,12 +701,25 @@ function renderRouteCardForPart(part, partIndex){
           }
           isCondArr[bj - betweenStart] = isCondMinor;
 
-          // pairColor 算出（prev, s, next を使った優先ロジック）
-          let pairColor = '#999';
           const prevSt = path[jIndex-1];
           const nextSt = path[jIndex+1];
 
-          // 1) prev, s, next の3駅すべてを含む路線を優先
+          // 優先ロジック（要求どおり）
+          // 1) (現在駅 s, 次の駅 nextSt) を**両方含みかつ隣接**している路線を最優先で使う
+          const directCandidates = findLinesOfSegment(s, nextSt);
+          if(directCandidates.length > 0){
+            // 候補が複数ある時は、カラーが定義された最初の路線を使う
+            let chosen = null;
+            for(const ln of directCandidates){
+              if(lineColors[ln]){ chosen = ln; break; }
+            }
+            if(chosen){
+              pairColors[bj - betweenStart] = lineColors[chosen];
+              continue;
+            }
+          }
+
+          // 2) フォールバック：3駅すべてを含む路線（prevSt, s, nextSt）を探す（隣接でなくても可）
           let threeLine = null;
           for(const [ln, stations] of Object.entries(stationLines)){
             if(stations.indexOf(prevSt) !== -1 && stations.indexOf(s) !== -1 && stations.indexOf(nextSt) !== -1){
@@ -705,34 +728,34 @@ function renderRouteCardForPart(part, partIndex){
             }
           }
           if(threeLine && lineColors[threeLine]){
-            pairColor = lineColors[threeLine];
-          } else {
-            // 2) prev と next の両方を含む路線
-            let bothLine = null;
-            for(const [ln, stations] of Object.entries(stationLines)){
-              if(stations.indexOf(prevSt) !== -1 && stations.indexOf(nextSt) !== -1){
-                bothLine = ln;
-                break;
-              }
-            }
-            if(bothLine && lineColors[bothLine]){
-              pairColor = lineColors[bothLine];
-            } else {
-              // 3) フォールバック：隣接ペアの線色を優先
-              const adjPairs = [];
-              if(jIndex > 0) adjPairs.push([path[jIndex-1], path[jIndex]]);
-              if(jIndex < path.length - 1) adjPairs.push([path[jIndex], path[jIndex+1]]);
-              for(const p of adjPairs){
-                const ln = findLineOfSegment(p[0], p[1]);
-                if(ln && lineColors[ln]){ pairColor = lineColors[ln]; break; }
-              }
-            }
+            pairColors[bj - betweenStart] = lineColors[threeLine];
+            continue;
           }
 
-          pairColors[bj - betweenStart] = pairColor;
+          // 3) フォールバック：prev と next の両方を含む路線（隣接でなくても可）
+          let bothLine = null;
+          for(const [ln, stations] of Object.entries(stationLines)){
+            if(stations.indexOf(prevSt) !== -1 && stations.indexOf(nextSt) !== -1){
+              bothLine = ln;
+              break;
+            }
+          }
+          if(bothLine && lineColors[bothLine]){
+            pairColors[bj - betweenStart] = lineColors[bothLine];
+            continue;
+          }
+
+          // 4) 最終的フォールバック：隣接ペアの線色（prev-s または s-next で色が見つかれば使う）
+          const adjPairs = [];
+          if(jIndex > 0) adjPairs.push([path[jIndex-1], path[jIndex]]);
+          if(jIndex < path.length - 1) adjPairs.push([path[jIndex], path[jIndex+1]]);
+          for(const p of adjPairs){
+            const ln = findLineOfSegment(p[0], p[1]);
+            if(ln && lineColors[ln]){ pairColors[bj - betweenStart] = lineColors[ln]; break; }
+          }
         }
 
-        // 2回目ループ：計算済み pairColors を使って描画。isCond の場合は「直後の途中駅の色」を使う
+        // 2回目ループ：描画。isCond の場合は「直後の途中駅の色」を使うルール（元ロジックの意図を継承）
         routeHtml += `<div id="part${partIndex}-between-${idx}" class="betweenList">`;
         for(let bj = betweenStart; bj <= betweenEnd; bj++){
           const s = path[bj];
