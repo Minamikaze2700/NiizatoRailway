@@ -537,22 +537,44 @@ function splitByCompany(path){
 
 // 描画：主要駅インデックスを正しく求め、色は「区間上端（major->次駅）」を優先
 function renderRouteCardForPart(part, partIndex){
-  const path = part.path;
-  const { majors } = majorStops(path);
+    // デフォルトの色・バッジ表示
+    let color = '#ddd';
+    let lineListHtml = '';
 
-  // majors -> path 上のインデックスを順に探す（重複駅対応）
-  const majorIndices = [];
-  let scanStart = 0;
-  for(let m = 0; m < majors.length; m++){
-    const mi = findIndexFrom(path, majors[m], scanStart);
-    if(mi === -1){
-      majorIndices.push(path.indexOf(majors[m]));
-      scanStart = (majorIndices[majorIndices.length-1] >= 0) ? majorIndices[majorIndices.length-1] + 1 : scanStart+1;
-    } else {
-      majorIndices.push(mi);
-      scanStart = mi + 1;
+    // --- 色決定（堅牢化） ---
+    // まず直接 major -> nextStation が隣接していればその線を優先
+    let chosenLine = null;
+
+    if (nextStation && findLineOfSegment(st, nextStation)) {
+      chosenLine = findLineOfSegment(st, nextStation);
     }
-  }
+
+    // それが無ければ major の直後のペア (iFrom -> iFrom+1) を優先
+    if (!chosenLine) {
+      const immediatePair = usedPairs.find(p => p.idx === iFrom && p.line);
+      if (immediatePair && immediatePair.line) chosenLine = immediatePair.line;
+    }
+
+    // それでも無ければ、区間上で見つかった最初の路線（usedPairs）か usedLines の先頭を使う
+    if (!chosenLine) {
+      const anyPairLine = usedPairs.find(p => p.line);
+      if (anyPairLine && anyPairLine.line) chosenLine = anyPairLine.line;
+      else if (usedLines.length > 0) chosenLine = usedLines[0];
+    }
+
+    if (chosenLine && lineColors[chosenLine]) {
+      color = lineColors[chosenLine];
+    } else {
+      // 備え：最終フォールバック（従来のやり方）
+      for (const ln of usedLines) {
+        if (lineColors[ln]) { color = lineColors[ln]; break; }
+      }
+    }
+
+    const badges = usedLines.length > 0 ? usedLines : findCommonLines(st, nextStation);
+    if (badges.length > 0) {
+      lineListHtml = badges.map(l => `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${l}</div>`).join('');
+    }
 
   let routeHtml = `
     <div class="card">
