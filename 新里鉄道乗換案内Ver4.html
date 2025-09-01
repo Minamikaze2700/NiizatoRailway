@@ -438,6 +438,12 @@ function adjustMajorLines(){
     const line = railCol.querySelector('.railLineMajor');
     if (!dot || !line) return;
 
+    // 変更：短縮済みフラグがある場合はここで上書きしない（短縮を保持）
+    if(line.dataset && line.dataset.shortened === 'true'){
+      // 短縮済みなので再計算をスキップ
+      return;
+    }
+
     const nextRow = rows.slice(idx + 1).find(r => r.querySelector('.railDot'));
     if (!nextRow) {
       line.style.height = '0px';
@@ -696,6 +702,8 @@ function shortenBigLineToFirstBetween(bigLine, betweenEl){
   const newHeight = Math.max(0, (betweenDotRect.top - dotRect.top)) + 2; // 少し余裕
   bigLine.style.top = newTop + 'px';
   bigLine.style.height = newHeight + 'px';
+  // 変更：短縮フラグを付与して、adjustMajorLines が上書きしないようにする
+  bigLine.dataset.shortened = "true";
 }
 
 // wire toggle: 短縮／復元
@@ -719,8 +727,8 @@ function wireToggleButtons(){
           // between があるなら、大線を最初の途中駅まで短縮する（主要駅->最初の途中駅は残す）
           shortenBigLineToFirstBetween(bigLine, list);
         } else {
-          // 閉じたら全長に戻す（adjustMajorLines で調整）
-          runAdjustments();
+          // 閉じたら短縮フラグを外して全長に戻す（adjustMajorLines で調整）
+          delete bigLine.dataset.shortened;
         }
       }
       // between のマイナー線は runAdjustments で配置を調整
