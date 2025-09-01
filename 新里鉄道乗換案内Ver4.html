@@ -557,23 +557,17 @@ function renderRouteCardForPart(part, partIndex){
     }
   }
 
-  let routeHtml = `
-    <div class="card">
-      <div class="resultHeader">
-        <div class="meta"></div>
-      </div>
-      <div class="routeLine">
-  `;
+  // ---------- 新実装: まず各 major セグメントの色を決めて配列に保持 ----------
+  const majorsColors = new Array(majors.length).fill("#999");
 
   for(let idx = 0; idx < majors.length; idx++){
     const st = majors[idx];
     const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
 
+    let color = "#999";
+
     const iFrom = majorIndices[idx];
     const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
-
-    let color = "#999";
-    let lineListHtml = '';
 
     if(nextStation && iFrom !== -1 && iTo !== -1){
       const usedLines = [];
@@ -594,12 +588,10 @@ function renderRouteCardForPart(part, partIndex){
       }
 
       const badges = usedLines.length > 0 ? usedLines : findCommonLines(st, nextStation);
-      if(badges.length > 0){
-        lineListHtml = badges.map(l => `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${l}</div>`).join('');
-      }
+      // badges 表示は後で使う（描画時に html にする）
+      // majorsColors[idx] = color; // 保持は後で
     } else if(!nextStation){
       // 到着駅：表示なし、色は直前の線の色（major の位置 iFrom を使う）
-      lineListHtml = '';
       if(iFrom > 0){
         const ln = findLineOfSegment(path[iFrom-1], path[iFrom]);
         if(ln && lineColors[ln]) color = lineColors[ln];
@@ -613,6 +605,53 @@ function renderRouteCardForPart(part, partIndex){
         const ln0 = findLineOfSegment(path[0], path[1]);
         if(ln0 && lineColors[ln0]) color = lineColors[ln0];
       }
+    }
+
+    majorsColors[idx] = color;
+  }
+
+  // ---------- connectingStations の station が majors にある場合、次の停車駅の色に揃える ----------
+  const connStationsSet = new Set(connectingStations.map(c => c.station));
+  for(let idx = 0; idx < majors.length - 1; idx++){
+    const st = majors[idx];
+    if(connStationsSet.has(st)){
+      // 次の major の色で上書き（次が存在する場合のみ）
+      majorsColors[idx] = majorsColors[idx+1];
+    }
+  }
+
+  // ---------- 描画開始 ----------
+  let routeHtml = `
+    <div class="card">
+      <div class="resultHeader">
+        <div class="meta"></div>
+      </div>
+      <div class="routeLine">
+  `;
+
+  for(let idx = 0; idx < majors.length; idx++){
+    const st = majors[idx];
+    const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
+
+    const iFrom = majorIndices[idx];
+    const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
+
+    const color = majorsColors[idx];
+
+    let lineListHtml = '';
+
+    if(nextStation && iFrom !== -1 && iTo !== -1){
+      const usedLines = [];
+      for(let i=iFrom;i<iTo;i++){
+        const ln = findLineOfSegment(path[i], path[i+1]);
+        if(ln && usedLines.indexOf(ln)===-1) usedLines.push(ln);
+      }
+      const badges = usedLines.length > 0 ? usedLines : findCommonLines(st, nextStation);
+      if(badges.length > 0){
+        lineListHtml = badges.map(l => `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${l}</div>`).join('');
+      }
+    } else if(!nextStation){
+      lineListHtml = '';
     }
 
     const bigLineId = `part${partIndex}-bigline-${idx}`;
@@ -653,7 +692,7 @@ function renderRouteCardForPart(part, partIndex){
           }
           const minorClass = isCondMinor ? 'condMinorName' : 'minorName';
 
-          // ======= 修正：小線の色はまず「prev・this・next の3駅を全て含む路線」を優先して採用 =======
+          // ======= 小線の色の決定（優先順位ロジックは維持） =======
           let pairColor = '#999';
           const prevSt = path[j-1];
           const nextSt = path[j+1];
@@ -669,7 +708,7 @@ function renderRouteCardForPart(part, partIndex){
           if(threeLine && lineColors[threeLine]){
             pairColor = lineColors[threeLine];
           } else {
-            // 2) 次に prev と next の両方を含む路線（途中駅が必ず入るとは限らないが優先）
+            // 2) 次に prev と next の両方を含む路線
             let bothLine = null;
             for(const [ln, stations] of Object.entries(stationLines)){
               if(stations.indexOf(prevSt) !== -1 && stations.indexOf(nextSt) !== -1){
@@ -690,7 +729,15 @@ function renderRouteCardForPart(part, partIndex){
               }
             }
           }
-          // ======= 修正ここまで =======
+
+          // ======= 重要: connectingStations の該当途中駅は「次の停車駅（major）の丸の色」に揃える =======
+          if(isCondMinor){
+            // j が between の範囲にあり、isCondMinor が true のとき、次の major の色（majorsColors[idx+1]）を使う
+            // majorsColors のインデックスは外側ループの idx に対応するため、このスコープでは idx が有効
+            // ここで idx は外側の majors インデックスを参照している（クロージャ上に存在）
+            const nextMajorColor = majorsColors[idx+1] || pairColor;
+            pairColor = nextMajorColor;
+          }
 
           routeHtml += `
             <div class="rowBetween">
