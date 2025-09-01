@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>新里地方 乗換案内（誤字＋小線色修正版）</title>
+<title>新里地方 乗換案内（A-B/B-C優先 小線色版）</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{
@@ -57,7 +57,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 </head>
 <body>
 <div class="wrap">
-<h1>新里地方 乗換案内（誤字＋小線色修正版）</h1>
+<h1>新里地方 乗換案内（A-B/B-C優先 小線色版）</h1>
 
 <div class="card">
   <div id="stationSelector">
@@ -653,44 +653,34 @@ function renderRouteCardForPart(part, partIndex){
           }
           const minorClass = isCondMinor ? 'condMinorName' : 'minorName';
 
-          // ======= 修正：小線の色はまず「prev・this・next の3駅を全て含む路線」を優先して採用 =======
+          // ======= 置換済：A-B / B-C 前提に最適化した小線色の決定 =======
           let pairColor = '#999';
           const prevSt = path[j-1];
           const nextSt = path[j+1];
 
-          // 1) prev, s, next の3駅すべてを含む路線を優先して探す
-          let threeLine = null;
-          for(const [ln, stations] of Object.entries(stationLines)){
-            if(stations.indexOf(prevSt) !== -1 && stations.indexOf(s) !== -1 && stations.indexOf(nextSt) !== -1){
-              threeLine = ln;
-              break;
-            }
-          }
-          if(threeLine && lineColors[threeLine]){
-            pairColor = lineColors[threeLine];
+          // 優先ルール（簡潔版）:
+          // 1) prev - s (A-B) の路線色を使う（最優先）
+          // 2) 無ければ s - next (B-C) の路線色を使う
+          // 3) それでも無ければフォールバック：隣接ペア探索
+          const lnPrev = findLineOfSegment(prevSt, s);
+          if (lnPrev && lineColors[lnPrev]) {
+            pairColor = lineColors[lnPrev];
           } else {
-            // 2) 次に prev と next の両方を含む路線（途中駅が必ず入るとは限らないが優先）
-            let bothLine = null;
-            for(const [ln, stations] of Object.entries(stationLines)){
-              if(stations.indexOf(prevSt) !== -1 && stations.indexOf(nextSt) !== -1){
-                bothLine = ln;
-                break;
-              }
-            }
-            if(bothLine && lineColors[bothLine]){
-              pairColor = lineColors[bothLine];
+            const lnNext = findLineOfSegment(s, nextSt);
+            if (lnNext && lineColors[lnNext]) {
+              pairColor = lineColors[lnNext];
             } else {
-              // 3) フォールバック：従来どおり隣接ペアの色を先に見つかったものを使う
+              // フォールバック（念のため）
               const adjPairs = [];
-              if(j > 0) adjPairs.push([path[j-1], path[j]]);
-              if(j < path.length - 1) adjPairs.push([path[j], path[j+1]]);
-              for(const p of adjPairs){
+              if (j > 0) adjPairs.push([path[j-1], path[j]]);
+              if (j < path.length - 1) adjPairs.push([path[j], path[j+1]]);
+              for (const p of adjPairs) {
                 const ln = findLineOfSegment(p[0], p[1]);
-                if(ln && lineColors[ln]){ pairColor = lineColors[ln]; break; }
+                if (ln && lineColors[ln]) { pairColor = lineColors[ln]; break; }
               }
             }
           }
-          // ======= 修正ここまで =======
+          // ======= ここまで =======
 
           routeHtml += `
             <div class="rowBetween">
@@ -821,7 +811,7 @@ searchBtn.addEventListener('click', ()=>{
   setTimeout(runAdjustments, 0);
 });
 
-// --- 開発時の簡易整合性チェック（任意：有効のままでも動作に影響ありません） ---
+// --- 開発時の簡易整合性チェック（任意：UIへは表示しない、コンソール出力のみ） ---
 (function validateGraphConsistency(){
   const graphStations = new Set(Object.keys(graph));
   Object.values(graph).forEach(neigh => Object.keys(neigh).forEach(s => graphStations.add(s)));
@@ -837,14 +827,11 @@ searchBtn.addEventListener('click', ()=>{
 
   if(missing.length){
     console.warn('グラフ整合性エラー: stationLines に存在するが rawGraph に無い駅が見つかりました。', missing);
-    const warnHtml = '<div class="card" style="border:2px solid #f59e0b;"><strong>警告：</strong> グラフ整合性に問題があります。開発者コンソールを確認してください。</div>';
-    const insert = document.getElementById('resultArea');
-    if(insert) insert.innerHTML = warnHtml + (insert.innerHTML || '');
   } else {
     console.log('グラフ整合性チェック OK');
   }
 
-  // 簡易到達可能性チェック
+  // 簡易到達可能性チェック（コンソールのみ）
   const start = Object.keys(graph)[0];
   const q=[start]; const seen=new Set([start]);
   while(q.length){
