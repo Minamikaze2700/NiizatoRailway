@@ -166,16 +166,21 @@ function fareSakuragawa(km){ return 0; }
 function fareSakatsu(km){ return 0; }
 function fareSakatsuPortliner(km){ return 0; }
 function fareSuzuhama(km){
-  if(km <= 4) return 140;
-  if(km <= 6) return 160;
-  if(km <= 9) return 190;
-  if(km <= 12) return 210;
-  if(km <= 15) return 230;
-  if(km <= 19) return 230;
-  if(km <= 24) return 320;
-  if(km <= 30) return 360;
-  if(km <= 37) return 390;
-  return 390;
+  // 画像の「きっぷ」料金表に基づく運賃（km は実数を想定）
+  if (km <= 4)  return 140;
+  if (km <= 6)  return 160;
+  if (km <= 9)  return 190;
+  if (km <= 12) return 210;
+  if (km <= 15) return 230;
+  if (km <= 19) return 280;
+  if (km <= 24) return 320;
+  if (km <= 30) return 360;
+  if (km <= 37) return 390;
+  if (km <= 44) return 410;
+  if (km <= 52) return 430;
+  if (km <= 60) return 450;
+  // 画像表の最長は52～60km区間なので、それを超える場合は最大運賃を返す
+  return 450;
 }
 function fareToyono(km){ return 0; }
 function fareTouhashi(km){ return 0; }
