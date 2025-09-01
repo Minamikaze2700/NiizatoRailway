@@ -298,10 +298,26 @@ const connectingStations = [
   { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
   { station: "彩山",   endpoints: ["彩山親水公園","彩山口"] },
   { station: "桜川",   endpoints: ["桜川公園","豊野月見台"] }
+  { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
+  { station: "豊町", endpoints: ["削野", "東豊町"] },
+  { station: "園木", endpoints: ["東園木", "富士町", "大木沢"] },
+  { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
+  { station: "新東橋", endpoints: ["浅見", "東黒木"] },
+  { station: "横宿", endpoints: ["日森町", "北横宿"] },
+  { station: "成津", endpoints: ["北成津", "大町"] }
 ];
 
 // 元の主要駅候補（そのまま維持）
-  const specialMajorStations = ["新里","湯の浜","鶴宮"];
+const specialMajorStations = [
+  "新里", "湯の浜", "鶴宮",
+  "坂電坂津", "港通", "東坂津",
+  "削野", "豊町", "東豊町",
+  "東園木", "園木", "富士町", "大木沢",
+  "北桑畑", "桑畑", "常盤台",
+  "浅見", "新東橋", "東黒木",
+  "日森町", "横宿", "北横宿",
+  "北成津", "成津", "大町"
+];
 
 // ヘルパー
 function indexesOf(arr, value){
