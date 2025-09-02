@@ -33,9 +33,9 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .routeLine{display:flex;flex-direction:column;gap:10px;margin-top:4px}
 .rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;align-items:start;column-gap:10px;position:relative;}
 .railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
-.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:3;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;background:#999}
-.rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:2;}
-.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;overflow:visible;}
+.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:6;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;background:#999}
+.rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:4;}
+.railLineMajor{width:var(--lineWMajor);/* 太線幅 */border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:2;top:0;height:0;background:#999;overflow:visible;}
 .railLineMinor{width:var(--lineWMinor);border-radius:1px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
 .stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
 .stationName{font-weight:700;font-size:16px;line-height:1.25;margin:0}
@@ -54,23 +54,23 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .viaRow{display:flex;align-items:center;gap:6px;justify-content:flex-start}
 .viaRow button{font-size:12px;padding:4px 6px}
 
-/* segment child styling (will be created dynamically) */
+/* segment child styling (created dynamically) */
 .railLineMajor .segment {
   position: absolute;
   left: 0;
   right: 0;
-  /* top/height assigned inline */
   border-radius: 0;
+  box-sizing: border-box;
 }
 
-/* SVG V-boundary styling */
+/* SVG V-boundary styling (downward apex: ∨ ) */
 .railLineMajor .vBoundarySvg {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
   pointer-events: none;
   overflow: visible;
-  z-index: 4;
+  z-index: 5; /* 白線はドットより下、segmentより上 */
 }
 </style>
 </head>
@@ -472,7 +472,7 @@ addViaBtn.addEventListener('click', ()=>{
 
 // レイアウト補助
 // --- 新関数: ピクセル計測に基づいて「主要駅間の丸の下端 と 次の丸の上端の間」を等分・色分けし、
-//      色の境界に「上向きV字（白線、stroke-width=2px）」を描画する
+//      色の境界位置に「下向き（∨）の白線（stroke 2px）」を描画して、路線色の切替位置をV線と一致させる
 function applyStripedWithVBoundaries(lineElem, dotRect, nextDotRect, parentRect){
   if(!lineElem) return;
   const baseColor = lineElem.dataset.color || '#999';
@@ -515,7 +515,7 @@ function applyStripedWithVBoundaries(lineElem, dotRect, nextDotRect, parentRect)
     const topSeg = document.createElement('div');
     topSeg.className = 'segment';
     topSeg.style.top = '0px';
-    topSeg.style.height = clampedStartPx + 'px';
+    topSeg.style.height = Math.round(clampedStartPx) + 'px';
     topSeg.style.background = baseColor;
     lineElem.appendChild(topSeg);
   }
@@ -551,28 +551,29 @@ function applyStripedWithVBoundaries(lineElem, dotRect, nextDotRect, parentRect)
     lineElem.appendChild(botSeg);
   }
 
-  // create upward V separators at each boundary between colored segments inside start..end
+  // create downward V separators (apex at boundary) at each boundary between colored segments inside start..end
   // For each boundary between segments (there are segCount - 1), compute boundary Y relative to lineElem
-  const svgApexYOffset = 0; // apex at top of svg viewBox -> we will position svg top so apex aligns exactly
-  const svgHeight = 12; // small canvas height; svg will extend downward from apex
+  const svgApexYOffset = 0; // we'll position svg so apex (y = svgHeight) lands on boundary
+  const svgHeight = 12; // small canvas height; svg will extend upward so apex is at bottom of svg
   const svgWidth = 22;  // horizontal span of the V shape in px
   const strokeWidth = 2; // user requested 2px
 
   for(let b = 1; b < segCount; b++){
-    const boundarySegTop = clampedStartPx + baseSegPx * b; // relative position inside lineElem
-    // position svg so that its apex (y=0 in viewBox) sits at boundarySegTop
+    // boundary Y relative to lineElem (floating)
+    const boundarySegTop = clampedStartPx + baseSegPx * b;
+    // create svg for downward apex (∨)
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', svgWidth);
     svg.setAttribute('height', svgHeight);
     svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
     svg.classList.add('vBoundarySvg');
-    // style positioning: left center, top = lineTop + boundarySegTop - svgApexYOffset
-    svg.style.top = Math.round(boundarySegTop - svgApexYOffset) + 'px';
-    // Create path for upward V: apex at (svgWidth/2, 0), legs down to (0, svgHeight) and (svgWidth, svgHeight)
+    // place svg so that its bottom (y=svgHeight) aligns to boundarySegTop => top = boundarySegTop - svgHeight
+    svg.style.top = Math.round(boundarySegTop - svgHeight) + 'px';
+    // Create path for downward V: legs start at (0,0) and (svgWidth,0), apex at (halfX, svgHeight)
     const path = document.createElementNS('http://www.w3.org/2000/svg','path');
     const halfX = svgWidth / 2;
-    // apex y = 0, legs go down to y = svgHeight
-    path.setAttribute('d', `M 0 ${svgHeight} L ${halfX} 0 L ${svgWidth} ${svgHeight}`);
+    // path: M 0 0 L halfX svgHeight L svgWidth 0
+    path.setAttribute('d', `M 0 0 L ${halfX} ${svgHeight} L ${svgWidth} 0`);
     path.setAttribute('stroke', '#ffffff');
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke-linecap', 'round');
@@ -581,7 +582,7 @@ function applyStripedWithVBoundaries(lineElem, dotRect, nextDotRect, parentRect)
     // center horizontally
     svg.style.left = '50%';
     svg.style.transform = 'translateX(-50%)';
-    // ensure the svg doesn't hide the dots (z-index set by css)
+    // append
     lineElem.appendChild(svg);
   }
 }
@@ -617,7 +618,7 @@ function adjustMajorLines(){
     const h = Math.max(0, (nextDotRect.top - dotRect.top)) + 5;
     line.style.height = h + 'px';
 
-    // ここでピクセル計測に基づいて等分ストライプ＋V境界を適用
+    // ここでピクセル計測に基づいて等分ストライプ＋V境界を適用（色の切替位置をV線と一致させる）
     applyStripedWithVBoundaries(line, dotRect, nextDotRect, parentRect);
   });
 
@@ -703,7 +704,7 @@ function splitByCompany(path){
 }
 
 // 描画：主要駅の色決定は維持。変更点は「停車駅非表示時に主要駅線を経由路線色で等分表示」処理（切り替え位置は丸下端→次丸上端）
-// また、等分色の境界に「上向きV字（白、stroke-width=2px）」を描画する
+// また、等分色の境界に「下向きV字（白、stroke-width=2px）」を描画して路線色の変更位置をVと一致させる
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
   const { majors } = majorStops(path);
@@ -809,14 +810,14 @@ function renderRouteCardForPart(part, partIndex){
 
     const bigLineId = `part${partIndex}-bigline-${idx}`;
 
-    // 初期は仮のスタイル（正確なピクセル分割は runAdjustments() で applyStripedWithVBoundaries により構築）
+    // 初期は仮のスタイル（正確なピクセル分割は runAdjustments() で applyStripedWithVBoundaries が上書き）
     let initialStyle = '';
     if(nextStation){
       if(usedLinesForSegment.length > 0){
         if(usedLinesForSegment.length === 1){
           initialStyle = `background: ${lineColors[usedLinesForSegment[0]] || color};`;
         } else {
-          // 仮に等分で全体に適用（正確な切替位置は adjustMajorLines で再計算）
+          // 仮に全体を等分で塗る（真の切替位置は adjustMajorLines で）
           const step = 100 / usedLinesForSegment.length;
           const stops = usedLinesForSegment.map((ln, j) => {
             const col = lineColors[ln] || '#999';
@@ -857,18 +858,14 @@ function renderRouteCardForPart(part, partIndex){
     // between を描画（iFrom..iTo の正確な範囲）
     if(nextStation && iFrom !== -1 && iTo !== -1){
       if(iTo - iFrom > 1){
-        // --- ここで「途中駅とその次の停車駅が両方含まれる路線」を最優先で選ぶ ---
         const betweenStart = iFrom + 1;
         const betweenEnd = iTo - 1;
-        const betweenCount = betweenEnd - betweenStart + 1;
-        const pairColors = new Array(Math.max(0, betweenCount)).fill('#999');
-        const isCondArr = new Array(Math.max(0, betweenCount)).fill(false);
+        const pairColors = new Array(Math.max(0, betweenEnd - betweenStart + 1)).fill('#999');
+        const isCondArr = new Array(Math.max(0, betweenEnd - betweenStart + 1)).fill(false);
 
-        // 1回目ループ: 各途中駅について、まず (途中駅, 次の駅) ペアがどの路線に属するかを確認
         for(let bj = betweenStart; bj <= betweenEnd; bj++){
           const jIndex = bj;
           const s = path[jIndex];
-          // 接続駅判定（その駅が connectingStations の station で、経路上で endpoints の間にある場合）
           let isCondMinor = false;
           const cond = connectingStations.find(c => c.station === s);
           if(cond){
@@ -888,11 +885,8 @@ function renderRouteCardForPart(part, partIndex){
           const prevSt = path[jIndex-1];
           const nextSt = path[jIndex+1];
 
-          // 優先ロジック（要求どおり）
-          // 1) (現在駅 s, 次の駅 nextSt) を**両方含みかつ隣接**している路線を最優先で使う
           const directCandidates = findLinesOfSegment(s, nextSt);
           if(directCandidates.length > 0){
-            // 候補が複数ある時は、カラーが定義された最初の路線を使う
             let chosen = null;
             for(const ln of directCandidates){
               if(lineColors[ln]){ chosen = ln; break; }
@@ -903,7 +897,6 @@ function renderRouteCardForPart(part, partIndex){
             }
           }
 
-          // 2) フォールバック：3駅すべてを含む路線（prevSt, s, nextSt）を探す（隣接でなくても可）
           let threeLine = null;
           for(const [ln, stations] of Object.entries(stationLines)){
             if(stations.indexOf(prevSt) !== -1 && stations.indexOf(s) !== -1 && stations.indexOf(nextSt) !== -1){
@@ -916,7 +909,6 @@ function renderRouteCardForPart(part, partIndex){
             continue;
           }
 
-          // 3) フォールバック：prev と next の両方を含む路線（隣接でなくても可）
           let bothLine = null;
           for(const [ln, stations] of Object.entries(stationLines)){
             if(stations.indexOf(prevSt) !== -1 && stations.indexOf(nextSt) !== -1){
@@ -929,7 +921,6 @@ function renderRouteCardForPart(part, partIndex){
             continue;
           }
 
-          // 4) 最終的フォールバック：隣接ペアの線色（prev-s または s-next で色が見つかれば使う）
           const adjPairs = [];
           if(jIndex > 0) adjPairs.push([path[jIndex-1], path[jIndex]]);
           if(jIndex < path.length - 1) adjPairs.push([path[jIndex], path[jIndex+1]]);
@@ -939,22 +930,18 @@ function renderRouteCardForPart(part, partIndex){
           }
         }
 
-        // 2回目ループ：描画。isCond の場合は「直後の途中駅の色」を使うルール（元ロジックの意図を継承）
         routeHtml += `<div id="part${partIndex}-between-${idx}" class="betweenList">`;
         for(let bj = betweenStart; bj <= betweenEnd; bj++){
           const s = path[bj];
           const arrIdx = bj - betweenStart;
           const isCondMinor = isCondArr[arrIdx];
           const minorClass = isCondMinor ? 'condMinorName' : 'minorName';
-
-          // displayColor: isCond のときは直後の途中駅の色を使う（直後の途中駅が存在する場合）
           let displayColor = pairColors[arrIdx];
           if(isCondMinor){
             const nextArrIdx = arrIdx + 1;
             if(nextArrIdx < pairColors.length){
               displayColor = pairColors[nextArrIdx];
             } else {
-              // 直後の途中駅が存在しない（= 接続駅が区間の最後）なら自身の色を使う
               displayColor = pairColors[arrIdx];
             }
           }
@@ -1016,7 +1003,6 @@ function wireToggleButtons(){
       btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
 
       if(bigLine){
-        // 停車駅を「表示」したときは大線を単色にする（主要駅の色）かつ短縮
         const baseColor = bigLine.dataset.color || '#999';
         if(isOpen){
           // 表示: 単色にして短縮
@@ -1026,7 +1012,6 @@ function wireToggleButtons(){
         } else {
           // 非表示: 短縮フラグを削除して高さ・位置を再計算し、adjustMajorLines 内で正確なピクセル分割＋Vを適用する
           delete bigLine.dataset.shortened;
-          // restore background placeholder while adjustMajorLines runs
           bigLine.style.background = baseColor;
           runAdjustments();
         }
