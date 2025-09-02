@@ -414,7 +414,9 @@ function shortestPathWithinCompany(start, goal, company){
   return {path, distance: dist[goal]};
 }
 
-// ==== 途中駅扱いの「接続」定義（5駅） ====
+// ==== 途中駅扱いの「接続」定義（調整済み：新東橋の扱いはご指定通り） ====
+// 変更点：新東橋についてはルールに従い「咲田口⇄東橋」「咲田口⇄横宿」の経路で途中駅扱いとするために
+// 新東橋エントリを2つ追加しています。これにより「東橋方面⇄横宿方面」の経路では途中駅扱いになりません（主要駅扱い）。
 const connectingStations = [
   { station: "北鶴宮", endpoints: ["鶴宮","鬼越峠"] },
   { station: "鶴宮",   endpoints: ["鶴宮神社","南鶴宮"] },
@@ -425,7 +427,13 @@ const connectingStations = [
   { station: "豊町", endpoints: ["削野", "東豊町"] },
   { station: "園木", endpoints: ["東園木", "富士町", "大木沢"] },
   { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
-  { station: "新東橋", endpoints: ["浅見", "東黒田"] },
+
+  // 新東橋の扱い（ご指定のルールを反映）
+  // ・咲田口方面 ⇄ 東橋方面 … 途中駅扱い
+  { station: "新東橋", endpoints: ["咲田口", "東橋"] },
+  // ・咲田口方面 ⇄ 横宿方面 … 途中駅扱い
+  { station: "新東橋", endpoints: ["咲田口", "横宿"] },
+
   { station: "横宿", endpoints: ["日森町", "北横宿"] },
   { station: "成津", endpoints: ["北成津", "大町"] }
 ];
