@@ -241,6 +241,7 @@ function fareNiizato(km){
 
 function fareTouhashi(km, segPath = [], companySegments = []){
   const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
+  // fareTouhashi では東橋本線の index を使って「東橋側の範囲」を判定する仕様を維持しています。
   const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
   const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
   const idxNewHigashi = tohashiEastLine.indexOf("新東橋");
@@ -389,9 +390,7 @@ function shortestPathWithinCompany(start, goal, company){
   return {path, distance: dist[goal]};
 }
 
-// ==== 途中駅扱いの「接続」定義（**新東橋のみ削除**） ====
-// 元のリストから新東橋のエントリだけを削除しています。
-// 他の接続ルールはそのまま残します。
+// ==== 途中駅扱いの「接続」定義（新東橋は削除済み） ====
 const connectingStations = [
   { station: "北鶴宮", endpoints: ["鶴宮","鬼越峠"] },
   { station: "鶴宮",   endpoints: ["鶴宮神社","南鶴宮"] },
@@ -401,13 +400,10 @@ const connectingStations = [
   { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
   { station: "豊町", endpoints: ["削野", "東豊町"] },
 
-  // ユーザ指定により分割した園木エントリ（順序は問いません）
   { station: "園木", endpoints: ["東園木", "富士町"] },
   { station: "園木", endpoints: ["東園木", "大木沢"] },
 
   { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
-
-  // ※ 新東橋 のエントリはここから削除しました
 
   { station: "横宿", endpoints: ["日森町", "北横宿"] },
   { station: "成津", endpoints: ["北成津", "大町"] }
@@ -419,7 +415,7 @@ const specialMajorStations = [
   "削野", "豊町", "東豊町",
   "東園木", "園木", "富士町", "大木沢",
   "北桑畑", "桑畑", "常盤台",
-  "浅見", "新東橋", "東黒田",
+  "浅見", "東黒田",
   "日森町", "横宿", "北横宿",
   "北成津", "成津", "大町"
 ];
@@ -436,20 +432,9 @@ function findIndexFrom(path, station, start){
   return -1;
 }
 
-// --- 主要駅抽出（接続駅判定は残す） ---
+// --- 主要駅抽出（新東橋に対する特例は一切無し） ---
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
-
-  // 事前計算：経路が「東橋方面（新東橋以北） と 横宿線 を同時に含む」か？
-  const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
-  const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
-  const idxNewHigashi = tohashiEastLine.indexOf("新東橋");
-  const hasEast = path.some(s => {
-    const idx = tohashiEastLine.indexOf(s);
-    return idx !== -1 && idx <= idxNewHigashi; // 新東橋を含む「東橋方面」
-  });
-  const hasYoko = path.some(s => tohashiYokoshukuLine.indexOf(s) !== -1);
-  const routeIsEastToYoko = hasEast && hasYoko;
 
   const majors = [path[0]];
   let curLine = findLineOfSegment(path[0], path[1]);
@@ -472,12 +457,12 @@ function majorStops(path){
       }
     }
 
-    // 接続駅ルール（prev が connectingStations に該当する場合） — 新東橋は connectingStations に無いためここでは無視される
+    // 接続駅ルール（prev / here が connectingStations に該当する場合） — 判定有り
     let connectionSkipPrev = false;
-    const conns = connectingStations.filter(c => c.station === prev);
-    if(conns && conns.length > 0){
+    const connsPrev = connectingStations.filter(c => c.station === prev);
+    if(connsPrev && connsPrev.length > 0){
       const idxPrev = i - 1;
-      for(const conn of conns){
+      for(const conn of connsPrev){
         const idxsA = indexesOf(path, conn.endpoints[0]);
         const idxsB = indexesOf(path, conn.endpoints[1]);
         if(idxsA.length > 0 && idxsB.length > 0){
@@ -495,7 +480,6 @@ function majorStops(path){
       }
     }
 
-    // 追加で here（現在の駅）もチェック（順方向・逆方向で揃えるため）
     let connectionSkipHere = false;
     const connsHere = connectingStations.filter(c => c.station === here);
     if(connsHere && connsHere.length > 0){
@@ -767,16 +751,7 @@ function splitByCompany(path){
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
 
-  // 事前計算：経路が「東橋方面（新東橋以北） と 横宿線 を同時に含む」か？
-  const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
-  const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
-  const idxNewHigashi = tohashiEastLine.indexOf("新東橋");
-  const hasEast = path.some(s => {
-    const idx = tohashiEastLine.indexOf(s);
-    return idx !== -1 && idx <= idxNewHigashi;
-  });
-  const hasYoko = path.some(s => tohashiYokoshukuLine.indexOf(s) !== -1);
-  const routeIsEastToYoko = hasEast && hasYoko;
+  // （新東橋の特例判定はここにはありません。表示判定は全駅共通ルールで行います）
 
   const { majors } = majorStops(path);
 
@@ -928,7 +903,7 @@ function renderRouteCardForPart(part, partIndex){
         for(let bj = betweenStart; bj <= betweenEnd; bj++){
           const jIndex = bj;
           const s = path[jIndex];
-          // connectingStations の複数エントリをすべて評価（新東橋はリストに無いのでここでは無視されます）
+          // connectingStations の複数エントリをすべて評価
           let isCondMinor = false;
           const condsAll = connectingStations.filter(c => c.station === s);
           let conds = [];
