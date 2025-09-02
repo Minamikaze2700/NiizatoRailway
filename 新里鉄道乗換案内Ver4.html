@@ -35,65 +35,33 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
 .railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:2;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;}
 .rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:2;}
-.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
-.railLineMinor{width:var(--lineWMinor);border-radius:1px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
-.stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
-.stationName{font-weight:700;font-size:16px;line-height:1.25;margin:0}
-.lineBadge{display:inline-block;color:#fff;font-size:13.5px;line-height:1;padding:2px 6px;border-radius:6px;margin-top:6px;white-space:nowrap;margin-right:6px}
-.toggleWrap{margin-top:6px}
-.toggleBtn{cursor:pointer;padding:4px 8px;font-size:12px}
-.rowBetween{display:grid;grid-template-columns:var(--gutter) 1fr;column-gap:10px;align-items:start;height:auto;padding-top:12px;}
-.rowBetween .stationText{display:flex;align-items:flex-start;padding-top:0;}
-.minorName{font-size:14px;font-weight:400;margin:0;position:relative;top:-4px;}
-.condMinorName{font-size:14px;font-weight:300;margin:0;position:relative;top:-4px;color:#333;}
-.rowBetween .railLineMinor{height:48px;}
-.betweenList{ display:none; }
-.spacer4{height:4px}
-.spacer6{height:6px}
-.viaList{display:flex;flex-direction:column;gap:6px;margin:6px 0;align-items:flex-start}
-.viaRow{display:flex;align-items:center;gap:6px;justify-content:flex-start}
-.viaRow button{font-size:12px;padding:4px 6px}
+.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;}
+.railLineMinor{width:var(--lineWMinor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;}
+.stationText{padding-left:2px;position:relative;}
+.stationName{font-weight:600;}
+.minorName{font-size:12px;color:#555;}
+.condMinorName{font-size:12px;color:#0b5fff;font-weight:bold;}
+.lineBadge{display:inline-block;padding:2px 6px;font-size:11px;border-radius:8px;margin:2px 2px 2px 0;}
+.toggleWrap{margin-top:4px;}
+.spacer6{height:6px;}
 </style>
 </head>
 <body>
 <div class="wrap">
 <h1>新里地方 乗換案内</h1>
-
 <div class="card">
-  <div id="stationSelector">
-    <div class="row">
-      <div class="col">
-        <label>発駅</label>
-        <div style="display:flex;gap:6px">
-          <select class="lineSelect" id="fromLine"></select>
-          <select class="stationSelect" id="fromStation"></select>
-        </div>
-      </div>
-
-      <div class="col">
-        <label>経由地</label>
-        <div class="viaList" id="viaList"></div>
-        <button id="addViaBtn" class="primary">経由地を追加</button>
-      </div>
-
-      <div class="col">
-        <label>着駅</label>
-        <div style="display:flex;gap:6px">
-          <select class="lineSelect" id="toLine"></select>
-          <select class="stationSelect" id="toStation"></select>
-        </div>
-      </div>
-
-      <div style="display:flex;align-items:flex-end;">
-        <button id="searchBtn" class="primary">検索</button>
-      </div>
-    </div>
+  <div class="row">
+    <div class="col"><label>出発路線</label><select id="fromLine"></select></div>
+    <div class="col"><label>出発駅</label><select id="fromStation" class="stationSelect"></select></div>
+    <div class="col"><label>到着路線</label><select id="toLine"></select></div>
+    <div class="col"><label>到着駅</label><select id="toStation" class="stationSelect"></select></div>
+    <div class="col"><button id="addViaBtn">経由駅を追加</button></div>
+    <div id="viaList"></div>
+    <div class="col"><button id="searchBtn" class="primary">検索</button></div>
   </div>
 </div>
-
 <div id="resultArea"></div>
 </div>
-
 <script>
 // ==== 駅・路線データ （元データ） ====
 const stationLines = {
