@@ -33,11 +33,10 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .routeLine{display:flex;flex-direction:column;gap:10px;margin-top:4px}
 .rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;align-items:start;column-gap:10px;position:relative;}
 .railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
-.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:2;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;background:#999}
+.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:2;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;}
 .rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:2;}
-.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;overflow:hidden;}
+.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
 .railLineMinor{width:var(--lineWMinor);border-radius:1px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
-.railLineStrip{position:absolute;left:0;right:0;z-index:1;border-radius:0;}
 .stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
 .stationName{font-weight:700;font-size:16px;line-height:1.25;margin:0}
 .lineBadge{display:inline-block;color:#fff;font-size:13.5px;line-height:1;padding:2px 6px;border-radius:6px;margin-top:6px;white-space:nowrap;margin-right:6px}
@@ -453,52 +452,83 @@ addViaBtn.addEventListener('click', ()=>{
 });
 
 // レイアウト補助
+// --- 新関数: ピクセル計測に基づいて「主要駅間の丸の下端 と 次の丸の上端の間隔」を等分して色を切り替える
+function applyStripedGradientForBigLine(lineElem, dotRect, nextDotRect, parentRect){
+  if(!lineElem) return;
+  const baseColor = lineElem.dataset.color || '#999';
+  const usedLinesRaw = lineElem.dataset.usedlines || '';
+  const usedLinesArr = usedLinesRaw ? usedLinesRaw.split('|').filter(x=>x) : [];
 
-// 新関数: 大線要素に対して「等分ストリップ」を作る（丸の下端 ⇢ 次の丸の上端の範囲に対して等分して色を変える）
-// **重要**: 線の高さそのものは変更しない（既に設定された top/height を尊重）。strip はその高さ内で百分率で配置するのみ。
-function applyStripsToBigLine(lineEl){
-  if(!lineEl) return;
-  const usedRaw = lineEl.dataset.usedlines || '';
-  const usedArr = usedRaw ? usedRaw.split('|').filter(x=>x) : [];
-  const baseColor = lineEl.dataset.color || '#999';
+  // 計測値（ピクセル）
+  const lineTop = parseFloat(lineElem.style.top) || 0;
+  const lineHeight = parseFloat(lineElem.style.height) || 0;
+  if(lineHeight <= 0){
+    // fallback: 単色
+    lineElem.style.background = baseColor;
+    return;
+  }
 
-  // シングル／未指定は単色で描画（内部要素クリア）
-  lineEl.innerHTML = '';
-  if(usedArr.length <= 1){
-    if(usedArr.length === 1){
-      lineEl.style.background = lineColors[usedArr[0]] || baseColor;
+  // dotRect, nextDotRect, parentRect を使って、区間の開始/終了ピクセル（lineElement内での相対位置）を算出
+  // 要求: 色を変えるのは「主要駅の丸の下端（current dot bottom）と次の主要駅の丸の上端（next dot top）」の間を等分
+  const currentDotBottom_px = (dotRect.top - parentRect.top) + dotRect.height; // 親要素基準
+  const nextDotTop_px = (nextDotRect.top - parentRect.top); // 親要素基準
+
+  // line element 内での相対値（0..lineHeight）
+  const startPx = currentDotBottom_px - lineTop;
+  const endPx = nextDotTop_px - lineTop;
+
+  // 安全化: 範囲クリップ
+  const clampedStartPx = Math.max(0, Math.min(lineHeight, startPx));
+  const clampedEndPx = Math.max(0, Math.min(lineHeight, endPx));
+
+  if(clampedEndPx <= clampedStartPx){
+    // 順序がおかしい or 高さが不足 -> 単色フォールバック
+    if(usedLinesArr.length === 1){
+      lineElem.style.background = lineColors[usedLinesArr[0]] || baseColor;
     } else {
-      lineEl.style.background = baseColor;
+      lineElem.style.background = baseColor;
     }
     return;
   }
 
-  // 複数路線: 親要素の高さをそのままに、内部に等分されたストリップを配置（top/height は % 指定）
-  lineEl.style.background = 'transparent';
-  const parts = usedArr.length;
-  const pct = 100 / parts;
-  for(let i=0;i<parts;i++){
-    const col = lineColors[usedArr[i]] || '#999';
-    const strip = document.createElement('div');
-    strip.className = 'railLineStrip';
-    strip.style.position = 'absolute';
-    strip.style.left = '0';
-    strip.style.right = '0';
-    // 等分の区切り点で色を変えるため、各パートを上から順に配置
-    strip.style.top = (i * pct) + '%';
-    strip.style.height = pct + '%';
-    strip.style.background = col;
-    // 端だけ角丸を付けると見栄えが良い
-    if(i === 0){
-      strip.style.borderTopLeftRadius = '2px';
-      strip.style.borderTopRightRadius = '2px';
+  // 比率(%)に変換
+  const startPercent = (clampedStartPx / lineHeight) * 100;
+  const endPercent = (clampedEndPx / lineHeight) * 100;
+
+  // セグメントを作る（等分）
+  let gradientStops = [];
+
+  // 前半部（丸と重なる上の部分）は baseColor で塗る
+  gradientStops.push(`${baseColor} 0%`);
+  gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
+
+  if(usedLinesArr.length > 0){
+    const segCount = usedLinesArr.length;
+    const segSize = (endPercent - startPercent) / segCount;
+    for(let j=0;j<segCount;j++){
+      const ln = usedLinesArr[j];
+      const col = lineColors[ln] || baseColor;
+      const segStart = startPercent + segSize * j;
+      const segEnd = startPercent + segSize * (j+1);
+      // 各セグメントは [segStart, segEnd]
+      gradientStops.push(`${col} ${segStart.toFixed(4)}%`);
+      gradientStops.push(`${col} ${segEnd.toFixed(4)}%`);
     }
-    if(i === parts - 1){
-      strip.style.borderBottomLeftRadius = '2px';
-      strip.style.borderBottomRightRadius = '2px';
-    }
-    lineEl.appendChild(strip);
+  } else {
+    // usedLines がない場合は、start..end を baseColor で埋める
+    gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
+    gradientStops.push(`${baseColor} ${endPercent.toFixed(4)}%`);
   }
+
+  // 後半部（次の丸の上端〜下方）は次の色（もし data-nextcolor あれば使う、無ければ baseColor）
+  const nextColor = lineElem.dataset.nextcolor || baseColor;
+  gradientStops.push(`${nextColor} ${endPercent.toFixed(4)}%`);
+  gradientStops.push(`${nextColor} 100%`);
+
+  // linear-gradient の文字列を組み立てる
+  // 例: linear-gradient(to bottom, c0 0%, c0 10%, c1 10%, c1 40%, c2 40%, c2 70%, c3 70%, c3 100%)
+  const stopsStr = gradientStops.join(', ');
+  lineElem.style.background = `linear-gradient(to bottom, ${stopsStr})`;
 }
 
 function adjustMajorLines(){
@@ -509,6 +539,11 @@ function adjustMajorLines(){
     const dot = railCol.querySelector('.railDot');
     const line = railCol.querySelector('.railLineMajor');
     if (!dot || !line) return;
+
+    // 短縮済みフラグがある場合はここで上書きしない（短縮を保持）
+    if(line.dataset && line.dataset.shortened === 'true'){
+      return;
+    }
 
     const nextRow = rows.slice(idx + 1).find(r => r.querySelector('.railDot'));
     if (!nextRow) {
@@ -521,18 +556,13 @@ function adjustMajorLines(){
     const nextDot = nextRow.querySelector('.railDot');
     const nextDotRect = nextDot.getBoundingClientRect();
 
-    // === ここが肝：丸の下端 (dotRect.bottom) から次丸の上端 (nextDotRect.top) までの長さを使う ===
-    const computedTop = dotRect.bottom - parentRect.top;    // 丸の下端を start に
-    const computedBottom = nextDotRect.top - parentRect.top; // 次丸の上端を end に
-    const newTop = Math.min(Math.max(computedTop, 0), parentRect.height);
-    const newHeight = Math.max(0, computedBottom - computedTop);
+    // line を dot.top から nextDot.top まで伸ばす従来の計算（保持）
+    line.style.top = (dotRect.top - parentRect.top) + 'px';
+    const h = Math.max(0, (nextDotRect.top - dotRect.top)) + 5;
+    line.style.height = h + 'px';
 
-    line.style.top = newTop + 'px';
-    line.style.height = (newHeight > 0 ? newHeight : 0) + 'px';
-
-    // ここで等分ストリップを適用（usedlines 属性に基づく）
-    // applyStripsToBigLine は line の高さを変更しないので、"線の長さは変えない" 要求を満たす
-    applyStripsToBigLine(line);
+    // ここでピクセル計測に基づいて等分ストライプを適用
+    applyStripedGradientForBigLine(line, dotRect, nextDotRect, parentRect);
   });
 
   document.querySelectorAll('.rowBetween').forEach(r => {
@@ -616,8 +646,7 @@ function splitByCompany(path){
   return segments.filter(s => !!s.company && s.from !== s.to);
 }
 
-// 描画：主要駅の色決定は維持。変更点は「丸の下端→次の上端の区間を等分して色を変える」処理。
-// 重要: 線の長さ（top/height）は runAdjustments が決め、ここでは usedlines を data 属性に入れておく。
+// 描画：主要駅の色決定は維持。変更点は「停車駅非表示時に主要駅線を経由路線色で等分表示」処理（切り替え位置は丸の下端→次丸の上端の間を等分）
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
   const { majors } = majorStops(path);
@@ -723,33 +752,45 @@ function renderRouteCardForPart(part, partIndex){
 
     const bigLineId = `part${partIndex}-bigline-${idx}`;
 
-    // 初期スタイル: 単色 or 透明 (ストリップを使う場合は transparent にして runAdjustments で applyStripsToBigLine を呼ぶ)
-    let bigLineStyle = '';
+    // 変更点: 停車駅が非表示（デフォルト: 非表示）なら major line を「経由する路線の色を等分」して表示（位置は丸下端→次丸上端を等分）
+    // 停車駅が表示状態のときは単色（主要駅の色）にする。toggle の制御で切り替える。
+    // 初期はサイズが不明なので仮のスタイルを入れる（実レンダリング後 runAdjustments() で applyStripedGradientForBigLine が上書きする）
+    let initialStyle = '';
     if(nextStation){
-      if(usedLinesForSegment.length > 1){
-        bigLineStyle = `background: transparent;`;
-      } else if(usedLinesForSegment.length === 1){
-        const ln = usedLinesForSegment[0];
-        bigLineStyle = `background: ${lineColors[ln] || color};`;
-      } else {
-        if(nextColor && nextColor !== color){
-          bigLineStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
+      if(usedLinesForSegment.length > 0){
+        if(usedLinesForSegment.length === 1){
+          initialStyle = `background: ${lineColors[usedLinesForSegment[0]] || color};`;
         } else {
-          bigLineStyle = `background: ${color};`;
+          // 仮に等分で全体に適用（正確な切替位置は adjustMajorLines で再計算）
+          const step = 100 / usedLinesForSegment.length;
+          const stops = usedLinesForSegment.map((ln, j) => {
+            const col = lineColors[ln] || '#999';
+            const start = (j * step).toFixed(4);
+            const end = ((j+1) * step).toFixed(4);
+            return `${col} ${start}%, ${col} ${end}%`;
+          }).join(', ');
+          initialStyle = `background: linear-gradient(to bottom, ${stops});`;
+        }
+      } else {
+        // フォールバック: major color -> next major color
+        if(nextColor && nextColor !== color){
+          initialStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
+        } else {
+          initialStyle = `background: ${color};`;
         }
       }
     } else {
-      bigLineStyle = `background: ${color};`;
+      initialStyle = `background: ${color};`;
     }
 
-    // データ属性に usedLines を保存しておく（runAdjustments/applyStripsToBigLine で再利用）
+    // データ属性に usedLines を保存しておく（adjustMajorLines で正確なピクセル計算を行う）
     const usedLinesDataAttr = usedLinesForSegment.join('|');
 
     routeHtml += `
       <div class="rowStation">
         <div class="railCol">
           <div class="railDot" style="background:${color}"></div>
-          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-usedlines="${usedLinesDataAttr}" style="${bigLineStyle}"></div>` : `<div class="spacer6"></div>`}
+          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style="${initialStyle}"></div>` : `<div class="spacer6"></div>`}
         </div>
         <div class="stationText">
           <div class="stationName">${st}</div>
@@ -883,8 +924,7 @@ function renderRouteCardForPart(part, partIndex){
   return routeHtml;
 }
 
-// （短縮関連関数は残すが、今回の要件では呼ばない）
-// toggle のとき：以前は大線を最初の途中駅まで短縮していたが、今回の要件「線の長さは変えない」のため短縮処理を呼ばない
+// toggle のとき：大線を最初の途中駅まで短縮
 function shortenBigLineToFirstBetween(bigLine, betweenEl){
   if(!bigLine || !betweenEl) return;
   const railCol = bigLine.parentElement;
@@ -898,11 +938,11 @@ function shortenBigLineToFirstBetween(bigLine, betweenEl){
   const betweenDot = firstBetweenRow.querySelector('.railDot');
   if(!betweenDot) return;
   const betweenDotRect = betweenDot.getBoundingClientRect();
-  const newTop = dotRect.bottom - parentRect.top; // 丸の下端
-  const newHeight = Math.max(0, (betweenDotRect.top - dotRect.bottom)) + 2;
+  const newTop = dotRect.top - parentRect.top;
+  const newHeight = Math.max(0, (betweenDotRect.top - dotRect.top)) + 2;
   bigLine.style.top = newTop + 'px';
   bigLine.style.height = newHeight + 'px';
-  // ただし今回の仕様ではこの関数を自動で呼ばない設計にしている
+  bigLine.dataset.shortened = "true";
 }
 
 // wire toggle
@@ -922,26 +962,20 @@ function wireToggleButtons(){
       btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
 
       if(bigLine){
-        // **今回の重要仕様**: 線の長さは変えない。
-        // toggle では停車駅リストの表示/非表示だけを切り替える。線の色分割は常に
-        // usedlines に基づいて「等分して色を変える」方式を維持する。
+        // 停車駅を「表示」したときは大線を単色にする（主要駅の色）
         const baseColor = bigLine.dataset.color || '#999';
-        const usedLinesRaw = bigLine.dataset.usedlines || '';
-        const usedLinesArr = usedLinesRaw ? usedLinesRaw.split('|').filter(x=>x) : [];
 
-        // 停車駅表示/非表示に関係なく、色分割は等分で行う（ただし単色の場合は単色表示）
-        if(usedLinesArr.length > 1){
-          // 等分ストリップを再作成（高さは既存の top/height を保つ）
-          applyStripsToBigLine(bigLine);
-        } else if(usedLinesArr.length === 1){
-          bigLine.innerHTML = '';
-          bigLine.style.background = lineColors[usedLinesArr[0]] || baseColor;
-        } else {
-          bigLine.innerHTML = '';
+        if(isOpen){
+          // 表示: 単色に
           bigLine.style.background = baseColor;
+          // 大線を途中駅先頭まで短縮
+          shortenBigLineToFirstBetween(bigLine, list);
+        } else {
+          // 非表示: 短縮フラグを削除して高さ・位置を再計算し、adjustMajorLines 内で正確なピクセル分割を適用する
+          delete bigLine.dataset.shortened;
+          // runAdjustments で applyStripedGradientForBigLine が実行される（サイズが確定した後で）
+          runAdjustments();
         }
-
-        // 以前は表示時に短縮していたが、今回は短縮しない（線長を変えない）。
       }
       runAdjustments();
     };
@@ -1002,7 +1036,7 @@ searchBtn.addEventListener('click', ()=>{
   resultArea.innerHTML = headerHtml + bodyHtml;
 
   wireToggleButtons();
-  // DOM に挿入された後に高さを計算してストリップを当てる
+  // DOM 挿入直後に高さ等を計測してグラデーション（等分位置）を適用
   setTimeout(runAdjustments, 0);
 });
 
