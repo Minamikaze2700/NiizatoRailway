@@ -232,39 +232,11 @@ function fareTouhashi(km, options = {}){
   // options: { inTOzone: boolean, directOtherCompany: boolean }
   // TOゾーンの場合は一律250円
   if(options.inTOzone){
-    // 他社直通割引の適用については、TOゾーンの一律運賃に割引適用の指示がなければ
-    // "TOゾーン内…その区間内1乗車は250円均一" を優先するため、割引はしない扱いにします。
-    // （もしTO内でも直通割引を適用する仕様であれば、ここで -50 を適用してください）
     return 250;
   }
 
   // 距離は1km未満切り上げ
   const d = Math.max(1, Math.ceil(km));
-
-  // 距離表（ユーザー指定）
-  // 1-3km…180円
-  // 4km…190円
-  // 5-7km…210円
-  // 8-10km…250円
-  // 11-14km…330円
-  // 15-18km…400円
-  // 19-23km…470円
-  // 24-28km…530円
-  // 29-33km…590円
-  // 34-38km…650円
-  // 39-43km…690円
-  // 44-49km…750円
-  // 50-55km…810円
-  // 56-62km…860円
-  // 63-69km…910円
-  // 70-76km…960円
-  // 77-84km…1010円
-  // 85-92km…1050円
-  // 93-100km…1090円
-  // 101-109km…1130円
-  // 110-120km…1170円
-  // 121-132km…1210円
-  // 133-145km…1250円
 
   let fare = 1250; // 上限デフォルト
   if (d <= 3) fare = 180;
@@ -448,43 +420,9 @@ function findIndexFrom(path, station, start){
   return -1;
 }
 
-// ヘルパー：与えられた path（駅配列）が TOゾーン内か判定する
-// TOゾーン定義: 東橋鉄道横宿線全線、東橋鉄道東橋本線の「新東橋以北（東橋方面）」に所在する区間
-function isPathWithinTOZone(path){
-  if(!Array.isArray(path) || path.length < 2) return false;
-
-  // indexOf を多用するため、キャッシュ
-  const eastMain = stationLines["東橋鉄道東橋本線"] || [];
-  const yoko = stationLines["東橋鉄道横宿線"] || [];
-  const idxNewEast = eastMain.indexOf("新東橋");
-
-  for(let i=0;i<path.length-1;i++){
-    const a = path[i], b = path[i+1];
-    const candidateLines = findLinesOfSegment(a,b);
-    if(candidateLines.length === 0) return false;
-
-    // この隣接辺が TOゾーンのどれかの条件を満たすかチェック
-    let edgeInTO = false;
-    for(const ln of candidateLines){
-      if(ln === "東橋鉄道横宿線"){
-        edgeInTO = true; break;
-      }
-      if(ln === "東橋鉄道東橋本線"){
-        // 東橋本線上にあり、かつ両駅が新東橋より北側 (index <= idxNewEast) にあること
-        const ia = eastMain.indexOf(a);
-        const ib = eastMain.indexOf(b);
-        if(ia !== -1 && ib !== -1 && idxNewEast !== -1 && ia <= idxNewEast && ib <= idxNewEast){
-          edgeInTO = true; break;
-        }
-      }
-    }
-    if(!edgeInTO) return false;
-  }
-
-  return true;
-}
-
-// --- 主要駅抽出（元のロジックを維持） ---
+// --- 主要駅抽出（修正） ---
+// 目的: 新東橋で「東橋本線（東橋方面）」 <-> 「横宿線」を乗り換える場合、
+//       新東橋 を途中駅ではなく主要駅として表示する。
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
   const majors = [path[0]];
@@ -498,7 +436,7 @@ function majorStops(path){
     // 会社や路線が変わるポイント
     let isBoundary = (ln !== curLine);
 
-    // 元の specialMajorStations によるスキップ判定
+    // 元の specialMajorStations によるスキップ判定（通常は特定駅を途中扱いにする）
     let isSpecialSkip = false;
     if(specialMajorStations.includes(here) && i > 0 && i < path.length-1){
       const before = path[i-1];
@@ -527,9 +465,32 @@ function majorStops(path){
       }
     }
 
+    // --- 特別ルール: 新東橋で東橋本線 <-> 横宿線 を乗り換える場合は、新東橋を主要駅にする ---
+    // 判定に必要な lnPrev (prev->here) と lnNext (here->after) を取得
+    const lnPrev = ln;
+    const lnNext = (i < path.length - 1) ? findLineOfSegment(here, path[i+1]) : null;
+    const isTransferAtShinTohashi =
+      here === "新東橋" &&
+      (
+        (lnPrev === "東橋鉄道東橋本線" && lnNext === "東橋鉄道横宿線") ||
+        (lnPrev === "東橋鉄道横宿線" && lnNext === "東橋鉄道東橋本線")
+      );
+
+    // この特例があるときは special skip を無視して major とする（さらに下で prev ではなく here を追加）
+    if(isTransferAtShinTohashi){
+      isSpecialSkip = false;
+    }
+
     if(isBoundary && !isSpecialSkip && !connectionSkipPrev){
-      majors.push(prev);
-      curLine = ln;
+      // 特例: 新東橋での乗換えならここ（here）を主要駅として扱う
+      if(isTransferAtShinTohashi){
+        majors.push(here);
+        // 会社/路線の現状を次の辺のラインに合わせる（ここでラインが切り替わっている）
+        curLine = lnNext || ln;
+      } else {
+        majors.push(prev);
+        curLine = ln;
+      }
     } else {
       curLine = ln;
     }
@@ -1186,7 +1147,6 @@ searchBtn.addEventListener('click', ()=>{
         const inTO = isPathWithinTOZone(spComp.path);
         options.inTOzone = inTO;
         // 他社直通割引: 同じ part に他社が含まれていれば「直通」と見做す
-        // （必要ならもっと厳密に判定するロジックに変更してください）
         options.directOtherCompany = hasOtherCompany;
       }
 
