@@ -33,9 +33,9 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .routeLine{display:flex;flex-direction:column;gap:10px;margin-top:4px}
 .rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;align-items:start;column-gap:10px;position:relative;}
 .railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
-.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:2;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;}
+.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:3;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;background:#999}
 .rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:2;}
-.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
+.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;overflow:visible;}
 .railLineMinor{width:var(--lineWMinor);border-radius:1px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
 .stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
 .stationName{font-weight:700;font-size:16px;line-height:1.25;margin:0}
@@ -53,6 +53,25 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .viaList{display:flex;flex-direction:column;gap:6px;margin:6px 0;align-items:flex-start}
 .viaRow{display:flex;align-items:center;gap:6px;justify-content:flex-start}
 .viaRow button{font-size:12px;padding:4px 6px}
+
+/* segment child styling (will be created dynamically) */
+.railLineMajor .segment {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* top/height assigned inline */
+  border-radius: 0;
+}
+
+/* SVG V-boundary styling */
+.railLineMajor .vBoundarySvg {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  overflow: visible;
+  z-index: 4;
+}
 </style>
 </head>
 <body>
@@ -452,83 +471,119 @@ addViaBtn.addEventListener('click', ()=>{
 });
 
 // レイアウト補助
-// --- 新関数: ピクセル計測に基づいて「主要駅間の丸の下端 と 次の丸の上端の間隔」を等分して色を切り替える
-function applyStripedGradientForBigLine(lineElem, dotRect, nextDotRect, parentRect){
+// --- 新関数: ピクセル計測に基づいて「主要駅間の丸の下端 と 次の丸の上端の間」を等分・色分けし、
+//      色の境界に「上向きV字（白線、stroke-width=2px）」を描画する
+function applyStripedWithVBoundaries(lineElem, dotRect, nextDotRect, parentRect){
   if(!lineElem) return;
   const baseColor = lineElem.dataset.color || '#999';
   const usedLinesRaw = lineElem.dataset.usedlines || '';
   const usedLinesArr = usedLinesRaw ? usedLinesRaw.split('|').filter(x=>x) : [];
 
-  // 計測値（ピクセル）
+  // line element current geometry
   const lineTop = parseFloat(lineElem.style.top) || 0;
   const lineHeight = parseFloat(lineElem.style.height) || 0;
   if(lineHeight <= 0){
-    // fallback: 単色
     lineElem.style.background = baseColor;
+    lineElem.innerHTML = '';
     return;
   }
 
-  // dotRect, nextDotRect, parentRect を使って、区間の開始/終了ピクセル（lineElement内での相対位置）を算出
-  // 要求: 色を変えるのは「主要駅の丸の下端（current dot bottom）と次の主要駅の丸の上端（next dot top）」の間を等分
-  const currentDotBottom_px = (dotRect.top - parentRect.top) + dotRect.height; // 親要素基準
-  const nextDotTop_px = (nextDotRect.top - parentRect.top); // 親要素基準
+  // compute current dot bottom and next dot top in parent coords
+  const currentDotBottom_px = (dotRect.top - parentRect.top) + dotRect.height;
+  const nextDotTop_px = (nextDotRect.top - parentRect.top);
 
-  // line element 内での相対値（0..lineHeight）
+  // compute relative positions within the line element (0..lineHeight)
   const startPx = currentDotBottom_px - lineTop;
   const endPx = nextDotTop_px - lineTop;
 
-  // 安全化: 範囲クリップ
+  // clamp
   const clampedStartPx = Math.max(0, Math.min(lineHeight, startPx));
   const clampedEndPx = Math.max(0, Math.min(lineHeight, endPx));
 
   if(clampedEndPx <= clampedStartPx){
-    // 順序がおかしい or 高さが不足 -> 単色フォールバック
-    if(usedLinesArr.length === 1){
-      lineElem.style.background = lineColors[usedLinesArr[0]] || baseColor;
-    } else {
-      lineElem.style.background = baseColor;
-    }
+    // fallback single color
+    lineElem.style.background = usedLinesArr.length === 1 ? (lineColors[usedLinesArr[0]] || baseColor) : baseColor;
+    lineElem.innerHTML = '';
     return;
   }
 
-  // 比率(%)に変換
-  const startPercent = (clampedStartPx / lineHeight) * 100;
-  const endPercent = (clampedEndPx / lineHeight) * 100;
+  // clear existing children
+  lineElem.innerHTML = '';
 
-  // セグメントを作る（等分）
-  let gradientStops = [];
-
-  // 前半部（丸と重なる上の部分）は baseColor で塗る
-  gradientStops.push(`${baseColor} 0%`);
-  gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
-
-  if(usedLinesArr.length > 0){
-    const segCount = usedLinesArr.length;
-    const segSize = (endPercent - startPercent) / segCount;
-    for(let j=0;j<segCount;j++){
-      const ln = usedLinesArr[j];
-      const col = lineColors[ln] || baseColor;
-      const segStart = startPercent + segSize * j;
-      const segEnd = startPercent + segSize * (j+1);
-      // 各セグメントは [segStart, segEnd]
-      gradientStops.push(`${col} ${segStart.toFixed(4)}%`);
-      gradientStops.push(`${col} ${segEnd.toFixed(4)}%`);
-    }
-  } else {
-    // usedLines がない場合は、start..end を baseColor で埋める
-    gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
-    gradientStops.push(`${baseColor} ${endPercent.toFixed(4)}%`);
+  // fill the part above the color-change region with baseColor (from 0 to clampedStartPx)
+  if(clampedStartPx > 0){
+    const topSeg = document.createElement('div');
+    topSeg.className = 'segment';
+    topSeg.style.top = '0px';
+    topSeg.style.height = clampedStartPx + 'px';
+    topSeg.style.background = baseColor;
+    lineElem.appendChild(topSeg);
   }
 
-  // 後半部（次の丸の上端〜下方）は次の色（もし data-nextcolor あれば使う、無ければ baseColor）
-  const nextColor = lineElem.dataset.nextcolor || baseColor;
-  gradientStops.push(`${nextColor} ${endPercent.toFixed(4)}%`);
-  gradientStops.push(`${nextColor} 100%`);
+  // main colored segments between start..end
+  const availablePx = clampedEndPx - clampedStartPx;
+  const segColors = (usedLinesArr.length > 0) ? usedLinesArr : [baseColor];
 
-  // linear-gradient の文字列を組み立てる
-  // 例: linear-gradient(to bottom, c0 0%, c0 10%, c1 10%, c1 40%, c2 40%, c2 70%, c3 70%, c3 100%)
-  const stopsStr = gradientStops.join(', ');
-  lineElem.style.background = `linear-gradient(to bottom, ${stopsStr})`;
+  const segCount = segColors.length;
+  const baseSegPx = availablePx / segCount;
+
+  // We'll create one segment div per color, stacked vertically.
+  for(let j=0;j<segCount;j++){
+    const segTop = clampedStartPx + baseSegPx * j;
+    // For last segment, assign remaining pixels to avoid rounding issues
+    const segHeight = (j === segCount - 1) ? (clampedEndPx - segTop) : baseSegPx;
+    const segDiv = document.createElement('div');
+    segDiv.className = 'segment';
+    segDiv.style.top = Math.round(segTop) + 'px';
+    segDiv.style.height = Math.round(segHeight) + 'px';
+    segDiv.style.background = lineColors[segColors[j]] || segColors[j] || baseColor;
+    lineElem.appendChild(segDiv);
+  }
+
+  // fill the part below the color region with nextColor (from clampedEndPx to lineHeight)
+  const nextColor = lineElem.dataset.nextcolor || baseColor;
+  if(clampedEndPx < lineHeight){
+    const botSeg = document.createElement('div');
+    botSeg.className = 'segment';
+    botSeg.style.top = Math.round(clampedEndPx) + 'px';
+    botSeg.style.height = Math.round(lineHeight - clampedEndPx) + 'px';
+    botSeg.style.background = nextColor;
+    lineElem.appendChild(botSeg);
+  }
+
+  // create upward V separators at each boundary between colored segments inside start..end
+  // For each boundary between segments (there are segCount - 1), compute boundary Y relative to lineElem
+  const svgApexYOffset = 0; // apex at top of svg viewBox -> we will position svg top so apex aligns exactly
+  const svgHeight = 12; // small canvas height; svg will extend downward from apex
+  const svgWidth = 22;  // horizontal span of the V shape in px
+  const strokeWidth = 2; // user requested 2px
+
+  for(let b = 1; b < segCount; b++){
+    const boundarySegTop = clampedStartPx + baseSegPx * b; // relative position inside lineElem
+    // position svg so that its apex (y=0 in viewBox) sits at boundarySegTop
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', svgWidth);
+    svg.setAttribute('height', svgHeight);
+    svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+    svg.classList.add('vBoundarySvg');
+    // style positioning: left center, top = lineTop + boundarySegTop - svgApexYOffset
+    svg.style.top = Math.round(boundarySegTop - svgApexYOffset) + 'px';
+    // Create path for upward V: apex at (svgWidth/2, 0), legs down to (0, svgHeight) and (svgWidth, svgHeight)
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const halfX = svgWidth / 2;
+    // apex y = 0, legs go down to y = svgHeight
+    path.setAttribute('d', `M 0 ${svgHeight} L ${halfX} 0 L ${svgWidth} ${svgHeight}`);
+    path.setAttribute('stroke', '#ffffff');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-width', String(strokeWidth));
+    svg.appendChild(path);
+    // center horizontally
+    svg.style.left = '50%';
+    svg.style.transform = 'translateX(-50%)';
+    // ensure the svg doesn't hide the dots (z-index set by css)
+    lineElem.appendChild(svg);
+  }
 }
 
 function adjustMajorLines(){
@@ -548,6 +603,7 @@ function adjustMajorLines(){
     const nextRow = rows.slice(idx + 1).find(r => r.querySelector('.railDot'));
     if (!nextRow) {
       line.style.height = '0px';
+      line.innerHTML = '';
       return;
     }
 
@@ -561,8 +617,8 @@ function adjustMajorLines(){
     const h = Math.max(0, (nextDotRect.top - dotRect.top)) + 5;
     line.style.height = h + 'px';
 
-    // ここでピクセル計測に基づいて等分ストライプを適用
-    applyStripedGradientForBigLine(line, dotRect, nextDotRect, parentRect);
+    // ここでピクセル計測に基づいて等分ストライプ＋V境界を適用
+    applyStripedWithVBoundaries(line, dotRect, nextDotRect, parentRect);
   });
 
   document.querySelectorAll('.rowBetween').forEach(r => {
@@ -646,7 +702,8 @@ function splitByCompany(path){
   return segments.filter(s => !!s.company && s.from !== s.to);
 }
 
-// 描画：主要駅の色決定は維持。変更点は「停車駅非表示時に主要駅線を経由路線色で等分表示」処理（切り替え位置は丸の下端→次丸の上端の間を等分）
+// 描画：主要駅の色決定は維持。変更点は「停車駅非表示時に主要駅線を経由路線色で等分表示」処理（切り替え位置は丸下端→次丸上端）
+// また、等分色の境界に「上向きV字（白、stroke-width=2px）」を描画する
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
   const { majors } = majorStops(path);
@@ -752,9 +809,7 @@ function renderRouteCardForPart(part, partIndex){
 
     const bigLineId = `part${partIndex}-bigline-${idx}`;
 
-    // 変更点: 停車駅が非表示（デフォルト: 非表示）なら major line を「経由する路線の色を等分」して表示（位置は丸下端→次丸上端を等分）
-    // 停車駅が表示状態のときは単色（主要駅の色）にする。toggle の制御で切り替える。
-    // 初期はサイズが不明なので仮のスタイルを入れる（実レンダリング後 runAdjustments() で applyStripedGradientForBigLine が上書きする）
+    // 初期は仮のスタイル（正確なピクセル分割は runAdjustments() で applyStripedWithVBoundaries により構築）
     let initialStyle = '';
     if(nextStation){
       if(usedLinesForSegment.length > 0){
@@ -772,7 +827,6 @@ function renderRouteCardForPart(part, partIndex){
           initialStyle = `background: linear-gradient(to bottom, ${stops});`;
         }
       } else {
-        // フォールバック: major color -> next major color
         if(nextColor && nextColor !== color){
           initialStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
         } else {
@@ -962,18 +1016,18 @@ function wireToggleButtons(){
       btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
 
       if(bigLine){
-        // 停車駅を「表示」したときは大線を単色にする（主要駅の色）
+        // 停車駅を「表示」したときは大線を単色にする（主要駅の色）かつ短縮
         const baseColor = bigLine.dataset.color || '#999';
-
         if(isOpen){
-          // 表示: 単色に
+          // 表示: 単色にして短縮
           bigLine.style.background = baseColor;
-          // 大線を途中駅先頭まで短縮
+          bigLine.innerHTML = ''; // remove segmented children / V separators
           shortenBigLineToFirstBetween(bigLine, list);
         } else {
-          // 非表示: 短縮フラグを削除して高さ・位置を再計算し、adjustMajorLines 内で正確なピクセル分割を適用する
+          // 非表示: 短縮フラグを削除して高さ・位置を再計算し、adjustMajorLines 内で正確なピクセル分割＋Vを適用する
           delete bigLine.dataset.shortened;
-          // runAdjustments で applyStripedGradientForBigLine が実行される（サイズが確定した後で）
+          // restore background placeholder while adjustMajorLines runs
+          bigLine.style.background = baseColor;
           runAdjustments();
         }
       }
@@ -1036,7 +1090,7 @@ searchBtn.addEventListener('click', ()=>{
   resultArea.innerHTML = headerHtml + bodyHtml;
 
   wireToggleButtons();
-  // DOM 挿入直後に高さ等を計測してグラデーション（等分位置）を適用
+  // DOM 挿入直後に高さ等を計測して色分割＋V境界を適用
   setTimeout(runAdjustments, 0);
 });
 
