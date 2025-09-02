@@ -454,21 +454,17 @@ addViaBtn.addEventListener('click', ()=>{
 
 // レイアウト補助
 
-// 新関数: 大線要素に対して「等分ストリップ」を作る（主要駅丸の下端 ⇢ 次の主要駅丸の上端の間を等分）
+// 新関数: 大線要素に対して「等分ストリップ」を作る（丸の下端 ⇢ 次の丸の上端の範囲に対して等分して色を変える）
+// **重要**: 線の高さそのものは変更しない（既に設定された top/height を尊重）。strip はその高さ内で百分率で配置するのみ。
 function applyStripsToBigLine(lineEl){
   if(!lineEl) return;
-  // 短縮フラグがある場合は処理をしない（短縮状態はそのままにする）
-  if(lineEl.dataset && lineEl.dataset.shortened === 'true') {
-    // ただし中身は空にしておくとよい
-    // (短縮中は高さが小さくなるためrunAdjustmentsが管理する)
-  }
   const usedRaw = lineEl.dataset.usedlines || '';
   const usedArr = usedRaw ? usedRaw.split('|').filter(x=>x) : [];
   const baseColor = lineEl.dataset.color || '#999';
 
-  // シングル／未指定は単色で描画
+  // シングル／未指定は単色で描画（内部要素クリア）
+  lineEl.innerHTML = '';
   if(usedArr.length <= 1){
-    lineEl.innerHTML = '';
     if(usedArr.length === 1){
       lineEl.style.background = lineColors[usedArr[0]] || baseColor;
     } else {
@@ -477,10 +473,8 @@ function applyStripsToBigLine(lineEl){
     return;
   }
 
-  // 複数路線: 親要素の高さを均等に分割してストリップを作る
+  // 複数路線: 親要素の高さをそのままに、内部に等分されたストリップを配置（top/height は % 指定）
   lineEl.style.background = 'transparent';
-  // 既存の子をクリア
-  lineEl.innerHTML = '';
   const parts = usedArr.length;
   const pct = 100 / parts;
   for(let i=0;i<parts;i++){
@@ -490,10 +484,11 @@ function applyStripsToBigLine(lineEl){
     strip.style.position = 'absolute';
     strip.style.left = '0';
     strip.style.right = '0';
+    // 等分の区切り点で色を変えるため、各パートを上から順に配置
     strip.style.top = (i * pct) + '%';
     strip.style.height = pct + '%';
     strip.style.background = col;
-    // 上下の角を丸める（先頭と末尾のみ）
+    // 端だけ角丸を付けると見栄えが良い
     if(i === 0){
       strip.style.borderTopLeftRadius = '2px';
       strip.style.borderTopRightRadius = '2px';
@@ -515,11 +510,6 @@ function adjustMajorLines(){
     const line = railCol.querySelector('.railLineMajor');
     if (!dot || !line) return;
 
-    // 短縮済みフラグがある場合はここで上書きしない（短縮を保持）
-    if(line.dataset && line.dataset.shortened === 'true'){
-      return;
-    }
-
     const nextRow = rows.slice(idx + 1).find(r => r.querySelector('.railDot'));
     if (!nextRow) {
       line.style.height = '0px';
@@ -531,20 +521,17 @@ function adjustMajorLines(){
     const nextDot = nextRow.querySelector('.railDot');
     const nextDotRect = nextDot.getBoundingClientRect();
 
-    // 主要駅の丸の「下端」と次主要駅の丸の「上端」を使って間隔を算出
-    // dotRect.bottom と nextDotRect.top の差が塗り分け領域の高さ
-    const topOffset = dotRect.top - parentRect.top + (dotRect.height / 2); // 丸の下端に合わせる (center + half)
-    const bottomOffset = nextDotRect.top - parentRect.top - (nextDotRect.height / 2); // 次丸の上端に合わせる
-    const computedTop = dotRect.bottom - parentRect.top; // dotRect.top + dotRect.height - parentRect.top
-    const computedBottom = nextDotRect.top - parentRect.top;
-    // 安全策: fallback to original calculation if values invalid
+    // === ここが肝：丸の下端 (dotRect.bottom) から次丸の上端 (nextDotRect.top) までの長さを使う ===
+    const computedTop = dotRect.bottom - parentRect.top;    // 丸の下端を start に
+    const computedBottom = nextDotRect.top - parentRect.top; // 次丸の上端を end に
     const newTop = Math.min(Math.max(computedTop, 0), parentRect.height);
     const newHeight = Math.max(0, computedBottom - computedTop);
 
     line.style.top = newTop + 'px';
-    line.style.height = (newHeight > 0 ? newHeight : Math.max(0, (nextDotRect.top - dotRect.top))) + 'px';
+    line.style.height = (newHeight > 0 ? newHeight : 0) + 'px';
 
     // ここで等分ストリップを適用（usedlines 属性に基づく）
+    // applyStripsToBigLine は line の高さを変更しないので、"線の長さは変えない" 要求を満たす
     applyStripsToBigLine(line);
   });
 
@@ -629,7 +616,8 @@ function splitByCompany(path){
   return segments.filter(s => !!s.company && s.from !== s.to);
 }
 
-// 描画：主要駅の色決定は維持。変更点は「停車駅非表示時に主要駅線を経由路線色で等分表示」処理
+// 描画：主要駅の色決定は維持。変更点は「丸の下端→次の上端の区間を等分して色を変える」処理。
+// 重要: 線の長さ（top/height）は runAdjustments が決め、ここでは usedlines を data 属性に入れておく。
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
   const { majors } = majorStops(path);
@@ -735,12 +723,10 @@ function renderRouteCardForPart(part, partIndex){
 
     const bigLineId = `part${partIndex}-bigline-${idx}`;
 
-    // ここでは初期スタイルを単色／グラデーションで設定しておくが、
-    // 実際の「等分ストリップ」の生成は runAdjustments -> applyStripsToBigLine で DOM 高さに基づき行う。
+    // 初期スタイル: 単色 or 透明 (ストリップを使う場合は transparent にして runAdjustments で applyStripsToBigLine を呼ぶ)
     let bigLineStyle = '';
     if(nextStation){
       if(usedLinesForSegment.length > 1){
-        // 初期は透明にしておく（runAdjustments がストリップを作る）
         bigLineStyle = `background: transparent;`;
       } else if(usedLinesForSegment.length === 1){
         const ln = usedLinesForSegment[0];
@@ -756,7 +742,7 @@ function renderRouteCardForPart(part, partIndex){
       bigLineStyle = `background: ${color};`;
     }
 
-    // データ属性に usedLines を保存しておく（トグル時 / runAdjustments で再利用）
+    // データ属性に usedLines を保存しておく（runAdjustments/applyStripsToBigLine で再利用）
     const usedLinesDataAttr = usedLinesForSegment.join('|');
 
     routeHtml += `
@@ -897,7 +883,8 @@ function renderRouteCardForPart(part, partIndex){
   return routeHtml;
 }
 
-// toggle のとき：大線を最初の途中駅まで短縮
+// （短縮関連関数は残すが、今回の要件では呼ばない）
+// toggle のとき：以前は大線を最初の途中駅まで短縮していたが、今回の要件「線の長さは変えない」のため短縮処理を呼ばない
 function shortenBigLineToFirstBetween(bigLine, betweenEl){
   if(!bigLine || !betweenEl) return;
   const railCol = bigLine.parentElement;
@@ -911,12 +898,11 @@ function shortenBigLineToFirstBetween(bigLine, betweenEl){
   const betweenDot = firstBetweenRow.querySelector('.railDot');
   if(!betweenDot) return;
   const betweenDotRect = betweenDot.getBoundingClientRect();
-  const newTop = dotRect.top - parentRect.top + dotRect.height; // bottom
-  const newHeight = Math.max(0, (betweenDotRect.top - dotRect.top)) + 2;
-  bigLine.style.top = (dotRect.bottom - parentRect.top) + 'px';
+  const newTop = dotRect.bottom - parentRect.top; // 丸の下端
+  const newHeight = Math.max(0, (betweenDotRect.top - dotRect.bottom)) + 2;
+  bigLine.style.top = newTop + 'px';
   bigLine.style.height = newHeight + 'px';
-  bigLine.dataset.shortened = "true";
-  // 中のストリップは短縮された高さに合わせてそのまま表示される（割合指定なので問題なし）
+  // ただし今回の仕様ではこの関数を自動で呼ばない設計にしている
 }
 
 // wire toggle
@@ -936,33 +922,26 @@ function wireToggleButtons(){
       btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
 
       if(bigLine){
-        // 停車駅を「表示」したときは大線を単色にする（主要駅の色）
+        // **今回の重要仕様**: 線の長さは変えない。
+        // toggle では停車駅リストの表示/非表示だけを切り替える。線の色分割は常に
+        // usedlines に基づいて「等分して色を変える」方式を維持する。
         const baseColor = bigLine.dataset.color || '#999';
         const usedLinesRaw = bigLine.dataset.usedlines || '';
         const usedLinesArr = usedLinesRaw ? usedLinesRaw.split('|').filter(x=>x) : [];
 
-        if(isOpen){
-          // 表示: 単色に
+        // 停車駅表示/非表示に関係なく、色分割は等分で行う（ただし単色の場合は単色表示）
+        if(usedLinesArr.length > 1){
+          // 等分ストリップを再作成（高さは既存の top/height を保つ）
+          applyStripsToBigLine(bigLine);
+        } else if(usedLinesArr.length === 1){
+          bigLine.innerHTML = '';
+          bigLine.style.background = lineColors[usedLinesArr[0]] || baseColor;
+        } else {
           bigLine.innerHTML = '';
           bigLine.style.background = baseColor;
-          // 大線を途中駅先頭まで短縮
-          shortenBigLineToFirstBetween(bigLine, list);
-        } else {
-          // 非表示: usedlines に基づいて等分ストリップを再生成（または単色）
-          // 短縮フラグを削除して高さを再計算させる
-          delete bigLine.dataset.shortened;
-          if(usedLinesArr.length > 1){
-            // runAdjustments が呼ばれた際 applyStripsToBigLine が再適用されるが
-            // ここでも即時でストリップを作り直しておく（高さは割合で決まるので OK）
-            applyStripsToBigLine(bigLine);
-          } else if(usedLinesArr.length === 1){
-            bigLine.innerHTML = '';
-            bigLine.style.background = lineColors[usedLinesArr[0]] || baseColor;
-          } else {
-            bigLine.innerHTML = '';
-            bigLine.style.background = baseColor;
-          }
         }
+
+        // 以前は表示時に短縮していたが、今回は短縮しない（線長を変えない）。
       }
       runAdjustments();
     };
@@ -1023,6 +1002,7 @@ searchBtn.addEventListener('click', ()=>{
   resultArea.innerHTML = headerHtml + bodyHtml;
 
   wireToggleButtons();
+  // DOM に挿入された後に高さを計算してストリップを当てる
   setTimeout(runAdjustments, 0);
 });
 
