@@ -420,9 +420,29 @@ function findIndexFrom(path, station, start){
   return -1;
 }
 
-// --- 主要駅抽出（修正） ---
-// 目的: 新東橋で「東橋本線（東橋方面）」 <-> 「横宿線」を乗り換える場合、
-//       新東橋 を途中駅ではなく主要駅として表示する。
+// --- isPathWithinTOZone をより堅牢に置き換え ---
+// TOゾーン定義: 東橋鉄道横宿線の全駅、及び東橋鉄道東橋本線の「新東橋を含む新東橋より東橋側（東橋方面）までの駅」
+// この集合に経路上のすべての駅が含まれていれば TOゾーン内とみなす。
+function isPathWithinTOZone(path){
+  if(!Array.isArray(path) || path.length < 2) return false;
+  const eastMain = stationLines["東橋鉄道東橋本線"] || [];
+  const yoko = stationLines["東橋鉄道横宿線"] || [];
+  const idxNewEast = eastMain.indexOf("新東橋");
+  if(idxNewEast === -1){
+    // 新東橋が見つからなければ横宿線のみをTOとする（安全フォールバック）
+    const toSet = new Set(yoko);
+    return path.every(st => toSet.has(st));
+  }
+
+  // 新東橋以北（東橋方面） = eastMain のインデックス <= idxNewEast
+  const eastTOStations = eastMain.slice(0, idxNewEast + 1); // 新東橋を含む、それより東橋側の駅群
+  const toStationsSet = new Set([...yoko, ...eastTOStations]);
+
+  // path 中のすべての駅が toStationsSet に含まれるかをチェック
+  return path.every(st => toStationsSet.has(st));
+}
+
+// --- 主要駅抽出（修正：新東橋での乗換を主要駅化） ---
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
   const majors = [path[0]];
@@ -466,7 +486,6 @@ function majorStops(path){
     }
 
     // --- 特別ルール: 新東橋で東橋本線 <-> 横宿線 を乗り換える場合は、新東橋を主要駅にする ---
-    // 判定に必要な lnPrev (prev->here) と lnNext (here->after) を取得
     const lnPrev = ln;
     const lnNext = (i < path.length - 1) ? findLineOfSegment(here, path[i+1]) : null;
     const isTransferAtShinTohashi =
@@ -476,16 +495,13 @@ function majorStops(path){
         (lnPrev === "東橋鉄道横宿線" && lnNext === "東橋鉄道東橋本線")
       );
 
-    // この特例があるときは special skip を無視して major とする（さらに下で prev ではなく here を追加）
     if(isTransferAtShinTohashi){
       isSpecialSkip = false;
     }
 
     if(isBoundary && !isSpecialSkip && !connectionSkipPrev){
-      // 特例: 新東橋での乗換えならここ（here）を主要駅として扱う
       if(isTransferAtShinTohashi){
         majors.push(here);
-        // 会社/路線の現状を次の辺のラインに合わせる（ここでラインが切り替わっている）
         curLine = lnNext || ln;
       } else {
         majors.push(prev);
