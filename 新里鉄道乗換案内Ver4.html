@@ -33,10 +33,11 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .routeLine{display:flex;flex-direction:column;gap:10px;margin-top:4px}
 .rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;align-items:start;column-gap:10px;position:relative;}
 .railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
-.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:2;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;}
+.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:2;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;background:#999}
 .rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:2;}
-.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
+.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;overflow:hidden;}
 .railLineMinor{width:var(--lineWMinor);border-radius:1px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
+.railLineStrip{position:absolute;left:0;right:0;z-index:1;border-radius:0;}
 .stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
 .stationName{font-weight:700;font-size:16px;line-height:1.25;margin:0}
 .lineBadge{display:inline-block;color:#fff;font-size:13.5px;line-height:1;padding:2px 6px;border-radius:6px;margin-top:6px;white-space:nowrap;margin-right:6px}
@@ -452,6 +453,59 @@ addViaBtn.addEventListener('click', ()=>{
 });
 
 // レイアウト補助
+
+// 新関数: 大線要素に対して「等分ストリップ」を作る（主要駅丸の下端 ⇢ 次の主要駅丸の上端の間を等分）
+function applyStripsToBigLine(lineEl){
+  if(!lineEl) return;
+  // 短縮フラグがある場合は処理をしない（短縮状態はそのままにする）
+  if(lineEl.dataset && lineEl.dataset.shortened === 'true') {
+    // ただし中身は空にしておくとよい
+    // (短縮中は高さが小さくなるためrunAdjustmentsが管理する)
+  }
+  const usedRaw = lineEl.dataset.usedlines || '';
+  const usedArr = usedRaw ? usedRaw.split('|').filter(x=>x) : [];
+  const baseColor = lineEl.dataset.color || '#999';
+
+  // シングル／未指定は単色で描画
+  if(usedArr.length <= 1){
+    lineEl.innerHTML = '';
+    if(usedArr.length === 1){
+      lineEl.style.background = lineColors[usedArr[0]] || baseColor;
+    } else {
+      lineEl.style.background = baseColor;
+    }
+    return;
+  }
+
+  // 複数路線: 親要素の高さを均等に分割してストリップを作る
+  lineEl.style.background = 'transparent';
+  // 既存の子をクリア
+  lineEl.innerHTML = '';
+  const parts = usedArr.length;
+  const pct = 100 / parts;
+  for(let i=0;i<parts;i++){
+    const col = lineColors[usedArr[i]] || '#999';
+    const strip = document.createElement('div');
+    strip.className = 'railLineStrip';
+    strip.style.position = 'absolute';
+    strip.style.left = '0';
+    strip.style.right = '0';
+    strip.style.top = (i * pct) + '%';
+    strip.style.height = pct + '%';
+    strip.style.background = col;
+    // 上下の角を丸める（先頭と末尾のみ）
+    if(i === 0){
+      strip.style.borderTopLeftRadius = '2px';
+      strip.style.borderTopRightRadius = '2px';
+    }
+    if(i === parts - 1){
+      strip.style.borderBottomLeftRadius = '2px';
+      strip.style.borderBottomRightRadius = '2px';
+    }
+    lineEl.appendChild(strip);
+  }
+}
+
 function adjustMajorLines(){
   const rows = Array.from(document.querySelectorAll('.rowStation'));
   rows.forEach((row, idx) => {
@@ -477,9 +531,21 @@ function adjustMajorLines(){
     const nextDot = nextRow.querySelector('.railDot');
     const nextDotRect = nextDot.getBoundingClientRect();
 
-    line.style.top = (dotRect.top - parentRect.top) + 'px';
-    const h = Math.max(0, (nextDotRect.top - dotRect.top)) + 5;
-    line.style.height = h + 'px';
+    // 主要駅の丸の「下端」と次主要駅の丸の「上端」を使って間隔を算出
+    // dotRect.bottom と nextDotRect.top の差が塗り分け領域の高さ
+    const topOffset = dotRect.top - parentRect.top + (dotRect.height / 2); // 丸の下端に合わせる (center + half)
+    const bottomOffset = nextDotRect.top - parentRect.top - (nextDotRect.height / 2); // 次丸の上端に合わせる
+    const computedTop = dotRect.bottom - parentRect.top; // dotRect.top + dotRect.height - parentRect.top
+    const computedBottom = nextDotRect.top - parentRect.top;
+    // 安全策: fallback to original calculation if values invalid
+    const newTop = Math.min(Math.max(computedTop, 0), parentRect.height);
+    const newHeight = Math.max(0, computedBottom - computedTop);
+
+    line.style.top = newTop + 'px';
+    line.style.height = (newHeight > 0 ? newHeight : Math.max(0, (nextDotRect.top - dotRect.top))) + 'px';
+
+    // ここで等分ストリップを適用（usedlines 属性に基づく）
+    applyStripsToBigLine(line);
   });
 
   document.querySelectorAll('.rowBetween').forEach(r => {
@@ -669,35 +735,19 @@ function renderRouteCardForPart(part, partIndex){
 
     const bigLineId = `part${partIndex}-bigline-${idx}`;
 
-    // 変更点: 停車駅が非表示（デフォルト: 非表示）なら major line を「経由する路線の色を等分」して表示
-    // 停車駅が表示状態のときは単色（主要駅の色）にする。toggle の制御で切り替える。
+    // ここでは初期スタイルを単色／グラデーションで設定しておくが、
+    // 実際の「等分ストリップ」の生成は runAdjustments -> applyStripsToBigLine で DOM 高さに基づき行う。
     let bigLineStyle = '';
     if(nextStation){
-      // usedLinesForSegment を使って等分塗りを作る（2本以上なら等分）
       if(usedLinesForSegment.length > 1){
-        const step = 100 / usedLinesForSegment.length;
-        const stops = usedLinesForSegment.map((ln, j) => {
-          const col = lineColors[ln] || '#999';
-          const start = (j * step).toFixed(6);
-          const end = ((j+1) * step).toFixed(6);
-          return `${col} ${start}%, ${col} ${end}%`;
-        }).join(', ');
-        bigLineStyle = `background: linear-gradient(to bottom, ${stops});`;
+        // 初期は透明にしておく（runAdjustments がストリップを作る）
+        bigLineStyle = `background: transparent;`;
       } else if(usedLinesForSegment.length === 1){
         const ln = usedLinesForSegment[0];
         bigLineStyle = `background: ${lineColors[ln] || color};`;
       } else {
-        // フォールバック: major の色と次の major 色を交互に分ける（ただし等分）
-        const cols = [color];
-        if(nextColor && nextColor !== color) cols.push(nextColor);
-        if(cols.length > 1){
-          const step = 100 / cols.length;
-          const stops = cols.map((col, j) => {
-            const start = (j * step).toFixed(6);
-            const end = ((j+1) * step).toFixed(6);
-            return `${col} ${start}%, ${col} ${end}%`;
-          }).join(', ');
-          bigLineStyle = `background: linear-gradient(to bottom, ${stops});`;
+        if(nextColor && nextColor !== color){
+          bigLineStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
         } else {
           bigLineStyle = `background: ${color};`;
         }
@@ -706,7 +756,7 @@ function renderRouteCardForPart(part, partIndex){
       bigLineStyle = `background: ${color};`;
     }
 
-    // データ属性に usedLines を保存しておく（トグル時に再利用）
+    // データ属性に usedLines を保存しておく（トグル時 / runAdjustments で再利用）
     const usedLinesDataAttr = usedLinesForSegment.join('|');
 
     routeHtml += `
@@ -861,11 +911,12 @@ function shortenBigLineToFirstBetween(bigLine, betweenEl){
   const betweenDot = firstBetweenRow.querySelector('.railDot');
   if(!betweenDot) return;
   const betweenDotRect = betweenDot.getBoundingClientRect();
-  const newTop = dotRect.top - parentRect.top;
+  const newTop = dotRect.top - parentRect.top + dotRect.height; // bottom
   const newHeight = Math.max(0, (betweenDotRect.top - dotRect.top)) + 2;
-  bigLine.style.top = newTop + 'px';
+  bigLine.style.top = (dotRect.bottom - parentRect.top) + 'px';
   bigLine.style.height = newHeight + 'px';
   bigLine.dataset.shortened = "true";
+  // 中のストリップは短縮された高さに合わせてそのまま表示される（割合指定なので問題なし）
 }
 
 // wire toggle
@@ -892,29 +943,25 @@ function wireToggleButtons(){
 
         if(isOpen){
           // 表示: 単色に
+          bigLine.innerHTML = '';
           bigLine.style.background = baseColor;
           // 大線を途中駅先頭まで短縮
           shortenBigLineToFirstBetween(bigLine, list);
         } else {
-          // 非表示: 「経由する路線色を等分」で再計算して適用
+          // 非表示: usedlines に基づいて等分ストリップを再生成（または単色）
+          // 短縮フラグを削除して高さを再計算させる
+          delete bigLine.dataset.shortened;
           if(usedLinesArr.length > 1){
-            const step = 100 / usedLinesArr.length;
-            const stops = usedLinesArr.map((ln, j) => {
-              const col = lineColors[ln] || '#999';
-              const start = (j * step).toFixed(6);
-              const end = ((j+1) * step).toFixed(6);
-              return `${col} ${start}%, ${col} ${end}%`;
-            }).join(', ');
-            bigLine.style.background = `linear-gradient(to bottom, ${stops})`;
+            // runAdjustments が呼ばれた際 applyStripsToBigLine が再適用されるが
+            // ここでも即時でストリップを作り直しておく（高さは割合で決まるので OK）
+            applyStripsToBigLine(bigLine);
           } else if(usedLinesArr.length === 1){
-            const ln = usedLinesArr[0];
-            bigLine.style.background = lineColors[ln] || baseColor;
+            bigLine.innerHTML = '';
+            bigLine.style.background = lineColors[usedLinesArr[0]] || baseColor;
           } else {
-            // フォールバック: baseColor の単色
+            bigLine.innerHTML = '';
             bigLine.style.background = baseColor;
           }
-          // 非表示に戻すときは短縮フラグを削除して高さを通常に戻す（runAdjustments で再計算）
-          delete bigLine.dataset.shortened;
         }
       }
       runAdjustments();
