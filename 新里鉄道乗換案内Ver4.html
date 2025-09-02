@@ -563,7 +563,7 @@ function splitByCompany(path){
   return segments.filter(s => !!s.company && s.from !== s.to);
 }
 
-// 描画：主要駅の色決定は維持。変更点は「途中駅の接続駅化 = 直後の途中駅の色」を適用する箇所
+// 描画：主要駅の色決定は維持。変更点は「途中駅非表示時に主要駅線を次の主要駅色へグラデーションにする」処理
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
   const { majors } = majorStops(path);
@@ -648,6 +648,7 @@ function renderRouteCardForPart(part, partIndex){
     const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
 
     const color = majorsColors[idx];
+    const nextColor = nextStation ? majorsColors[idx+1] : null;
 
     let lineListHtml = '';
 
@@ -666,11 +667,22 @@ function renderRouteCardForPart(part, partIndex){
     }
 
     const bigLineId = `part${partIndex}-bigline-${idx}`;
+
+    // 変更点: 停車駅が非表示（デフォルト: 非表示）なら major line を "color -> nextColor" のグラデーションにする
+    // 停車駅が表示状態のときは単色（color）にする。toggle の制御で切り替える。
+    let bigLineStyle = '';
+    if(nextStation && nextColor){
+      // 初期レンダリング時は betweenList は display:none のため「停車駅非表示」とみなし、グラデーションを適用
+      bigLineStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
+    } else {
+      bigLineStyle = `background: ${color};`;
+    }
+
     routeHtml += `
       <div class="rowStation">
         <div class="railCol">
           <div class="railDot" style="background:${color}"></div>
-          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" style="background:${color}"></div>` : `<div class="spacer6"></div>`}
+          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" style="${bigLineStyle}"></div>` : `<div class="spacer6"></div>`}
         </div>
         <div class="stationText">
           <div class="stationName">${st}</div>
@@ -835,15 +847,25 @@ function wireToggleButtons(){
       const list = document.getElementById(`part${part}-between-${idx}`);
       const bigLine = document.getElementById(`part${part}-bigline-${idx}`);
       if(!list) return;
+      // isOpen: 新しい「開いた」状態を表す（true = 表示される、false = 非表示される）
       const isOpen = getComputedStyle(list).display !== 'block';
       list.style.display = isOpen ? 'block' : 'none';
       btn.dataset.open = isOpen.toString();
       btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
 
       if(bigLine){
+        // 停車駅を「表示」したときは大線を単色にする（主要駅の色）
+        const baseColor = bigLine.dataset.color || '#999';
+        const nextColor = bigLine.dataset.nextcolor || baseColor;
         if(isOpen){
+          // 表示: 単色に
+          bigLine.style.background = baseColor;
+          // 大線を途中駅先頭まで短縮
           shortenBigLineToFirstBetween(bigLine, list);
         } else {
+          // 非表示: グラデーションに（base -> next）
+          bigLine.style.background = `linear-gradient(to bottom, ${baseColor}, ${nextColor})`;
+          // 非表示に戻すときは短縮フラグを削除して高さを通常に戻す（runAdjustments で再計算）
           delete bigLine.dataset.shortened;
         }
       }
