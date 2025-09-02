@@ -241,6 +241,7 @@ function fareNiizato(km){
 
 function fareTouhashi(km, segPath = [], companySegments = []){
   const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
+  // fareTouhashi では東橋本線の index を使って「東橋側の範囲」を判定する仕様を維持しています。
   const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
   const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
   const idxNewHigashi = tohashiEastLine.indexOf("新東橋");
@@ -389,8 +390,7 @@ function shortestPathWithinCompany(start, goal, company){
   return {path, distance: dist[goal]};
 }
 
-// ==== 途中駅扱いの「接続」定義 ====
-// 新東橋 を復活させます（咲田口方面 ⇄ 新東橋 ⇄ 東橋方面・横宿方面）
+// ==== 途中駅扱いの「接続」定義（新東橋は削除済み） ====
 const connectingStations = [
   { station: "北鶴宮", endpoints: ["鶴宮","鬼越峠"] },
   { station: "鶴宮",   endpoints: ["鶴宮神社","南鶴宮"] },
@@ -400,30 +400,21 @@ const connectingStations = [
   { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
   { station: "豊町", endpoints: ["削野", "東豊町"] },
 
-  // ユーザ指定により分割した園木エントリ（順序は問いません）
   { station: "園木", endpoints: ["東園木", "富士町"] },
   { station: "園木", endpoints: ["東園木", "大木沢"] },
 
   { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
 
-  // --- 新東橋 の接続定義（復活）
-  // 「咲田口方面」（浅見〜咲田口側） と 「東橋方面（黒田側）」 を繋ぐ意味
-  { station: "新東橋", endpoints: ["浅見", "黒田"] },
-  // 「咲田口方面」（浅見〜咲田口側） と 「横宿方面（東黒田側）」 を繋ぐ意味
-  { station: "新東橋", endpoints: ["浅見", "東黒田"] },
-
   { station: "横宿", endpoints: ["日森町", "北横宿"] },
   { station: "成津", endpoints: ["北成津", "大町"] }
 ];
 
-// specialMajorStations は新東橋を入れない（接続判定は connectingStations に任せる）
 const specialMajorStations = [
   "新里", "湯の浜", "鶴宮",
   "坂電坂津", "港通", "東坂津",
   "削野", "豊町", "東豊町",
   "東園木", "園木", "富士町", "大木沢",
   "北桑畑", "桑畑", "常盤台",
-  "浅見", "東黒田",
   "日森町", "横宿", "北横宿",
   "北成津", "成津", "大町"
 ];
@@ -440,7 +431,7 @@ function findIndexFrom(path, station, start){
   return -1;
 }
 
-// --- 主要駅抽出（接続駅判定を通常通り評価） ---
+// --- 主要駅抽出（新東橋に対する特例は一切無し） ---
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
 
@@ -455,7 +446,7 @@ function majorStops(path){
     // 会社や路線が変わるポイント
     let isBoundary = (ln !== curLine);
 
-    // specialMajorStations によるスキップ判定
+    // 元の specialMajorStations によるスキップ判定（維持）
     let isSpecialSkip = false;
     if(specialMajorStations.includes(here) && i > 0 && i < path.length-1){
       const before = path[i-1];
@@ -465,7 +456,7 @@ function majorStops(path){
       }
     }
 
-    // connectingStations に基づく「途中扱い」ルール（prev / here を評価）
+    // 接続駅ルール（prev / here が connectingStations に該当する場合） — 判定有り
     let connectionSkipPrev = false;
     const connsPrev = connectingStations.filter(c => c.station === prev);
     if(connsPrev && connsPrev.length > 0){
@@ -758,6 +749,8 @@ function splitByCompany(path){
 
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
+
+  // （新東橋の特例判定はここにはありません。表示判定は全駅共通ルールで行います）
 
   const { majors } = majorStops(path);
 
