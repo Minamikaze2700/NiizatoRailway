@@ -443,6 +443,8 @@ function isPathWithinTOZone(path){
 }
 
 // --- 主要駅抽出（修正：新東橋での乗換を主要駅化） ---
+// 追加対策: メインロジック実行後に、経路上に新東橋があり、かつ東橋本線と横宿線が両方経路で使われているなら
+//            絶対に majors に 新東橋 を含める（方向差を防ぐ）。
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
   const majors = [path[0]];
@@ -513,6 +515,51 @@ function majorStops(path){
   }
 
   majors.push(path[path.length-1]);
+
+  // ---------------------------
+  // 追補: direction に依存しない確実な追加
+  // 経路上に新東橋があり、経路が東橋本線と横宿線の両方を含むなら
+  // majors に必ず 新東橋 を含める（順序を保持して挿入）。
+  // ---------------------------
+  try {
+    if(path.indexOf("新東橋") !== -1){
+      const hasEastMain = path.some((s,i) => i < path.length - 1 && findLineOfSegment(s, path[i+1]) === "東橋鉄道東橋本線");
+      const hasYoko = path.some((s,i) => i < path.length - 1 && findLineOfSegment(s, path[i+1]) === "東橋鉄道横宿線");
+      if(hasEastMain && hasYoko && !majors.includes("新東橋")){
+        // 挿入位置: path 中の index に基づいて majors に正しい順序で挿入する
+        const idxInPath = path.indexOf("新東橋");
+        // majors を path 上のインデックス順にソートするため、majors を path の順に揃える処理
+        // まず、majors を path のインデックスでソート（挿入前）
+        const majorsSorted = majors.slice().sort((a,b)=>{
+          const ia = path.indexOf(a);
+          const ib = path.indexOf(b);
+          return ia - ib;
+        });
+
+        // 新東橋を挿入：majorsSorted の中で idxInPath より大きい最初の要素の前に入れる
+        let insertPos = majorsSorted.findIndex(m => path.indexOf(m) > idxInPath);
+        if(insertPos === -1){
+          // 末尾の直前（最後は終着駅）に挿入しておく
+          majorsSorted.splice(majorsSorted.length - 1, 0, "新東橋");
+        } else {
+          majorsSorted.splice(insertPos, 0, "新東橋");
+        }
+        // 重複を取り除きつつ順序を majors に反映
+        const seen = new Set();
+        const finalMajors = [];
+        for(const m of majorsSorted){
+          if(!seen.has(m)){ finalMajors.push(m); seen.add(m); }
+        }
+        // assign back
+        while(majors.length) majors.pop();
+        for(const m of finalMajors) majors.push(m);
+      }
+    }
+  } catch(e){
+    // ここで失敗しても既存の majors を返す（安全フォールバック）
+    console.warn("majorStops post-insert failed:", e);
+  }
+
   return {majors};
 }
 
