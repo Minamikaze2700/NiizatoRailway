@@ -418,14 +418,14 @@ const specialMajorStations = [
   "削野", "豊町", "東豊町",
   "東園木", "園木", "富士町", "大木沢",
   "北桑畑", "桑畑", "常盤台",
-  "日森町", "横宿", "北横宿", "浅見", "東黒田",
+  "日森町", "横宿", "北横宿",
   "北成津", "成津", "大町"
 ];
 
 function indexesOf(arr, value){
   const out=[]; for(let i=0;i<arr.length;i++) if(arr[i]===value) out.push(i); return out;
 }
-function betweenExclusive(idx, a, b){ return (a < idx && idx < b) || (b < idx && idx < a); }
+function betweenExclusive(idx, a, b){ return (a < idx && idx < b) || (b < idx && b < a); }
 
 function findIndexFrom(path, station, start){
   for(let i=start;i<path.length;i++){
@@ -552,6 +552,10 @@ function populateStationSelect(lineSel, stationSel){
 [ fromLineSel, toLineSel ].forEach(sel => populateLineSelect(sel));
 populateStationSelect(fromLineSel, fromStationSel);
 populateStationSelect(toLineSel, toStationSel);
+
+// ←--- 修正点：路線選択が変わったら駅セレクトを更新するハンドラを追加しました
+fromLineSel.addEventListener('change', ()=> populateStationSelect(fromLineSel, fromStationSel));
+toLineSel.addEventListener('change', ()=> populateStationSelect(toLineSel, toStationSel));
 
 if(stationLines['新里鉄道湯の浜線'] && stationLines['新里鉄道湯の浜線'].indexOf('新里')!==-1){
   fromLineSel.value = '新里鉄道湯の浜線';
