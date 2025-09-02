@@ -95,35 +95,28 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 </div>
 
 <script>
-// ==== 駅・路線データ （元データ：横宿線を逆順にしています） ====
+// ==== 駅・路線データ （横宿線は逆順） ====
 const stationLines = {
- "新里鉄道湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
- "新里鉄道燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
- "新里鉄道鶴宮線":["鶴宮","南鶴宮","あずさ台","橘町","燠野山口","白枝","燠野","紅葉台","桐山","湊川","彩山親水公園","彩山","蓮華寺","星宮","田ノ原"],
- "新里鉄道新里線":["新里","南新里","田ノ原","北玖川","玖川","中野原"],
- "新里鉄道彩山線":["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"],
-"鈴浜電気鉄道鈴浜電鉄線":["桜川国際空港","りんくう桜川","余田","白砂","千種園","大三浜","外神","紅原台","恋野宮","南河都","河都","北河都","百合ヶ丘公園","猫崎海岸","籾井","白木稲荷","流沢温泉口","流沢温泉","京新峡","奥沢高原","原津","神道山口","新的場","虹川","片牧町","鬼越峠","北鶴宮"],
-"桜川電気鉄道彩山線":["喜多瀬浜","喜多瀬","久我山","桜鉄彩山口"],
-"桜川電気鉄道空港線":["桜川","公園東口","桜川公園北口","御厨","南深江","北深江","桜鉄浪原","東浪原","喜多瀬浜","葵台","汐見台","月野原","高瀬","結原","りんくう桜川","桜川国際空港"],
-"桜川電気鉄道桜州環状線":["八軒町","川渡","西中野","中野","東中野","桜台","福原","桜鉄久我原","浪原","桜鉄浪原","彩山川","似島","中洲","糸島","南糸島","野瀬","新浜","海岸通り","桜町","東片野","東新地","新地"],
-"桜川電気鉄道中野線":["中野","南中野","大里","栄町","北桜川","桜川","南桜川","東豊野","すすき野","永田","平川","片野","北新地","新地"],
+  "新里鉄道湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
+  "新里鉄道燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
+  "新里鉄道鶴宮線":["鶴宮","南鶴宮","あずさ台","橘町","燠野山口","白枝","燠野","紅葉台","桐山","湊川","彩山親水公園","彩山","蓮華寺","星宮","田ノ原"],
+  "新里鉄道新里線":["新里","南新里","田ノ原","北玖川","玖川","中野原"],
+  "新里鉄道彩山線":["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"],
+  "鈴浜電気鉄道鈴浜電鉄線":["桜川国際空港","りんくう桜川","余田","白砂","千種園","大三浜","外神","紅原台","恋野宮","南河都","河都","北河都","百合ヶ丘公園","猫崎海岸","籾井","白木稲荷","流沢温泉口","流沢温泉","京新峡","奥沢高原","原津","神道山口","新的場","虹川","片牧町","鬼越峠","北鶴宮"],
+  "桜川電気鉄道彩山線":["喜多瀬浜","喜多瀬","久我山","桜鉄彩山口"],
+  "桜川電気鉄道空港線":["桜川","公園東口","桜川公園北口","御厨","南深江","北深江","桜鉄浪原","東浪原","喜多瀬浜","葵台","汐見台","月野原","高瀬","結原","りんくう桜川","桜川国際空港"],
+  "桜川電気鉄道桜州環状線":["八軒町","川渡","西中野","中野","東中野","桜台","福原","桜鉄久我原","浪原","桜鉄浪原","彩山川","似島","中洲","糸島","南糸島","野瀬","新浜","海岸通り","桜町","東片野","東新地","新地"],
+  "桜川電気鉄道中野線":["中野","南中野","大里","栄町","北桜川","桜川","南桜川","東豊野","すすき野","永田","平川","片野","北新地","新地"],
   "豊野鉄道豊野線":["糸島","西糸島","平田","文京町","東桜川","桜川","豊野月見台","豊野","西豊野","白州川","春田","桜峠","桑畑","常盤台","天津川","広野","追分","野川","幕生","羽草","清見台","東園木","園木"],
-"豊野鉄道新地線":["春田","南春田","日野原","加納","永楽町","室町","西新地","新地"],
-"豊野鉄道坂川線":["桑畑","北桑畑","坂川","天津温泉"],
+  "豊野鉄道新地線":["春田","南春田","日野原","加納","永楽町","室町","西新地","新地"],
+  "豊野鉄道坂川線":["桑畑","北桑畑","坂川","天津温泉"],
   "坂津電鉄坂津本線":["坂津港","港通","坂電坂津","大井野","中天神町","飯倉町","酒何町","能地","初川","春原","岩川崎"],
-"坂津電鉄豊町線":["豊町","削野","勝垰","重石町","東坂津","港通"],
+  "坂津電鉄豊町線":["豊町","削野","勝垰","重石町","東坂津","港通"],
   "坂津ポートライナー線":["横宿","北横宿","総合運動場","郡元","鈴里","港通","坂津港"],
-"今橋鉄道成津線":["今橋","新今橋","土川","小弥又","大弥又","今橋学園前","久末","大町","成津","東成津","津塚","牛ヶ瀬","松橋","合浜","綿部","陣中原","萱海","弦川","二番街","高越","築田市","南築田","榎仏子","高座","口松","津垣","大道寺"],
-"今橋鉄道豊海線":["成津","北成津","原葉","徳橋","発樫","豊海","虹松","甲部","夕陽ヶ浜","艶華","富士町","園木"],
-  "東橋鉄道東橋本線":[
-    "東橋","河井町","黒田","新東橋","浅見","柴若","六日市通","岩田城","内山","新荘",
-    "葉賀ノ台","木森","理李ヶ丘","小査","寺尾","栗島","宮間","大木沢","園木","新東園木",
-    "綾山","豊川大野","垂生崎","南豊川","幕ヶ原","咲田口"
-  ],
-  // 横宿線を逆順にしました（ユーザ指定）
-  "東橋鉄道横宿線":[
-    "横宿","日森町","和泉原","朋田","小柴","新大崎","杜山","東黒田","新東橋"
-  ]
+  "今橋鉄道成津線":["今橋","新今橋","土川","小弥又","大弥又","今橋学園前","久末","大町","成津","東成津","津塚","牛ヶ瀬","松橋","合浜","綿部","陣中原","萱海","弦川","二番街","高越","築田市","南築田","榎仏子","高座","口松","津垣","大道寺"],
+  "今橋鉄道豊海線":["成津","北成津","原葉","徳橋","発樫","豊海","虹松","甲部","夕陽ヶ浜","艶華","富士町","園木"],
+  "東橋鉄道東橋本線":["東橋","河井町","黒田","新東橋","浅見","柴若","六日市通","岩田城","内山","新荘","葉賀ノ台","木森","理李ヶ丘","小査","寺尾","栗島","宮間","大木沢","園木","新東園木","綾山","豊川大野","垂生崎","南豊川","幕ヶ原","咲田口"],
+  "東橋鉄道横宿線":["横宿","日森町","和泉原","朋田","小柴","新大崎","杜山","東黒田","新東橋"]
 };
 const lineColors = {
   "新里鉄道湯の浜線":"#00bfff",
@@ -148,9 +141,8 @@ const lineColors = {
   "東橋鉄道横宿線":"#0099cc"
 };
 
-// ==== 距離グラフ ====
+// ==== 距離グラフ（省略せず） ====
 const rawGraph={"豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},"安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},"栃原":{"宇城":2.2},"宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},"御浜":{"伊坂":2.5},"伊坂":{"垳下":2.6},"垳下":{"北浜":2.3},"北浜":{"西新里":1.4},"西新里":{"新里":1.7},"新里":{"河岸":0.9,"南新里":2.5},"河岸":{"新里海浜公園":1.7},"新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5},"湯の浜":{"七浦":2.5,"新里大学前":0.8},"七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},"伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.1,"南鶴宮":1.7},"新里大学前":{"綾原":0.7},"綾原":{"福来":1.2},"福来":{"燠野":1.4},"燠野":{"湯川":2.6,"紅葉台":1.1},"湯川":{"温泉口":1.6},"温泉口":{"燠野温泉":1.9},"南鶴宮":{"あずさ台":1.4},"あずさ台":{"橘町":1.8},"橘町":{"燠野山口":1.1},"燠野山口":{"白枝":1.2},"白枝":{"燠野":1.1},"紅葉台":{"桐山":0.8},"桐山":{"湊川":0.8},"湊川":{"彩山親水公園":1.1},"彩山親水公園":{"彩山":1.2},"彩山":{"蓮華寺":0.8,"彩山口":2.1},"蓮華寺":{"星宮":1.1},"星宮":{"田ノ原":1.1},"南新里":{"田ノ原":2.3},"田ノ原":{"北玖川":2.4},"北玖川":{"玖川":3.1},"玖川":{"中野原":3.1},"彩山口":{"新里国際スキー場":3.4},"新里国際スキー場":{"鷹見台":10.7},"鷹見台":{"久我原":2.7},"久我原":{"浪原":1.5},"浪原":{"深江":1.4},"深江":{"三栗谷":1.3},"三栗谷":{"桜川公園":1.5},"桜川公園":{"桜川":2.2},"北鶴宮":{"鬼越峠":2.6},"鬼越峠":{"片牧町":3.1},"片牧町":{"虹川":2.2},"虹川":{"新的場":1.9},"新的場":{"神道山口":2.8},"神道山口":{"原津":2.6},"原津":{"奥沢高原":1.7},"奥沢高原":{"京新峡":2.0},"京新峡":{"流沢温泉":1.9},"流沢温泉":{"流沢温泉口":2.5},"流沢温泉口":{"白木稲荷":2.0},"白木稲荷":{"籾井":2.4},"籾井":{"猫崎海岸":2.3},"猫崎海岸":{"百合ヶ丘公園":2.1},"百合ヶ丘公園":{"北河都":2.7},"北河都":{"河都":2.1},"河都":{"南河都":1.7},"南河都":{"恋野宮":2.2},"恋野宮":{"紅原台":2.4},"紅原台":{"外神":2.4},"外神":{"大三浜":1.9},"大三浜":{"千種園":2.1},"千種園":{"白砂":2.3},"白砂":{"余田":2.2},"余田":{"りんくう桜川":2.3},"りんくう桜川":{"桜川国際空港":1.1},"富士町":{"艶華":1.1},"艶華":{"夕陽ヶ浜":0.7},"夕陽ヶ浜":{"甲部":1.0},"甲部":{"虹松":0.8},"虹松":{"豊海":0.9},"豊海":{"発樫":0.8},"発樫":{"徳橋":1.0},"徳橋":{"原葉":1.1},"原葉":{"北成津":1.2},"北成津":{"成津":1.1},"大道寺":{"津垣":1.2},"津垣":{"口松":0.9},"口松":{"高座":0.8},"高座":{"榎仏子":0.9},"榎仏子":{"南築田":0.9},"南築田":{"築田市":0.7},"築田市":{"高越":1.0},"高越":{"二番街":1.1},"二番街":{"弦川":1.0},"弦川":{"萱海":0.9},"萱海":{"陣中原":0.8},"陣中原":{"綿部":0.9},"綿部":{"合浜":0.9},"合浜":{"松橋":0.8},"松橋":{"牛ヶ瀬":1.1},"牛ヶ瀬":{"津塚":1.0},"津塚":{"東成津":0.8},"東成津":{"成津":1.2},"成津":{"大町":1.1},"大町":{"久末":1.3},"久末":{"今橋学園前":0.9},"今橋学園前":{"大弥又":0.8},"大弥又":{"小弥又":0.9},"小弥又":{"土川":0.9},"土川":{"新今橋":1.2},"新今橋":{"今橋":1.3},"糸島":{"西糸島":1.4},"西糸島":{"平田":1.7},"平田":{"文京町":1.2},"文京町":{"東桜川":1.8},"東桜川":{"桜川":1.5},"桜川":{"豊野月見台":1.3},"豊野月見台":{"豊野":1.9},"豊野":{"西豊野":1.6},"西豊野":{"白州川":1.2},"白州川":{"春田":1.8},"春田":{"桜峠":3.6,"南春田":1.5},"桜峠":{"桑畑":4.3},"桑畑":{"常盤台":1.5,"北桑畑":1.3},"常盤台":{"天津川":1.1},"天津川":{"広野":1.9},"広野":{"追分":1.6},"追分":{"野川":1.2},"野川":{"幕生":1.8},"幕生":{"羽草":1.3},"羽草":{"清見台":1.7},"清見台":{"東園木":1.4},"東園木":{"園木":1.5},"南春田":{"日野原":1.4},"日野原":{"加納":1.3},"加納":{"永楽町":1.2},"永楽町":{"室町":1.1},"室町":{"西新地":1.2},"西新地":{"新地":1.1},"北桑畑":{"坂川":1.6},"坂川":{"天津温泉":1.8},
-  // 東橋鉄道東橋本線
   "東橋": { "河井町": 2.2 },
   "河井町": { "黒田": 2.1 },
   "黒田": { "新東橋": 4.0 },
@@ -176,8 +168,6 @@ const rawGraph={"豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水
   "垂生崎": { "南豊川": 6.0 },
   "南豊川": { "幕ヶ原": 4.7 },
   "幕ヶ原": { "咲田口": 5.0 },
-
-  // 東橋鉄道横宿線 (エッジ定義は順不同でも問題ない)
   "東黒田": { "杜山": 2.4 },
   "杜山": { "新大崎": 2.7 },
   "新大崎": { "小柴": 2.2 },
@@ -187,7 +177,7 @@ const rawGraph={"豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水
   "日森町": { "横宿": 3.9 }
 };
 
-// --- グラフ生成ユーティリティ ---
+// --- ユーティリティ（グラフ, 距離, 最短経路等） ---
 function buildGraphBidirectional(raw){
   const g = {};
   for(const [a,edges] of Object.entries(raw)){
@@ -202,131 +192,6 @@ function buildGraphBidirectional(raw){
 }
 const graph = buildGraphBidirectional(rawGraph);
 const allStations = Array.from(new Set([...Object.keys(graph), ...Object.values(graph).flatMap(x => Object.keys(x))])).sort();
-
-// ============ 運賃ロジック（省略表示なし） ============
-function fareImabashi(km){ return 0; }
-function fareSakuragawa(km){ return 0; }
-function fareSakatsu(km){ return 0; }
-function fareSakatsuPortliner(km){ return 0; }
-function fareSuzuhama(km){
-  if (km <= 4)  return 140;
-  if (km <= 6)  return 160;
-  if (km <= 9)  return 190;
-  if (km <= 12) return 210;
-  if (km <= 15) return 230;
-  if (km <= 19) return 280;
-  if (km <= 24) return 320;
-  if (km <= 30) return 360;
-  if (km <= 37) return 390;
-  if (km <= 44) return 410;
-  if (km <= 52) return 430;
-  if (km <= 60) return 450;
-  return 450;
-}
-function fareToyono(km){ return 0; }
-function fareNiizato(km){
-  if(km<=1)return 130;
-  if(km<=2)return 140;
-  if(km<=3)return 150;
-  if(km<=5)return 170;
-  if(km<=8)return 200;
-  if(km<=12)return 240;
-  if(km<=20)return 290;
-  if(km<=30)return 350;
-  if(km<=40)return 420;
-  if(km<=50)return 490;
-  if(km<=59)return 540;
-  return 540;
-}
-
-function fareTouhashi(km, segPath = [], companySegments = []){
-  const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
-  const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
-  const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
-  const idxNewHigashi = tohashiEastLine.indexOf("新東橋");
-  function stationInTO(s){
-    if(tohashiYokoshukuLine.indexOf(s) !== -1) return true;
-    const idx = tohashiEastLine.indexOf(s);
-    if(idx !== -1 && idx <= idxNewHigashi) return true;
-    return false;
-  }
-  let fullyInTO = true;
-  if(!segPath || segPath.length === 0){
-    fullyInTO = false;
-  } else {
-    for(const s of segPath){
-      if(!stationInTO(s)){ fullyInTO = false; break; }
-    }
-  }
-  if(fullyInTO){
-    return 250;
-  }
-
-  if(kmUsed <= 3) return 180;
-  if(kmUsed <= 4) return 190;
-  if(kmUsed <= 7) return 210;
-  if(kmUsed <= 10) return 250;
-  if(kmUsed <= 14) return 330;
-  if(kmUsed <= 18) return 400;
-  if(kmUsed <= 23) return 470;
-  if(kmUsed <= 28) return 530;
-  if(kmUsed <= 33) return 590;
-  if(kmUsed <= 38) return 650;
-  if(kmUsed <= 43) return 690;
-  if(kmUsed <= 49) return 750;
-  if(kmUsed <= 55) return 810;
-  if(kmUsed <= 62) return 860;
-  if(kmUsed <= 69) return 910;
-  if(kmUsed <= 76) return 960;
-  if(kmUsed <= 84) return 1010;
-  if(kmUsed <= 92) return 1050;
-  if(kmUsed <= 100) return 1090;
-  if(kmUsed <= 109) return 1130;
-  if(kmUsed <= 120) return 1170;
-  if(kmUsed <= 132) return 1210;
-  if(kmUsed <= 145) return 1250;
-  return 1250;
-}
-
-function companyFromLineName(line){
-  if(!line) return null;
-  if(line.startsWith("今橋鉄道")) return "今橋鉄道";
-  if(line.startsWith("桜川電気鉄道")) return "桜川電気鉄道";
-  if(line.startsWith("坂津電鉄")) return "坂津電鉄";
-  if(line.startsWith("坂津ポートライナー")) return "坂津ポートライナー";
-  if(line.startsWith("鈴浜電気鉄道")) return "鈴浜電気鉄道";
-  if(line.startsWith("豊野鉄道")) return "豊野鉄道";
-  if(line.startsWith("東橋鉄道")) return "東橋鉄道";
-  if(line.startsWith("新里鉄道")) return "新里鉄道";
-  return null;
-}
-
-function fareByCompany(company, km, segPath = [], companySegments = []){
-  switch(company){
-    case "今橋鉄道": return fareImabashi(km);
-    case "桜川電気鉄道": return fareSakuragawa(km);
-    case "坂津電鉄": return fareSakatsu(km);
-    case "坂津ポートライナー": return fareSakatsuPortliner(km);
-    case "鈴浜電気鉄道": return fareSuzuhama(km);
-    case "豊野鉄道": return fareToyono(km);
-    case "東橋鉄道": {
-      let base = fareTouhashi(km, segPath, companySegments);
-      let otherCompanyExists = false;
-      for(const s of companySegments){
-        if(s.company && s.company !== "東橋鉄道"){
-          otherCompanyExists = true;
-          break;
-        }
-      }
-      if(otherCompanyExists){
-        base = Math.max(0, base - 50);
-      }
-      return base;
-    }
-    case "新里鉄道": return fareNiizato(km);
-    default: return 0;
-  }
-}
 
 function findLinesOfSegment(a,b){
   const candidates = [];
@@ -344,7 +209,6 @@ function findLineOfSegment(a,b){
   return cs.length ? cs[0] : null;
 }
 
-// ダイクストラ（最短経路）
 function shortestPath(start,goal){
   if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity};
   const dist = {}, prev = {}, Q = new Set(allStations);
@@ -390,7 +254,7 @@ function shortestPathWithinCompany(start, goal, company){
   return {path, distance: dist[goal]};
 }
 
-// ==== 途中駅扱いの「接続」定義（ユーザ指定に合わせて変更） ====
+// ==== connectingStations / specialMajorStations / helper ====
 const connectingStations = [
   { station: "北鶴宮", endpoints: ["鶴宮","鬼越峠"] },
   { station: "鶴宮",   endpoints: ["鶴宮神社","南鶴宮"] },
@@ -399,17 +263,11 @@ const connectingStations = [
   { station: "桜川",   endpoints: ["桜川公園","豊野月見台"] },
   { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
   { station: "豊町", endpoints: ["削野", "東豊町"] },
-
-  // 園木 を分割して2つのエントリに
   { station: "園木", endpoints: ["東園木", "富士町"] },
   { station: "園木", endpoints: ["東園木", "大木沢"] },
-
   { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
-
-  // 新東橋 の扱い
   { station: "新東橋", endpoints: ["浅見", "黒田"] },
   { station: "新東橋", endpoints: ["浅見", "東黒田"] },
-
   { station: "横宿", endpoints: ["日森町", "北横宿"] },
   { station: "成津", endpoints: ["北成津", "大町"] }
 ];
@@ -429,7 +287,6 @@ function indexesOf(arr, value){
   const out=[]; for(let i=0;i<arr.length;i++) if(arr[i]===value) out.push(i); return out;
 }
 function betweenExclusive(idx, a, b){ return (a < idx && idx < b) || (b < idx && idx < a); }
-
 function findIndexFrom(path, station, start){
   for(let i=start;i<path.length;i++){
     if(path[i] === station) return i;
@@ -437,7 +294,7 @@ function findIndexFrom(path, station, start){
   return -1;
 }
 
-// --- 主要駅抽出（修正版） ---
+// --- 主要駅抽出（改良版：接続判定を prev だけでなく here も評価して対称化） ---
 // ルール（ご要望）:
 // - 咲田口方面が経路に含まれる場合は新東橋は途中駅扱い
 // - 東橋方面 と 横宿方面 を両方含み、かつ咲田口方面を含まない場合は新東橋を主要駅扱い
@@ -468,7 +325,7 @@ function majorStops(path){
 
     let isBoundary = (ln !== curLine);
 
-    // specialMajorStations のスキップ
+    // specialMajorStations のスキップ（既存ルール）
     let isSpecialSkip = false;
     if(specialMajorStations.includes(here) && i > 0 && i < path.length-1){
       const before = path[i-1];
@@ -478,35 +335,39 @@ function majorStops(path){
       }
     }
 
-    // connectingStations 判定（prev が接続駅候補）
-    let connectionSkipPrev = false;
-    const conns = connectingStations.filter(c => c.station === prev);
-    if(conns && conns.length > 0){
-      const idxPrev = i - 1;
+    // --- 改良点 ---
+    // connectingStations の判定を「prev のみ」ではなく「prev と here の両方」で行う（対称化）
+    // i-1 (prev) と i (here) のどちらかが接続点として該当する場合にスキップフラグを立てる
+    let connectionSkip = false;
+    const stationsToCheck = [prev, here]; // 評価対象（順方向・逆方向で結果を揃えるため）
+    for(const stn of stationsToCheck){
+      const conns = connectingStations.filter(c => c.station === stn);
+      if(!conns || conns.length === 0) continue;
+      const idxCheck = (stn === prev) ? (i - 1) : i;
       for(const conn of conns){
-        // 新東橋エントリは shintohashi_should_be_major が true のときのみ無視（＝主要駅として扱う）
+        // 新東橋エントリは shintohashi_should_be_major が true のときだけ無視（＝主要駅として扱いたい場合は無視）
         if(conn.station === "新東橋" && shintohashi_should_be_major){
           continue;
         }
-
         const idxsA = indexesOf(path, conn.endpoints[0]);
         const idxsB = indexesOf(path, conn.endpoints[1]);
         if(idxsA.length > 0 && idxsB.length > 0){
           let matched = false;
           outer: for(const ia of idxsA){
             for(const ib of idxsB){
-              if(betweenExclusive(idxPrev, ia, ib)){
+              if(betweenExclusive(idxCheck, ia, ib)){
                 matched = true;
                 break outer;
               }
             }
           }
-          if(matched){ connectionSkipPrev = true; break; }
+          if(matched){ connectionSkip = true; break; }
         }
       }
+      if(connectionSkip) break;
     }
 
-    if(isBoundary && !isSpecialSkip && !connectionSkipPrev){
+    if(isBoundary && !isSpecialSkip && !connectionSkip){
       majors.push(prev);
       curLine = ln;
     } else {
@@ -526,7 +387,7 @@ function findCommonLines(a,b){
   return list;
 }
 
-// --- UI 初期化 ---
+// --- UI 初期化（省略せず） ---
 const fromLineSel = document.getElementById('fromLine');
 const toLineSel = document.getElementById('toLine');
 const fromStationSel = document.getElementById('fromStation');
@@ -587,7 +448,7 @@ addViaBtn.addEventListener('click', ()=>{
   viaListDiv.appendChild(viaRow);
 });
 
-// レイアウト補助
+// --- 表示用レンダリング関数類（省略せず、以前の実装を維持） ---
 function applyStripedGradientForBigLine(lineElem, dotRect, nextDotRect, parentRect){
   if(!lineElem) return;
   const baseColor = lineElem.dataset.color || '#999';
@@ -750,10 +611,136 @@ function splitByCompany(path){
   return segments.filter(s => !!s.company && s.from !== s.to);
 }
 
+// 運賃ロジック省略（以前のまま）
+function fareImabashi(km){ return 0; }
+function fareSakuragawa(km){ return 0; }
+function fareSakatsu(km){ return 0; }
+function fareSakatsuPortliner(km){ return 0; }
+function fareSuzuhama(km){ /* ... */ 
+  if (km <= 4)  return 140;
+  if (km <= 6)  return 160;
+  if (km <= 9)  return 190;
+  if (km <= 12) return 210;
+  if (km <= 15) return 230;
+  if (km <= 19) return 280;
+  if (km <= 24) return 320;
+  if (km <= 30) return 360;
+  if (km <= 37) return 390;
+  if (km <= 44) return 410;
+  if (km <= 52) return 430;
+  if (km <= 60) return 450;
+  return 450;
+}
+function fareToyono(km){ return 0; }
+function fareNiizato(km){ /* ... */ 
+  if(km<=1)return 130;
+  if(km<=2)return 140;
+  if(km<=3)return 150;
+  if(km<=5)return 170;
+  if(km<=8)return 200;
+  if(km<=12)return 240;
+  if(km<=20)return 290;
+  if(km<=30)return 350;
+  if(km<=40)return 420;
+  if(km<=50)return 490;
+  if(km<=59)return 540;
+  return 540;
+}
+
+function fareTouhashi(km, segPath = [], companySegments = []){
+  const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
+  const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
+  const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
+  const idxNewHigashi = tohashiEastLine.indexOf("新東橋");
+  function stationInTO(s){
+    if(tohashiYokoshukuLine.indexOf(s) !== -1) return true;
+    const idx = tohashiEastLine.indexOf(s);
+    if(idx !== -1 && idx <= idxNewHigashi) return true;
+    return false;
+  }
+  let fullyInTO = true;
+  if(!segPath || segPath.length === 0){
+    fullyInTO = false;
+  } else {
+    for(const s of segPath){
+      if(!stationInTO(s)){ fullyInTO = false; break; }
+    }
+  }
+  if(fullyInTO){
+    return 250;
+  }
+
+  if(kmUsed <= 3) return 180;
+  if(kmUsed <= 4) return 190;
+  if(kmUsed <= 7) return 210;
+  if(kmUsed <= 10) return 250;
+  if(kmUsed <= 14) return 330;
+  if(kmUsed <= 18) return 400;
+  if(kmUsed <= 23) return 470;
+  if(kmUsed <= 28) return 530;
+  if(kmUsed <= 33) return 590;
+  if(kmUsed <= 38) return 650;
+  if(kmUsed <= 43) return 690;
+  if(kmUsed <= 49) return 750;
+  if(kmUsed <= 55) return 810;
+  if(kmUsed <= 62) return 860;
+  if(kmUsed <= 69) return 910;
+  if(kmUsed <= 76) return 960;
+  if(kmUsed <= 84) return 1010;
+  if(kmUsed <= 92) return 1050;
+  if(kmUsed <= 100) return 1090;
+  if(kmUsed <= 109) return 1130;
+  if(kmUsed <= 120) return 1170;
+  if(kmUsed <= 132) return 1210;
+  if(kmUsed <= 145) return 1250;
+  return 1250;
+}
+
+function companyFromLineName(line){
+  if(!line) return null;
+  if(line.startsWith("今橋鉄道")) return "今橋鉄道";
+  if(line.startsWith("桜川電気鉄道")) return "桜川電気鉄道";
+  if(line.startsWith("坂津電鉄")) return "坂津電鉄";
+  if(line.startsWith("坂津ポートライナー")) return "坂津ポートライナー";
+  if(line.startsWith("鈴浜電気鉄道")) return "鈴浜電気鉄道";
+  if(line.startsWith("豊野鉄道")) return "豊野鉄道";
+  if(line.startsWith("東橋鉄道")) return "東橋鉄道";
+  if(line.startsWith("新里鉄道")) return "新里鉄道";
+  return null;
+}
+
+function fareByCompany(company, km, segPath = [], companySegments = []){
+  switch(company){
+    case "今橋鉄道": return fareImabashi(km);
+    case "桜川電気鉄道": return fareSakuragawa(km);
+    case "坂津電鉄": return fareSakatsu(km);
+    case "坂津ポートライナー": return fareSakatsuPortliner(km);
+    case "鈴浜電気鉄道": return fareSuzuhama(km);
+    case "豊野鉄道": return fareToyono(km);
+    case "東橋鉄道": {
+      let base = fareTouhashi(km, segPath, companySegments);
+      let otherCompanyExists = false;
+      for(const s of companySegments){
+        if(s.company && s.company !== "東橋鉄道"){
+          otherCompanyExists = true;
+          break;
+        }
+      }
+      if(otherCompanyExists){
+        base = Math.max(0, base - 50);
+      }
+      return base;
+    }
+    case "新里鉄道": return fareNiizato(km);
+    default: return 0;
+  }
+}
+
+// --- レンダリング関数（renderRouteCardForPart 等）は前と同じ挙動を保ちます ---
+// （majorStops() の対称化に合わせて、表示側でも同じ接続判定を使っているため、追加修正の必要はありません）
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
 
-  // 判定を majorStops と一致させるための事前計算
   const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
   const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
   const idxNewHigashi = tohashiEastLine.indexOf("新東橋");
@@ -766,7 +753,6 @@ function renderRouteCardForPart(part, partIndex){
   const hasSakita = path.some(isSakitaRegion);
   const hasYoko = path.some(isYokoLine);
 
-  // majorStops と同じ条件（表示側）
   const shintohashi_should_be_major = (hasEast && hasYoko && !hasSakita);
 
   const { majors } = majorStops(path);
@@ -912,14 +898,12 @@ function renderRouteCardForPart(part, partIndex){
       if(iTo - iFrom > 1){
         const betweenStart = iFrom + 1;
         const betweenEnd = iTo - 1;
-        const betweenCount = betweenEnd - betweenStart + 1;
-        const pairColors = new Array(Math.max(0, betweenCount)).fill('#999');
-        const isCondArr = new Array(Math.max(0, betweenCount)).fill(false);
+        const pairColors = new Array(Math.max(0, betweenEnd - betweenStart + 1)).fill('#999');
+        const isCondArr = new Array(Math.max(0, betweenEnd - betweenStart + 1)).fill(false);
 
         for(let bj = betweenStart; bj <= betweenEnd; bj++){
           const jIndex = bj;
           const s = path[jIndex];
-          // connectingStations の複数エントリをすべて評価（ただし新東橋エントリは shintohashi_should_be_major の場合無視）
           let isCondMinor = false;
           const condsAll = connectingStations.filter(c => c.station === s);
           let conds = [];
@@ -1083,10 +1067,9 @@ function wireToggleButtons(){
 }
 
 /* ===========================
-   検索イベント（修正済み）
+   検索イベント（安定版）
    =========================== */
 searchBtn.addEventListener('click', ()=>{
-  // 一貫して stationSelects を使用（未定義参照を排除）
   const stationSelects = Array.from(document.querySelectorAll('.stationSelect'));
   const from = stationSelects[0] ? stationSelects[0].value : '';
   const to   = stationSelects[stationSelects.length - 1] ? stationSelects[stationSelects.length - 1].value : '';
@@ -1108,10 +1091,8 @@ searchBtn.addEventListener('click', ()=>{
     return;
   }
 
-  // 合計距離（小数のまま）
   const totalDistance = parts.reduce((acc,p)=>acc+p.distance, 0);
 
-  // 運賃計算
   let totalFare = 0;
   for(const part of parts){
     const companySegments = splitByCompany(part.path);
