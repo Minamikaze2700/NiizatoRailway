@@ -13,7 +13,7 @@
   --gutter:34px;
   --dotMajor:16px;
   --dotMinor:12px;
-  --lineWMajor:5px;
+  --lineWMajor:18px; /* 太線の表示幅（SVG幅） */
   --lineWMinor:5px;
   --font-sans:"Hiragino Kaku Gothic ProN","Meiryo",system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif;
 }
@@ -33,9 +33,9 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .routeLine{display:flex;flex-direction:column;gap:10px;margin-top:4px}
 .rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;align-items:start;column-gap:10px;position:relative;}
 .railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
-.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:6;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;background:#999}
-.rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:4;}
-.railLineMajor{width:var(--lineWMajor);/* 太線幅 */border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:2;top:0;height:0;background:#999;overflow:visible;}
+.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:8;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;background:#999}
+.rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:6;}
+.railLineMajor{width:var(--lineWMajor);/* 太線幅 は SVG で表示 */border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:2;top:0;height:0;background:transparent;overflow:visible;}
 .railLineMinor{width:var(--lineWMinor);border-radius:1px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
 .stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
 .stationName{font-weight:700;font-size:16px;line-height:1.25;margin:0}
@@ -54,24 +54,14 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .viaRow{display:flex;align-items:center;gap:6px;justify-content:flex-start}
 .viaRow button{font-size:12px;padding:4px 6px}
 
-/* segment child styling (created dynamically) */
-.railLineMajor .segment {
-  position: absolute;
-  left: 0;
-  right: 0;
-  border-radius: 0;
-  box-sizing: border-box;
-}
+/* SVG container inside .railLineMajor to present colored segments and hex boundaries */
+.railLineMajor svg { position: absolute; left: 50%; transform: translateX(-50%); top: 0; overflow: visible; display: block; pointer-events: none; z-index:3; }
 
-/* SVG V-boundary styling (downward apex: ∨ ) */
-.railLineMajor .vBoundarySvg {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  pointer-events: none;
-  overflow: visible;
-  z-index: 5; /* 白線はドットより下、segmentより上 */
-}
+/* ensure dots are above separators */
+.railDot { z-index: 12; }
+
+/* small accessibility */
+.visuallyHidden{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;}
 </style>
 </head>
 <body>
@@ -472,19 +462,20 @@ addViaBtn.addEventListener('click', ()=>{
 
 // レイアウト補助
 // --- 新関数: ピクセル計測に基づいて「主要駅間の丸の下端 と 次の丸の上端の間」を等分・色分けし、
-//      色の境界位置に「下向き（∨）の白線（stroke 2px）」を描画して、路線色の切替位置をV線と一致させる
-function applyStripedWithVBoundaries(lineElem, dotRect, nextDotRect, parentRect){
+//      色の境界位置に「上下が非対称な六角形（片側へこみ、片側膨らみ）」の仕切りを描き、
+//      仕切り位置で実際に色が切り替わるように SVG で各セグメントをポリゴンとして描画する。
+function applyStripedWithHexBoundaries(lineElem, dotRect, nextDotRect, parentRect){
   if(!lineElem) return;
-  const baseColor = lineElem.dataset.color || '#999';
   const usedLinesRaw = lineElem.dataset.usedlines || '';
   const usedLinesArr = usedLinesRaw ? usedLinesRaw.split('|').filter(x=>x) : [];
+  const baseColor = lineElem.dataset.color || '#999';
+  const nextColor = lineElem.dataset.nextcolor || baseColor;
 
-  // line element current geometry
   const lineTop = parseFloat(lineElem.style.top) || 0;
   const lineHeight = parseFloat(lineElem.style.height) || 0;
   if(lineHeight <= 0){
-    lineElem.style.background = baseColor;
     lineElem.innerHTML = '';
+    lineElem.style.background = baseColor;
     return;
   }
 
@@ -502,89 +493,181 @@ function applyStripedWithVBoundaries(lineElem, dotRect, nextDotRect, parentRect)
 
   if(clampedEndPx <= clampedStartPx){
     // fallback single color
-    lineElem.style.background = usedLinesArr.length === 1 ? (lineColors[usedLinesArr[0]] || baseColor) : baseColor;
     lineElem.innerHTML = '';
+    lineElem.style.background = (usedLinesArr.length === 1) ? (lineColors[usedLinesArr[0]] || baseColor) : baseColor;
     return;
   }
 
-  // clear existing children
+  // prepare SVG that covers the entire vertical length of the line element
+  const svgWidth = Math.max(12, parseInt(getComputedStyle(lineElem).width) || parseInt(getComputedStyle(document.documentElement).getPropertyValue('--lineWMajor')) || 18);
+  const svgHeight = Math.max(1, Math.round(lineHeight));
+  // clear
   lineElem.innerHTML = '';
 
-  // fill the part above the color-change region with baseColor (from 0 to clampedStartPx)
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('width', svgWidth);
+  svg.setAttribute('height', svgHeight);
+  svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+  svg.style.width = svgWidth + 'px';
+  svg.style.height = svgHeight + 'px';
+  svg.style.overflow = 'visible';
+  svg.style.pointerEvents = 'none';
+  svg.style.display = 'block';
+
+  // parts: above clampedStart, colored segments between clampedStart..clampedEnd (equal parts),
+  // and below clampedEnd -> nextColor.
+  // Build an array of segment definitions [{top,bottom,color}]
+  const segments = [];
+
+  // top filler
   if(clampedStartPx > 0){
-    const topSeg = document.createElement('div');
-    topSeg.className = 'segment';
-    topSeg.style.top = '0px';
-    topSeg.style.height = Math.round(clampedStartPx) + 'px';
-    topSeg.style.background = baseColor;
-    lineElem.appendChild(topSeg);
+    segments.push({ top: 0, bottom: clampedStartPx, color: baseColor, type: 'filler' });
   }
 
-  // main colored segments between start..end
-  const availablePx = clampedEndPx - clampedStartPx;
-  const segColors = (usedLinesArr.length > 0) ? usedLinesArr : [baseColor];
-
+  const segColors = (usedLinesArr.length > 0) ? usedLinesArr.map(l => lineColors[l] || '#999') : [baseColor];
   const segCount = segColors.length;
+  const availablePx = clampedEndPx - clampedStartPx;
   const baseSegPx = availablePx / segCount;
 
-  // We'll create one segment div per color, stacked vertically.
-  for(let j=0;j<segCount;j++){
-    const segTop = clampedStartPx + baseSegPx * j;
-    // For last segment, assign remaining pixels to avoid rounding issues
-    const segHeight = (j === segCount - 1) ? (clampedEndPx - segTop) : baseSegPx;
-    const segDiv = document.createElement('div');
-    segDiv.className = 'segment';
-    segDiv.style.top = Math.round(segTop) + 'px';
-    segDiv.style.height = Math.round(segHeight) + 'px';
-    segDiv.style.background = lineColors[segColors[j]] || segColors[j] || baseColor;
-    lineElem.appendChild(segDiv);
+  for(let i=0;i<segCount;i++){
+    const top = clampedStartPx + baseSegPx * i;
+    const bottom = (i === segCount - 1) ? clampedEndPx : (clampedStartPx + baseSegPx * (i+1));
+    segments.push({ top, bottom, color: segColors[i], type: 'color' });
   }
 
-  // fill the part below the color region with nextColor (from clampedEndPx to lineHeight)
-  const nextColor = lineElem.dataset.nextcolor || baseColor;
+  // bottom filler
   if(clampedEndPx < lineHeight){
-    const botSeg = document.createElement('div');
-    botSeg.className = 'segment';
-    botSeg.style.top = Math.round(clampedEndPx) + 'px';
-    botSeg.style.height = Math.round(lineHeight - clampedEndPx) + 'px';
-    botSeg.style.background = nextColor;
-    lineElem.appendChild(botSeg);
+    segments.push({ top: clampedEndPx, bottom: lineHeight, color: nextColor, type: 'filler' });
   }
 
-  // create downward V separators (apex at boundary) at each boundary between colored segments inside start..end
-  // For each boundary between segments (there are segCount - 1), compute boundary Y relative to lineElem
-  const svgApexYOffset = 0; // we'll position svg so apex (y = svgHeight) lands on boundary
-  const svgHeight = 12; // small canvas height; svg will extend upward so apex is at bottom of svg
-  const svgWidth = 22;  // horizontal span of the V shape in px
-  const strokeWidth = 2; // user requested 2px
+  // Parameters for the hex-shaped separator:
+  // height of hex area (vertical span) relative to availablePx - choose a sensible px size
+  const hexH = Math.max(10, Math.min( Math.round(Math.max(8, availablePx*0.06)), 28)); // capped
+  const hexW = Math.max(10, svgWidth); // use full svg width for hex width for clear shape
 
-  for(let b = 1; b < segCount; b++){
-    // boundary Y relative to lineElem (floating)
-    const boundarySegTop = clampedStartPx + baseSegPx * b;
-    // create svg for downward apex (∨)
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', svgWidth);
-    svg.setAttribute('height', svgHeight);
-    svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
-    svg.classList.add('vBoundarySvg');
-    // place svg so that its bottom (y=svgHeight) aligns to boundarySegTop => top = boundarySegTop - svgHeight
-    svg.style.top = Math.round(boundarySegTop - svgHeight) + 'px';
-    // Create path for downward V: legs start at (0,0) and (svgWidth,0), apex at (halfX, svgHeight)
-    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-    const halfX = svgWidth / 2;
-    // path: M 0 0 L halfX svgHeight L svgWidth 0
-    path.setAttribute('d', `M 0 0 L ${halfX} ${svgHeight} L ${svgWidth} 0`);
-    path.setAttribute('stroke', '#ffffff');
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke-linecap', 'round');
-    path.setAttribute('stroke-width', String(strokeWidth));
-    svg.appendChild(path);
-    // center horizontally
-    svg.style.left = '50%';
-    svg.style.transform = 'translateX(-50%)';
-    // append
-    lineElem.appendChild(svg);
+  // Helper: build polygon path string from points array
+  function pointsToPath(points){
+    return points.map((p,i)=> (i===0? 'M ':'L ') + p[0] + ' ' + p[1]).join(' ') + ' Z';
   }
+
+  // We'll draw segments as polygons. Where a segment borders another color at boundaryY,
+  // we will incorporate half of the hex shape into the polygon edge, so the visible color edge follows the hex.
+  // For each internal boundary between colored segments, compute boundaryY and hex polygon points centered there.
+  const boundaries = [];
+  for(let i=1;i<segments.length;i++){
+    // boundary between segments[i-1] and segments[i]
+    const boundaryY = segments[i].top; // should equal previous.bottom
+    boundaries.push({ y: boundaryY });
+  }
+
+  // Precompute hex polygons for boundaries (full hex), reserved for drawing white stroke + to help clip segment shapes.
+  const hexes = boundaries.map(b => {
+    const by = b.y;
+    const h = hexH;
+    const w = hexW;
+    // Asymmetric hex points (one side slightly indented, the other bulged).
+    // We'll create 6 points top -> clockwise:
+    // p0: left-top
+    // p1: right-top (slightly offset)
+    // p2: right-mid-bulge (slightly out)
+    // p3: right-bottom
+    // p4: left-bottom
+    // p5: left-mid-indent (slightly in)
+    const p0 = [0, Math.round(by - h/2)];
+    const p1 = [w, Math.round(by - h*0.3)];          // slightly higher on right
+    const p2 = [Math.round(w * 0.8), Math.round(by)]; // bulge to the right center
+    const p3 = [w, Math.round(by + h*0.3)];
+    const p4 = [0, Math.round(by + h/2)];
+    const p5 = [Math.round(w * 0.2), Math.round(by)]; // indent on left center
+    return { points: [p0,p1,p2,p3,p4,p5], y: by };
+  });
+
+  // For each segment, build polygon points:
+  // - For a simple segment without touching boundary: polygon is rectangle [ (0,top)->(w,top)->(w,bottom)->(0,bottom) ]
+  // - If segment's bottom equals a boundary Y, modify bottom edge to include top-half of hex (for upper segment):
+  //   upper polygon: (0,top),(w,top),(p1),(p2),(p5),(0,bottom)
+  // - If segment's top equals a boundary Y, modify top edge to include bottom-half of hex (for lower segment):
+  //   lower polygon: (0,top),(p5),(p2),(p3),(w,top),(w,bottom),(0,bottom)
+  // This is an approximation that creates an asymmetric hex seam shared between adjacent polygons.
+  // Note: We draw the white stroke for each full hex afterwards to mask edges and provide 2px white border.
+
+  // Draw colored polygons for each segment
+  segments.forEach((seg, idx) => {
+    const top = Math.round(seg.top);
+    const bottom = Math.round(seg.bottom);
+    const w = svgWidth;
+    const topBoundaryIndex = hexes.findIndex(h => Math.abs(h.y - top) < 0.5);
+    const bottomBoundaryIndex = hexes.findIndex(h => Math.abs(h.y - bottom) < 0.5);
+
+    let pts = [];
+    if(topBoundaryIndex === -1 && bottomBoundaryIndex === -1){
+      // plain rectangle
+      pts = [
+        [0, top],
+        [w, top],
+        [w, bottom],
+        [0, bottom]
+      ];
+    } else if(topBoundaryIndex === -1 && bottomBoundaryIndex !== -1){
+      // upper segment that ends at a boundary -> include top half of hex's top shape into bottom edge
+      const hex = hexes[bottomBoundaryIndex].points;
+      // build polygon: left-top -> right-top -> right-top-hex -> apex -> left-mid-indent -> left-bottom (on boundary)
+      // We'll use hex points p1,p2,p5 order to form the seam
+      pts = [
+        [0, top],
+        [w, top],
+        hex[1], // right-top
+        hex[2], // right-mid bulge (apex-ish)
+        hex[5], // left-mid indent
+        [0, bottom]
+      ];
+    } else if(topBoundaryIndex !== -1 && bottomBoundaryIndex === -1){
+      // lower segment that starts at a boundary -> include bottom half of hex's bottom shape into top edge
+      const hex = hexes[topBoundaryIndex].points;
+      // polygon: left-top (on boundary) -> left-mid indent -> apex -> right-mid -> right-top -> right-bottom -> left-bottom
+      pts = [
+        [0, top],
+        hex[5], // left-mid indent
+        hex[2], // apex-ish
+        hex[3], // right-bottom-ish
+        [w, top],
+        [w, bottom],
+        [0, bottom]
+      ];
+    } else {
+      // segment exactly between two boundaries (rare for small segs) - treat as rectangle
+      pts = [
+        [0, top],
+        [w, top],
+        [w, bottom],
+        [0, bottom]
+      ];
+    }
+
+    // create polygon
+    const poly = document.createElementNS(svgNS, 'polygon');
+    poly.setAttribute('points', pts.map(p => p[0] + ',' + p[1]).join(' '));
+    poly.setAttribute('fill', seg.color);
+    poly.setAttribute('stroke', 'none');
+    svg.appendChild(poly);
+  });
+
+  // Draw white strokes (2px) for each full hex to create the visual separator.
+  hexes.forEach(h => {
+    const hexPath = document.createElementNS(svgNS, 'polygon');
+    hexPath.setAttribute('points', h.points.map(p => p[0] + ',' + p[1]).join(' '));
+    hexPath.setAttribute('fill', 'none');
+    hexPath.setAttribute('stroke', '#ffffff');
+    hexPath.setAttribute('stroke-width', '2');
+    hexPath.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(hexPath);
+  });
+
+  // Append svg to lineElem
+  lineElem.appendChild(svg);
+  // keep background fallback
+  lineElem.style.background = 'transparent';
 }
 
 function adjustMajorLines(){
@@ -593,7 +676,7 @@ function adjustMajorLines(){
     const railCol = row.querySelector('.railCol');
     if(!railCol) return;
     const dot = railCol.querySelector('.railDot');
-    const line = railCol.querySelector('.railLineMajor');
+    let line = railCol.querySelector('.railLineMajor');
     if (!dot || !line) return;
 
     // 短縮済みフラグがある場合はここで上書きしない（短縮を保持）
@@ -615,11 +698,11 @@ function adjustMajorLines(){
 
     // line を dot.top から nextDot.top まで伸ばす従来の計算（保持）
     line.style.top = (dotRect.top - parentRect.top) + 'px';
-    const h = Math.max(0, (nextDotRect.top - dotRect.top)) + 5;
+    const h = Math.max(0, (nextDotRect.top - dotRect.top)) + 4;
     line.style.height = h + 'px';
 
-    // ここでピクセル計測に基づいて等分ストライプ＋V境界を適用（色の切替位置をV線と一致させる）
-    applyStripedWithVBoundaries(line, dotRect, nextDotRect, parentRect);
+    // ここでピクセル計測に基づいて等分ストライプ＋六角形境界を適用（色の切替位置を六角形の中央に合わせる）
+    applyStripedWithHexBoundaries(line, dotRect, nextDotRect, parentRect);
   });
 
   document.querySelectorAll('.rowBetween').forEach(r => {
@@ -704,7 +787,7 @@ function splitByCompany(path){
 }
 
 // 描画：主要駅の色決定は維持。変更点は「停車駅非表示時に主要駅線を経由路線色で等分表示」処理（切り替え位置は丸下端→次丸上端）
-// また、等分色の境界に「下向きV字（白、stroke-width=2px）」を描画して路線色の変更位置をVと一致させる
+// また、等分色の境界に「上下非対称の六角形（片方へこみ、片方膨らみ）」を描画して路線色の変更位置を六角形中心に一致させる
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
   const { majors } = majorStops(path);
@@ -770,8 +853,6 @@ function renderRouteCardForPart(part, partIndex){
     majorsColors[idx] = color;
   }
 
-  // 主要駅自体には接続ルールを適用しない（majorsColors はそのまま）
-
   // 描画開始
   let routeHtml = `
     <div class="card">
@@ -810,14 +891,14 @@ function renderRouteCardForPart(part, partIndex){
 
     const bigLineId = `part${partIndex}-bigline-${idx}`;
 
-    // 初期は仮のスタイル（正確なピクセル分割は runAdjustments() で applyStripedWithVBoundaries が上書き）
+    // 仮のスタイル（正確なピクセル分割は runAdjustments() で applyStripedWithHexBoundaries が上書き）
     let initialStyle = '';
     if(nextStation){
       if(usedLinesForSegment.length > 0){
         if(usedLinesForSegment.length === 1){
           initialStyle = `background: ${lineColors[usedLinesForSegment[0]] || color};`;
         } else {
-          // 仮に全体を等分で塗る（真の切替位置は adjustMajorLines で）
+          // 仮に等分で全体に適用（正確な切替位置は adjustMajorLines で再計算）
           const step = 100 / usedLinesForSegment.length;
           const stops = usedLinesForSegment.map((ln, j) => {
             const col = lineColors[ln] || '#999';
@@ -838,7 +919,6 @@ function renderRouteCardForPart(part, partIndex){
       initialStyle = `background: ${color};`;
     }
 
-    // データ属性に usedLines を保存しておく（adjustMajorLines で正確なピクセル計算を行う）
     const usedLinesDataAttr = usedLinesForSegment.join('|');
 
     routeHtml += `
@@ -993,12 +1073,13 @@ function wireToggleButtons(){
     const listener = ()=>{
       const part = btn.dataset.part;
       const idx = btn.dataset.seg;
-      const list = document.getElementById(`part${part}-between-${idx}`);
+      const list = document.getElementById(`part${part}-between-${idx`);
       const bigLine = document.getElementById(`part${part}-bigline-${idx}`);
-      if(!list) return;
+      const listEl = document.getElementById(`part${part}-between-${idx}`);
+      if(!listEl || !bigLine) return;
       // isOpen: 新しい「開いた」状態を表す（true = 表示される、false = 非表示される）
-      const isOpen = getComputedStyle(list).display !== 'block';
-      list.style.display = isOpen ? 'block' : 'none';
+      const isOpen = getComputedStyle(listEl).display !== 'block';
+      listEl.style.display = isOpen ? 'block' : 'none';
       btn.dataset.open = isOpen.toString();
       btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
 
@@ -1007,10 +1088,10 @@ function wireToggleButtons(){
         if(isOpen){
           // 表示: 単色にして短縮
           bigLine.style.background = baseColor;
-          bigLine.innerHTML = ''; // remove segmented children / V separators
-          shortenBigLineToFirstBetween(bigLine, list);
+          bigLine.innerHTML = ''; // remove segmented children / separators
+          shortenBigLineToFirstBetween(bigLine, listEl);
         } else {
-          // 非表示: 短縮フラグを削除して高さ・位置を再計算し、adjustMajorLines 内で正確なピクセル分割＋Vを適用する
+          // 非表示: 短縮フラグを削除して高さ・位置を再計算し、adjustMajorLines 内で正確なピクセル分割＋六角形を適用する
           delete bigLine.dataset.shortened;
           bigLine.style.background = baseColor;
           runAdjustments();
@@ -1075,7 +1156,7 @@ searchBtn.addEventListener('click', ()=>{
   resultArea.innerHTML = headerHtml + bodyHtml;
 
   wireToggleButtons();
-  // DOM 挿入直後に高さ等を計測して色分割＋V境界を適用
+  // DOM 挿入直後に高さ等を計測して色分割＋六角形境界を適用
   setTimeout(runAdjustments, 0);
 });
 
