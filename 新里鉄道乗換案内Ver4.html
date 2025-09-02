@@ -13,7 +13,7 @@
   --gutter:34px;
   --dotMajor:16px;
   --dotMinor:12px;
-  --lineWMajor:5px; /* 線の見た目幅は常に 5px */
+  --lineWMajor:5px;
   --lineWMinor:5px;
   --font-sans:"Hiragino Kaku Gothic ProN","Meiryo",system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif;
 }
@@ -33,51 +33,10 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .routeLine{display:flex;flex-direction:column;gap:10px;margin-top:4px}
 .rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;align-items:start;column-gap:10px;position:relative;}
 .railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
-.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:6;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;background:#666;}
-.rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:6;background:#666;}
-/* railLineMajor は SVG ホルダを内包する。コンテナ幅は 5px のまま / overflow visible で SVG をはみ出させる */
-.railLineMajor{
-  position:absolute;
-  left:50%;
-  transform:translateX(-50%);
-  z-index:2;
-  top:0;
-  height:0;
-  width:var(--lineWMajor);
-  pointer-events:none;
-  overflow: visible;
-}
-/* 中の SVG を位置合わせ */
-.railLineMajor svg{
-  position:absolute;
-  left:50%;
-  transform:translateX(-50%);
-  top:0;
-  display:block;
-  pointer-events:none;
-}
-/* 小線（途中駅）も SVG ホルダにする */
-.railLineMinor{
-  width:var(--lineWMinor);
-  border-radius:1px;
-  position:absolute;
-  left:50%;
-  transform:translateX(-50%);
-  z-index:1;
-  top:0;
-  height:0;
-  pointer-events:none;
-  overflow: visible;
-}
-.railLineMinor svg{
-  position:absolute;
-  left:50%;
-  transform:translateX(-50%);
-  top:0;
-  display:block;
-  pointer-events:none;
-}
-
+.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:2;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;}
+.rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:2;}
+.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
+.railLineMinor{width:var(--lineWMinor);border-radius:1px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
 .stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
 .stationName{font-weight:700;font-size:16px;line-height:1.25;margin:0}
 .lineBadge{display:inline-block;color:#fff;font-size:13.5px;line-height:1;padding:2px 6px;border-radius:6px;margin-top:6px;white-space:nowrap;margin-right:6px}
@@ -136,7 +95,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 </div>
 
 <script>
-// ==== 駅・路線データ（元データ） ====
+// ==== 駅・路線データ （元データ） ====
 const stationLines = {
  "新里鉄道湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
  "新里鉄道燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
@@ -492,146 +451,86 @@ addViaBtn.addEventListener('click', ()=>{
   viaListDiv.appendChild(viaRow);
 });
 
-/* ===== SVG 作成ユーティリティ ===== */
-function createVStackedSVG(usedLinesArr, colorForMajor, colorForNextMajor, startPx, endPx, lineHeight){
-  const svgNS = "http://www.w3.org/2000/svg";
-  const svgW = 30;
-  const leftX = 2;
-  const rightX = svgW - 2;
-  const centerX = svgW / 2;
-
-  const topY = Math.max(0, Math.min(lineHeight, startPx));
-  const bottomY = Math.max(0, Math.min(lineHeight, endPx));
-  const totalH = Math.max(lineHeight, bottomY + 1);
-
-  const svg = document.createElementNS(svgNS, "svg");
-  svg.setAttribute("width", svgW);
-  svg.setAttribute("height", totalH);
-  svg.setAttribute("viewBox", `0 0 ${svgW} ${totalH}`);
-
-  if(!usedLinesArr || usedLinesArr.length === 0){
-    const rect = document.createElementNS(svgNS, "rect");
-    rect.setAttribute("x", centerX - 2.5);
-    rect.setAttribute("y", 0);
-    rect.setAttribute("width", 5);
-    rect.setAttribute("height", totalH);
-    rect.setAttribute("fill", colorForMajor || '#999');
-    svg.appendChild(rect);
-    return svg;
-  }
-
-  const segCount = usedLinesArr.length;
-  const segStart = topY;
-  const segEnd = bottomY;
-  const fullSpan = Math.max(1, segEnd - segStart);
-  const segSize = fullSpan / segCount;
-
-  const maxNotch = Math.min(20, Math.max(6, fullSpan * 0.2));
-
-  for(let i=0;i<segCount;i++){
-    const cLine = usedLinesArr[i];
-    const fillCol = lineColors[cLine] || colorForMajor || '#999';
-
-    const sTop = segStart + segSize * i;
-    const sBottom = segStart + segSize * (i+1);
-
-    const hasNotch = (i < segCount - 1);
-    const notchDepth = hasNotch ? Math.min(maxNotch, segSize * 0.6) : 0;
-
-    const notchTipY = hasNotch ? Math.min(totalH - 1, sTop + segSize * 0.5 + notchDepth) : null;
-
-    let points;
-    if(hasNotch){
-      points = [
-        `${leftX},${Math.max(0, sTop)}`,
-        `${rightX},${Math.max(0, sTop)}`,
-        `${rightX},${Math.max(0, sBottom)}`,
-        `${centerX},${Math.max(0, notchTipY)}`,
-        `${leftX},${Math.max(0, sBottom)}`
-      ].join(' ');
-    } else {
-      points = [
-        `${leftX},${Math.max(0, sTop)}`,
-        `${rightX},${Math.max(0, sTop)}`,
-        `${rightX},${Math.max(0, sBottom)}`,
-        `${leftX},${Math.max(0, sBottom)}`
-      ].join(' ');
-    }
-
-    const poly = document.createElementNS(svgNS, 'polygon');
-    poly.setAttribute('points', points);
-    poly.setAttribute('fill', fillCol);
-    svg.appendChild(poly);
-  }
-
-  // 中央の“スパイン”として幅 5px の矩形を（視覚的に線幅を担保）
-  const spine = document.createElementNS(svgNS, 'rect');
-  spine.setAttribute('x', centerX - 2.5);
-  spine.setAttribute('y', 0);
-  spine.setAttribute('width', 5);
-  spine.setAttribute('height', totalH);
-  spine.setAttribute('fill', 'rgba(0,0,0,0)');
-  svg.appendChild(spine);
-
-  return svg;
-}
-
-function createStraightSVG(color, totalH){
-  const svgNS = "http://www.w3.org/2000/svg";
-  const svgW = 30;
-  const centerX = svgW / 2;
-  const svg = document.createElementNS(svgNS, "svg");
-  svg.setAttribute("width", svgW);
-  svg.setAttribute("height", totalH);
-  svg.setAttribute("viewBox", `0 0 ${svgW} ${totalH}`);
-  const rect = document.createElementNS(svgNS, "rect");
-  rect.setAttribute("x", (centerX - 2.5).toString());
-  rect.setAttribute("y", "0");
-  rect.setAttribute("width", "5");
-  rect.setAttribute("height", String(totalH));
-  rect.setAttribute("fill", color || '#999');
-  svg.appendChild(rect);
-  return svg;
-}
-
-// 主要線の SVG / 分割処理（railLineMajor 用）
+// レイアウト補助
+// --- 新関数: ピクセル計測に基づいて「主要駅間の丸の下端 と 次の丸の上端の間隔」を等分して色を切り替える
 function applyStripedGradientForBigLine(lineElem, dotRect, nextDotRect, parentRect){
   if(!lineElem) return;
   const baseColor = lineElem.dataset.color || '#999';
   const usedLinesRaw = lineElem.dataset.usedlines || '';
   const usedLinesArr = usedLinesRaw ? usedLinesRaw.split('|').filter(x=>x) : [];
 
+  // 計測値（ピクセル）
   const lineTop = parseFloat(lineElem.style.top) || 0;
   const lineHeight = parseFloat(lineElem.style.height) || 0;
   if(lineHeight <= 0){
-    lineElem.innerHTML = '';
-    const svg = createVStackedSVG([], baseColor, lineElem.dataset.nextcolor || baseColor, 0, lineHeight || 1, 60);
-    lineElem.appendChild(svg);
+    // fallback: 単色
+    lineElem.style.background = baseColor;
     return;
   }
 
-  const currentDotBottom_px = (dotRect.top - parentRect.top) + dotRect.height;
-  const nextDotTop_px = (nextDotRect.top - parentRect.top);
+  // dotRect, nextDotRect, parentRect を使って、区間の開始/終了ピクセル（lineElement内での相対位置）を算出
+  // 要求: 色を変えるのは「主要駅の丸の下端（current dot bottom）と次の主要駅の丸の上端（next dot top）」の間を等分
+  const currentDotBottom_px = (dotRect.top - parentRect.top) + dotRect.height; // 親要素基準
+  const nextDotTop_px = (nextDotRect.top - parentRect.top); // 親要素基準
 
+  // line element 内での相対値（0..lineHeight）
   const startPx = currentDotBottom_px - lineTop;
   const endPx = nextDotTop_px - lineTop;
 
+  // 安全化: 範囲クリップ
   const clampedStartPx = Math.max(0, Math.min(lineHeight, startPx));
   const clampedEndPx = Math.max(0, Math.min(lineHeight, endPx));
 
-  if(clampedEndPx <= clampedStartPx || usedLinesArr.length <= 1){
-    lineElem.innerHTML = '';
-    const svg = createVStackedSVG([usedLinesArr[0]], baseColor, lineElem.dataset.nextcolor || baseColor, clampedStartPx, clampedEndPx || lineHeight, lineHeight);
-    lineElem.appendChild(svg);
+  if(clampedEndPx <= clampedStartPx){
+    // 順序がおかしい or 高さが不足 -> 単色フォールバック
+    if(usedLinesArr.length === 1){
+      lineElem.style.background = lineColors[usedLinesArr[0]] || baseColor;
+    } else {
+      lineElem.style.background = baseColor;
+    }
     return;
   }
 
-  lineElem.innerHTML = '';
-  const svgEl = createVStackedSVG(usedLinesArr, baseColor, lineElem.dataset.nextcolor || baseColor, clampedStartPx, clampedEndPx, lineHeight);
-  lineElem.appendChild(svgEl);
+  // 比率(%)に変換
+  const startPercent = (clampedStartPx / lineHeight) * 100;
+  const endPercent = (clampedEndPx / lineHeight) * 100;
+
+  // セグメントを作る（等分）
+  let gradientStops = [];
+
+  // 前半部（丸と重なる上の部分）は baseColor で塗る
+  gradientStops.push(`${baseColor} 0%`);
+  gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
+
+  if(usedLinesArr.length > 0){
+    const segCount = usedLinesArr.length;
+    const segSize = (endPercent - startPercent) / segCount;
+    for(let j=0;j<segCount;j++){
+      const ln = usedLinesArr[j];
+      const col = lineColors[ln] || baseColor;
+      const segStart = startPercent + segSize * j;
+      const segEnd = startPercent + segSize * (j+1);
+      // 各セグメントは [segStart, segEnd]
+      gradientStops.push(`${col} ${segStart.toFixed(4)}%`);
+      gradientStops.push(`${col} ${segEnd.toFixed(4)}%`);
+    }
+  } else {
+    // usedLines がない場合は、start..end を baseColor で埋める
+    gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
+    gradientStops.push(`${baseColor} ${endPercent.toFixed(4)}%`);
+  }
+
+  // 後半部（次の丸の上端〜下方）は次の色（もし data-nextcolor あれば使う、無ければ baseColor）
+  const nextColor = lineElem.dataset.nextcolor || baseColor;
+  gradientStops.push(`${nextColor} ${endPercent.toFixed(4)}%`);
+  gradientStops.push(`${nextColor} 100%`);
+
+  // linear-gradient の文字列を組み立てる
+  // 例: linear-gradient(to bottom, c0 0%, c0 10%, c1 10%, c1 40%, c2 40%, c2 70%, c3 70%, c3 100%)
+  const stopsStr = gradientStops.join(', ');
+  lineElem.style.background = `linear-gradient(to bottom, ${stopsStr})`;
 }
 
-// 調整：主要線、途中線（小線）ともに SVG を差し込む
 function adjustMajorLines(){
   const rows = Array.from(document.querySelectorAll('.rowStation'));
   rows.forEach((row, idx) => {
@@ -641,6 +540,7 @@ function adjustMajorLines(){
     const line = railCol.querySelector('.railLineMajor');
     if (!dot || !line) return;
 
+    // 短縮済みフラグがある場合はここで上書きしない（短縮を保持）
     if(line.dataset && line.dataset.shortened === 'true'){
       return;
     }
@@ -648,7 +548,6 @@ function adjustMajorLines(){
     const nextRow = rows.slice(idx + 1).find(r => r.querySelector('.railDot'));
     if (!nextRow) {
       line.style.height = '0px';
-      line.innerHTML = '';
       return;
     }
 
@@ -657,14 +556,15 @@ function adjustMajorLines(){
     const nextDot = nextRow.querySelector('.railDot');
     const nextDotRect = nextDot.getBoundingClientRect();
 
+    // line を dot.top から nextDot.top まで伸ばす従来の計算（保持）
     line.style.top = (dotRect.top - parentRect.top) + 'px';
     const h = Math.max(0, (nextDotRect.top - dotRect.top)) + 5;
     line.style.height = h + 'px';
 
+    // ここでピクセル計測に基づいて等分ストライプを適用
     applyStripedGradientForBigLine(line, dotRect, nextDotRect, parentRect);
   });
 
-  // 途中駅の小線も SVG に差し替え
   document.querySelectorAll('.rowBetween').forEach(r => {
     const railCol = r.querySelector('.railCol');
     if(!railCol) return;
@@ -673,15 +573,8 @@ function adjustMajorLines(){
     if(!dot || !minorLine) return;
     const parentRect = railCol.getBoundingClientRect();
     const dotRect = dot.getBoundingClientRect();
-    const top = (dotRect.top - parentRect.top);
-    minorLine.style.top = top + 'px';
-    const intendedH = 48;
-    minorLine.style.height = intendedH + 'px';
-    // color は data-color 属性から取得（render 時にセットされている）
-    const color = minorLine.dataset.color || '#999';
-    minorLine.innerHTML = '';
-    const svg = createStraightSVG(color, intendedH);
-    minorLine.appendChild(svg);
+    minorLine.style.top = (dotRect.top - parentRect.top) + 'px';
+    minorLine.style.height = '48px';
   });
 }
 function runAdjustments(){ adjustMajorLines(); }
@@ -753,8 +646,7 @@ function splitByCompany(path){
   return segments.filter(s => !!s.company && s.from !== s.to);
 }
 
-// 描画：主要駅の色決定は維持。変更点は「停車駅非表示時に主要駅線を経由路線色で等分表示」処理（SVGで冂V凵）
-// さらに、途中駅の小線は data-color 属性をセットして adjustMajorLines 側で SVG を入れる
+// 描画：主要駅の色決定は維持。変更点は「停車駅非表示時に主要駅線を経由路線色で等分表示」処理（切り替え位置は丸の下端→次丸の上端の間を等分）
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
   const { majors } = majorStops(path);
@@ -820,6 +712,8 @@ function renderRouteCardForPart(part, partIndex){
     majorsColors[idx] = color;
   }
 
+  // 主要駅自体には接続ルールを適用しない（majorsColors はそのまま）
+
   // 描画開始
   let routeHtml = `
     <div class="card">
@@ -858,13 +752,45 @@ function renderRouteCardForPart(part, partIndex){
 
     const bigLineId = `part${partIndex}-bigline-${idx}`;
 
+    // 変更点: 停車駅が非表示（デフォルト: 非表示）なら major line を「経由する路線の色を等分」して表示（位置は丸下端→次丸上端を等分）
+    // 停車駅が表示状態のときは単色（主要駅の色）にする。toggle の制御で切り替える。
+    // 初期はサイズが不明なので仮のスタイルを入れる（実レンダリング後 runAdjustments() で applyStripedGradientForBigLine が上書きする）
+    let initialStyle = '';
+    if(nextStation){
+      if(usedLinesForSegment.length > 0){
+        if(usedLinesForSegment.length === 1){
+          initialStyle = `background: ${lineColors[usedLinesForSegment[0]] || color};`;
+        } else {
+          // 仮に等分で全体に適用（正確な切替位置は adjustMajorLines で再計算）
+          const step = 100 / usedLinesForSegment.length;
+          const stops = usedLinesForSegment.map((ln, j) => {
+            const col = lineColors[ln] || '#999';
+            const start = (j * step).toFixed(4);
+            const end = ((j+1) * step).toFixed(4);
+            return `${col} ${start}%, ${col} ${end}%`;
+          }).join(', ');
+          initialStyle = `background: linear-gradient(to bottom, ${stops});`;
+        }
+      } else {
+        // フォールバック: major color -> next major color
+        if(nextColor && nextColor !== color){
+          initialStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
+        } else {
+          initialStyle = `background: ${color};`;
+        }
+      }
+    } else {
+      initialStyle = `background: ${color};`;
+    }
+
+    // データ属性に usedLines を保存しておく（adjustMajorLines で正確なピクセル計算を行う）
     const usedLinesDataAttr = usedLinesForSegment.join('|');
 
     routeHtml += `
       <div class="rowStation">
         <div class="railCol">
           <div class="railDot" style="background:${color}"></div>
-          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style=""></div>` : `<div class="spacer6"></div>`}
+          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style="${initialStyle}"></div>` : `<div class="spacer6"></div>`}
         </div>
         <div class="stationText">
           <div class="stationName">${st}</div>
@@ -877,15 +803,18 @@ function renderRouteCardForPart(part, partIndex){
     // between を描画（iFrom..iTo の正確な範囲）
     if(nextStation && iFrom !== -1 && iTo !== -1){
       if(iTo - iFrom > 1){
+        // --- ここで「途中駅とその次の停車駅が両方含まれる路線」を最優先で選ぶ ---
         const betweenStart = iFrom + 1;
         const betweenEnd = iTo - 1;
         const betweenCount = betweenEnd - betweenStart + 1;
         const pairColors = new Array(Math.max(0, betweenCount)).fill('#999');
         const isCondArr = new Array(Math.max(0, betweenCount)).fill(false);
 
+        // 1回目ループ: 各途中駅について、まず (途中駅, 次の駅) ペアがどの路線に属するかを確認
         for(let bj = betweenStart; bj <= betweenEnd; bj++){
           const jIndex = bj;
           const s = path[jIndex];
+          // 接続駅判定（その駅が connectingStations の station で、経路上で endpoints の間にある場合）
           let isCondMinor = false;
           const cond = connectingStations.find(c => c.station === s);
           if(cond){
@@ -905,8 +834,11 @@ function renderRouteCardForPart(part, partIndex){
           const prevSt = path[jIndex-1];
           const nextSt = path[jIndex+1];
 
+          // 優先ロジック（要求どおり）
+          // 1) (現在駅 s, 次の駅 nextSt) を**両方含みかつ隣接**している路線を最優先で使う
           const directCandidates = findLinesOfSegment(s, nextSt);
           if(directCandidates.length > 0){
+            // 候補が複数ある時は、カラーが定義された最初の路線を使う
             let chosen = null;
             for(const ln of directCandidates){
               if(lineColors[ln]){ chosen = ln; break; }
@@ -917,6 +849,7 @@ function renderRouteCardForPart(part, partIndex){
             }
           }
 
+          // 2) フォールバック：3駅すべてを含む路線（prevSt, s, nextSt）を探す（隣接でなくても可）
           let threeLine = null;
           for(const [ln, stations] of Object.entries(stationLines)){
             if(stations.indexOf(prevSt) !== -1 && stations.indexOf(s) !== -1 && stations.indexOf(nextSt) !== -1){
@@ -929,6 +862,7 @@ function renderRouteCardForPart(part, partIndex){
             continue;
           }
 
+          // 3) フォールバック：prev と next の両方を含む路線（隣接でなくても可）
           let bothLine = null;
           for(const [ln, stations] of Object.entries(stationLines)){
             if(stations.indexOf(prevSt) !== -1 && stations.indexOf(nextSt) !== -1){
@@ -941,6 +875,7 @@ function renderRouteCardForPart(part, partIndex){
             continue;
           }
 
+          // 4) 最終的フォールバック：隣接ペアの線色（prev-s または s-next で色が見つかれば使う）
           const adjPairs = [];
           if(jIndex > 0) adjPairs.push([path[jIndex-1], path[jIndex]]);
           if(jIndex < path.length - 1) adjPairs.push([path[jIndex], path[jIndex+1]]);
@@ -950,6 +885,7 @@ function renderRouteCardForPart(part, partIndex){
           }
         }
 
+        // 2回目ループ：描画。isCond の場合は「直後の途中駅の色」を使うルール（元ロジックの意図を継承）
         routeHtml += `<div id="part${partIndex}-between-${idx}" class="betweenList">`;
         for(let bj = betweenStart; bj <= betweenEnd; bj++){
           const s = path[bj];
@@ -957,22 +893,23 @@ function renderRouteCardForPart(part, partIndex){
           const isCondMinor = isCondArr[arrIdx];
           const minorClass = isCondMinor ? 'condMinorName' : 'minorName';
 
+          // displayColor: isCond のときは直後の途中駅の色を使う（直後の途中駅が存在する場合）
           let displayColor = pairColors[arrIdx];
           if(isCondMinor){
             const nextArrIdx = arrIdx + 1;
             if(nextArrIdx < pairColors.length){
               displayColor = pairColors[nextArrIdx];
             } else {
+              // 直後の途中駅が存在しない（= 接続駅が区間の最後）なら自身の色を使う
               displayColor = pairColors[arrIdx];
             }
           }
 
-          // ここを背景色ではなく data-color 属性にして SVG を後で挿入する
           routeHtml += `
             <div class="rowBetween">
               <div class="railCol">
                 <div class="railDot" style="background:${displayColor}"></div>
-                <div class="railLineMinor" data-color="${displayColor}"></div>
+                <div class="railLineMinor" style="background:${displayColor}"></div>
               </div>
               <div class="stationText"><div class="${minorClass}">${s}</div></div>
             </div>
@@ -1000,8 +937,9 @@ function shortenBigLineToFirstBetween(bigLine, betweenEl){
   if(!firstBetweenRow) return;
   const betweenDot = firstBetweenRow.querySelector('.railDot');
   if(!betweenDot) return;
+  const betweenDotRect = betweenDot.getBoundingClientRect();
   const newTop = dotRect.top - parentRect.top;
-  const newHeight = Math.max(0, (betweenDot.getBoundingClientRect().top - dotRect.top)) + 2;
+  const newHeight = Math.max(0, (betweenDotRect.top - dotRect.top)) + 2;
   bigLine.style.top = newTop + 'px';
   bigLine.style.height = newHeight + 'px';
   bigLine.dataset.shortened = "true";
@@ -1017,21 +955,25 @@ function wireToggleButtons(){
       const list = document.getElementById(`part${part}-between-${idx}`);
       const bigLine = document.getElementById(`part${part}-bigline-${idx}`);
       if(!list) return;
+      // isOpen: 新しい「開いた」状態を表す（true = 表示される、false = 非表示される）
       const isOpen = getComputedStyle(list).display !== 'block';
       list.style.display = isOpen ? 'block' : 'none';
       btn.dataset.open = isOpen.toString();
       btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
 
       if(bigLine){
+        // 停車駅を「表示」したときは大線を単色にする（主要駅の色）
         const baseColor = bigLine.dataset.color || '#999';
 
         if(isOpen){
-          bigLine.innerHTML = '';
-          const svg = createVStackedSVG([], baseColor, baseColor, 0, parseFloat(bigLine.style.height||0), parseFloat(bigLine.style.height||60));
-          bigLine.appendChild(svg);
+          // 表示: 単色に
+          bigLine.style.background = baseColor;
+          // 大線を途中駅先頭まで短縮
           shortenBigLineToFirstBetween(bigLine, list);
         } else {
+          // 非表示: 短縮フラグを削除して高さ・位置を再計算し、adjustMajorLines 内で正確なピクセル分割を適用する
           delete bigLine.dataset.shortened;
+          // runAdjustments で applyStripedGradientForBigLine が実行される（サイズが確定した後で）
           runAdjustments();
         }
       }
@@ -1094,7 +1036,7 @@ searchBtn.addEventListener('click', ()=>{
   resultArea.innerHTML = headerHtml + bodyHtml;
 
   wireToggleButtons();
-  // DOM 挿入直後に高さ等を計測して SVG を適用
+  // DOM 挿入直後に高さ等を計測してグラデーション（等分位置）を適用
   setTimeout(runAdjustments, 0);
 });
 
