@@ -390,7 +390,7 @@ function shortestPathWithinCompany(start, goal, company){
   return {path, distance: dist[goal]};
 }
 
-// ==== 途中駅扱いの「接続」定義（新東橋は削除済み） ====
+// ==== 途中駅扱いの「接続」定義 ====
 const connectingStations = [
   { station: "北鶴宮", endpoints: ["鶴宮","鬼越峠"] },
   { station: "鶴宮",   endpoints: ["鶴宮神社","南鶴宮"] },
@@ -406,7 +406,10 @@ const connectingStations = [
   { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
 
   { station: "横宿", endpoints: ["日森町", "北横宿"] },
-  { station: "成津", endpoints: ["北成津", "大町"] }
+  { station: "成津", endpoints: ["北成津", "大町"] },
+
+  // 追加: 新東橋 を接続駅として扱う（隣接駅：浅見・東黒田）
+  { station: "新東橋", endpoints: ["浅見", "東黒田"] }
 ];
 
 const specialMajorStations = [
@@ -431,7 +434,7 @@ function findIndexFrom(path, station, start){
   return -1;
 }
 
-// --- 主要駅抽出（新東橋に対する特例は一切無し） ---
+// --- 主要駅抽出（新東橋の特例は一切無し） ---
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
 
@@ -549,9 +552,6 @@ function populateStationSelect(lineSel, stationSel){
 [ fromLineSel, toLineSel ].forEach(sel => populateLineSelect(sel));
 populateStationSelect(fromLineSel, fromStationSel);
 populateStationSelect(toLineSel, toStationSel);
-
-fromLineSel.addEventListener('change', ()=> populateStationSelect(fromLineSel, fromStationSel));
-toLineSel.addEventListener('change', ()=> populateStationSelect(toLineSel, toStationSel));
 
 if(stationLines['新里鉄道湯の浜線'] && stationLines['新里鉄道湯の浜線'].indexOf('新里')!==-1){
   fromLineSel.value = '新里鉄道湯の浜線';
