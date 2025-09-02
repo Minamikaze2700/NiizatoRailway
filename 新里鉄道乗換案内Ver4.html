@@ -23,7 +23,7 @@ h1{margin:0 0 12px;font-size:20px}
 .card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:0 8px 24px rgba(2,6,23,0.07);margin-bottom:12px}
 .row{display:flex;gap:12px;align-items:flex-start;flex-direction:column}
 .col{display:flex;flex-direction:column;gap:6px;position:relative;align-items:flex-start}
-select,button{font-size:14px;padding:8px 10px;border-radius:4px;border:1px solid #d1d5db;background:#fff}
+select,button{font-size:14px;padding:8px 10px;border-radius:4px;border:1px solid #d1d5db;background:#fff;position:relative;z-index:999}
 label{font-size:13px;color:var(--muted)}
 button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .resultHeader{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
@@ -225,20 +225,12 @@ function fareSuzuhama(km){
 function fareToyono(km){ return 0; }
 
 // --- 東橋鉄道：運賃表をユーザー指定のルールに合わせて実装 ---
-// - TOゾーン内（新東橋以北の東橋線、横宿線全線）: 1乗車250円均一
-// - 他社線直通運賃: 東橋線内運賃が -50円
-// - その他: 1km未満は切り上げ（Math.ceil）、距離表に従う
 function fareTouhashi(km, options = {}){
-  // options: { inTOzone: boolean, directOtherCompany: boolean }
-  // TOゾーンの場合は一律250円
   if(options.inTOzone){
     return 250;
   }
-
-  // 距離は1km未満切り上げ
   const d = Math.max(1, Math.ceil(km));
-
-  let fare = 1250; // 上限デフォルト
+  let fare = 1250;
   if (d <= 3) fare = 180;
   else if (d === 4) fare = 190;
   else if (d <= 7) fare = 210;
@@ -263,8 +255,6 @@ function fareTouhashi(km, options = {}){
   else if (d <= 132) fare = 1210;
   else if (d <= 145) fare = 1250;
   else fare = 1250;
-
-  // 他社直通割引: 東橋鉄道区間運賃から -50円（下限0）
   if(options.directOtherCompany){
     fare = Math.max(0, fare - 50);
   }
@@ -313,7 +303,6 @@ function fareByCompany(company, km, options = {}){
   }
 }
 
-// 新：2駅間（隣接）のすべての路線候補を返す（両方含み、かつインデックス差が1）
 function findLinesOfSegment(a,b){
   const candidates = [];
   for(const [line, stations] of Object.entries(stationLines)){
@@ -325,7 +314,6 @@ function findLinesOfSegment(a,b){
   }
   return candidates;
 }
-// 従来互換：最初の候補を返す（存在しなければ null）
 function findLineOfSegment(a,b){
   const cs = findLinesOfSegment(a,b);
   return cs.length ? cs[0] : null;
@@ -368,7 +356,7 @@ function shortestPathWithinCompany(start, goal, company){
     for(const [v,w] of Object.entries(graph[u]||{})){
       const ln = findLineOfSegment(u, v);
       const comp = ln ? companyFromLineName(ln) : null;
-      if(comp !== company) continue; // 会社が違う辺は使わない
+      if(comp !== company) continue;
       const alt = dist[u] + w;
       if(alt < dist[v]){ dist[v] = alt; prev[v] = u; }
     }
@@ -394,7 +382,6 @@ const connectingStations = [
   { station: "成津", endpoints: ["北成津", "大町"] }
 ];
 
-// 元の主要駅候補（そのまま維持）
 const specialMajorStations = [
   "新里", "湯の浜", "鶴宮",
   "坂電坂津", "港通", "東坂津",
@@ -406,13 +393,11 @@ const specialMajorStations = [
   "北成津", "成津", "大町"
 ];
 
-// ヘルパー
 function indexesOf(arr, value){
   const out=[]; for(let i=0;i<arr.length;i++) if(arr[i]===value) out.push(i); return out;
 }
 function betweenExclusive(idx, a, b){ return (a < idx && idx < b) || (b < idx && idx < a); }
 
-// find next index of station in path starting from 'start'
 function findIndexFrom(path, station, start){
   for(let i=start;i<path.length;i++){
     if(path[i] === station) return i;
@@ -420,30 +405,20 @@ function findIndexFrom(path, station, start){
   return -1;
 }
 
-// --- isPathWithinTOZone をより堅牢に置き換え ---
-// TOゾーン定義: 東橋鉄道横宿線の全駅、及び東橋鉄道東橋本線の「新東橋を含む新東橋より東橋側（東橋方面）までの駅」
-// この集合に経路上のすべての駅が含まれていれば TOゾーン内とみなす。
 function isPathWithinTOZone(path){
   if(!Array.isArray(path) || path.length < 2) return false;
   const eastMain = stationLines["東橋鉄道東橋本線"] || [];
   const yoko = stationLines["東橋鉄道横宿線"] || [];
   const idxNewEast = eastMain.indexOf("新東橋");
   if(idxNewEast === -1){
-    // 新東橋が見つからなければ横宿線のみをTOとする（安全フォールバック）
     const toSet = new Set(yoko);
     return path.every(st => toSet.has(st));
   }
-
-  // 新東橋以北（東橋方面） = eastMain のインデックス <= idxNewEast
-  const eastTOStations = eastMain.slice(0, idxNewEast + 1); // 新東橋を含む、それより東橋側の駅群
+  const eastTOStations = eastMain.slice(0, idxNewEast + 1);
   const toStationsSet = new Set([...yoko, ...eastTOStations]);
-
-  // path 中のすべての駅が toStationsSet に含まれるかをチェック
   return path.every(st => toStationsSet.has(st));
 }
 
-// --- 主要駅抽出（修正：新東橋での乗換を主要駅化） ---
-// 追加対策: メインロジック実行後に、経路上に新東橋があり、かつ東橋本線と横宿線が両方を含むなら majors に 新東橋 を含める（順序保持）。
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
   const majors = [path[0]];
@@ -454,10 +429,8 @@ function majorStops(path){
     const here = path[i];
     const ln = findLineOfSegment(prev, here);
 
-    // 会社や路線が変わるポイント
     let isBoundary = (ln !== curLine);
 
-    // 元の specialMajorStations によるスキップ判定（通常は特定駅を途中扱いにする）
     let isSpecialSkip = false;
     if(specialMajorStations.includes(here) && i > 0 && i < path.length-1){
       const before = path[i-1];
@@ -467,7 +440,6 @@ function majorStops(path){
       }
     }
 
-    // 接続駅ルール（prev が connectingStations に該当し、条件成立なら prev を途中駅扱いに）
     let connectionSkipPrev = false;
     const conn = connectingStations.find(c => c.station === prev);
     if(conn){
@@ -486,7 +458,6 @@ function majorStops(path){
       }
     }
 
-    // --- 特別ルール: 新東橋で東橋本線 <-> 横宿線 を乗り換える場合は、新東橋を主要駅にする ---
     const lnPrev = ln;
     const lnNext = (i < path.length - 1) ? findLineOfSegment(here, path[i+1]) : null;
     const isTransferAtShinTohashi =
@@ -515,11 +486,6 @@ function majorStops(path){
 
   majors.push(path[path.length-1]);
 
-  // ---------------------------
-  // 追補: direction に依存しない確実な追加
-  // 経路上に新東橋があり、経路が東橋本線と横宿線の両方を含むなら
-  // majors に必ず 新東橋 を含める（順序を保持して挿入）。
-  // ---------------------------
   try {
     if(path.indexOf("新東橋") !== -1){
       const hasEastMain = path.some((s,i) => i < path.length - 1 && findLineOfSegment(s, path[i+1]) === "東橋鉄道東橋本線");
@@ -800,10 +766,8 @@ function splitByCompany(path){
 // 描画：主要駅の色決定は維持。今回追加：起点が新東橋で東橋本線へ向かう場合は起点を「停車（小丸）」扱いにする。
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
-  // majors を取得
   let { majors } = majorStops(path);
 
-  // majors -> path 上のインデックス
   const majorIndices = [];
   let scanStart = 0;
   for(let m = 0; m < majors.length; m++){
@@ -817,14 +781,10 @@ function renderRouteCardForPart(part, partIndex){
     }
   }
 
-  // --- 新規追加: 起点が新東橋で、直後の区間が東橋鉄道東橋本線である場合は
-  //     新東橋を"停車（小丸）扱い"にするオプションを適用する。
-  //     具体的には majors と majorIndices の先頭要素を取り除き、先頭に rowBetween（小さい丸の行）を挿入する。
   let prependStartAsMinorHtml = '';
   const isStartShinTohashi = (path[0] === "新東橋" && path.length > 1 && findLineOfSegment(path[0], path[1]) === "東橋鉄道東橋本線");
 
   if(isStartShinTohashi){
-    // 新東橋を小丸（停車）として描画するための HTML を作る
     const ln = findLineOfSegment(path[0], path[1]);
     const color = ln ? (lineColors[ln] || '#999') : '#999';
 
@@ -838,14 +798,12 @@ function renderRouteCardForPart(part, partIndex){
       </div>
     `;
 
-    // majors と majorIndices の先頭が新東橋であれば削る（重複表示防止）
     if(majors.length > 0 && majors[0] === "新東橋"){
       majors = majors.slice(1);
       majorIndices.shift();
     }
   }
 
-  // 各 major セグメントの色を決めて配列に保持
   const majorsColors = new Array(majors.length).fill("#999");
 
   for(let idx = 0; idx < majors.length; idx++){
@@ -892,7 +850,6 @@ function renderRouteCardForPart(part, partIndex){
     majorsColors[idx] = color;
   }
 
-  // 描画開始
   let routeHtml = `
     <div class="card">
       <div class="resultHeader">
@@ -901,7 +858,6 @@ function renderRouteCardForPart(part, partIndex){
       <div class="routeLine">
   `;
 
-  // 先頭に「起点を小丸で表す HTML」を差し込む（該当ケースのみ）
   if(prependStartAsMinorHtml){
     routeHtml += prependStartAsMinorHtml;
   }
@@ -918,7 +874,6 @@ function renderRouteCardForPart(part, partIndex){
 
     let lineListHtml = '';
 
-    // --- ここで usedLines を計算して大線用に保持 ---
     let usedLinesForSegment = [];
     if(nextStation && iFrom !== -1 && iTo !== -1){
       for(let i=iFrom;i<iTo;i++){
@@ -977,7 +932,6 @@ function renderRouteCardForPart(part, partIndex){
       </div>
     `;
 
-    // between を描画（iFrom..iTo の正確な範囲）
     if(nextStation && iFrom !== -1 && iTo !== -1){
       if(iTo - iFrom > 1){
         const betweenStart = iFrom + 1;
@@ -1117,14 +1071,12 @@ function wireToggleButtons(){
     const listener = ()=>{
       const part = btn.dataset.part;
       const idx = btn.dataset.seg;
-      const list = document.getElementById(`part${part}-between-${idx`);
-      // 上の id 生成に閉じ括弧ミスがあったら fall back
-      const listFix = document.getElementById(`part${part}-between-${idx}`);
+      // 正しい id で取得（以前のバグのある行を取り除き、ここでは安全に取得）
+      const listEl = document.getElementById(`part${part}-between-${idx}`);
       const bigLine = document.getElementById(`part${part}-bigline-${idx}`);
-      const targetList = listFix || list;
-      if(!targetList) return;
-      const isOpen = getComputedStyle(targetList).display !== 'block';
-      targetList.style.display = isOpen ? 'block' : 'none';
+      if(!listEl) return;
+      const isOpen = getComputedStyle(listEl).display !== 'block';
+      listEl.style.display = isOpen ? 'block' : 'none';
       btn.dataset.open = isOpen.toString();
       btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
 
@@ -1133,7 +1085,7 @@ function wireToggleButtons(){
 
         if(isOpen){
           bigLine.style.background = baseColor;
-          shortenBigLineToFirstBetween(bigLine, targetList);
+          shortenBigLineToFirstBetween(bigLine, listEl);
         } else {
           delete bigLine.dataset.shortened;
           runAdjustments();
