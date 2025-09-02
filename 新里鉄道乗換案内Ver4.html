@@ -444,20 +444,33 @@ function findIndexFrom(path, station, start){
   return -1;
 }
 
-// --- 主要駅抽出（修正版：新東橋の例外条件は維持） ---
+// --- 主要駅抽出（修正版：新東橋の例外条件を "咲田口を含むかどうか" を考慮して判定） ---
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
 
-  // 事前計算：経路が「東橋方面（新東橋以北） と 横宿線 を同時に含む」か？
+  // 事前計算：経路が「東橋方面（新東橋の東側） と 横宿線 を同時に含む」か？
   const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
   const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
   const idxNewHigashi = tohashiEastLine.indexOf("新東橋");
+
+  // 定義
+  // - hasEast: 東橋方面（新東橋より東側＝index < idxNewHigashi）にある駅を含む
+  // - hasSakita: 咲田口方面（新東橋より咲田口側＝index > idxNewHigashi）にある駅を含む
+  // - hasYoko: 横宿線のいずれかの駅を含む
   const hasEast = path.some(s => {
     const idx = tohashiEastLine.indexOf(s);
-    return idx !== -1 && idx <= idxNewHigashi; // 新東橋を含む「東橋方面」
+    return idx !== -1 && idx < idxNewHigashi;
+  });
+  const hasSakita = path.some(s => {
+    const idx = tohashiEastLine.indexOf(s);
+    return idx !== -1 && idx > idxNewHigashi;
   });
   const hasYoko = path.some(s => tohashiYokoshukuLine.indexOf(s) !== -1);
-  const routeIsEastToYoko = hasEast && hasYoko; // true のときは 新東橋 を途中駅扱いにしない
+
+  // ご要望ルール:
+  // - 東橋方面 ⇄ 新東橋 ⇄ 横宿方面 のときは 新東橋 を主要駅にする（逆方向含む）
+  // - ただし 咲田口方面 が経路に含まれる場合は 新東橋 は途中駅扱いにする
+  const isMajorExceptionForShintohashi = (hasEast && hasYoko && !hasSakita);
 
   const majors = [path[0]];
   let curLine = findLineOfSegment(path[0], path[1]);
@@ -486,9 +499,9 @@ function majorStops(path){
     if(conns && conns.length > 0){
       const idxPrev = i - 1;
       for(const conn of conns){
-        // 追加例外（以前導入したルール）：
-        // 経路が「東橋方面 ⇄ 横宿線」を結ぶ場合は、新東橋 に対する connectingStations エントリを無視する
-        if(conn.station === "新東橋" && routeIsEastToYoko){
+        // 変更点：
+        // 新東橋 の connectingStations エントリは、isMajorExceptionForShintohashi が true のときに限り無視する（＝主要駅として扱う）
+        if(conn.station === "新東橋" && isMajorExceptionForShintohashi){
           continue;
         }
 
@@ -756,16 +769,22 @@ function splitByCompany(path){
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
 
-  // 事前計算：経路が「東橋方面（新東橋以北） と 横宿線 を同時に含む」か？
+  // 事前計算：経路が「東橋方面（新東橋より東側） と 横宿線 を同時に含む」か？
   const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
   const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
   const idxNewHigashi = tohashiEastLine.indexOf("新東橋");
+
   const hasEast = path.some(s => {
     const idx = tohashiEastLine.indexOf(s);
-    return idx !== -1 && idx <= idxNewHigashi;
+    return idx !== -1 && idx < idxNewHigashi;
+  });
+  const hasSakita = path.some(s => {
+    const idx = tohashiEastLine.indexOf(s);
+    return idx !== -1 && idx > idxNewHigashi;
   });
   const hasYoko = path.some(s => tohashiYokoshukuLine.indexOf(s) !== -1);
-  const routeIsEastToYoko = hasEast && hasYoko;
+
+  const routeIsEastToYokoAndNotSakita = (hasEast && hasYoko && !hasSakita);
 
   const { majors } = majorStops(path);
 
@@ -917,12 +936,12 @@ function renderRouteCardForPart(part, partIndex){
         for(let bj = betweenStart; bj <= betweenEnd; bj++){
           const jIndex = bj;
           const s = path[jIndex];
-          // connectingStations の複数エントリをすべて評価（ただし新東橋エントリは routeIsEastToYoko の場合無視）
+          // connectingStations の複数エントリをすべて評価（ただし新東橋エントリは routeIsEastToYokoAndNotSakita の場合無視）
           let isCondMinor = false;
           const condsAll = connectingStations.filter(c => c.station === s);
           let conds = [];
           if(condsAll && condsAll.length > 0){
-            if(s === "新東橋" && routeIsEastToYoko){
+            if(s === "新東橋" && routeIsEastToYokoAndNotSakita){
               conds = [];
             } else {
               conds = condsAll;
