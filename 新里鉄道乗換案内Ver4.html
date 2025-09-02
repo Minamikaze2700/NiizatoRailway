@@ -563,7 +563,7 @@ function splitByCompany(path){
   return segments.filter(s => !!s.company && s.from !== s.to);
 }
 
-// 描画：主要駅の色決定は維持。変更点は「途中駅非表示時に主要駅線を次の主要駅色へグラデーションにする」処理
+// 描画：主要駅の色決定は維持。変更点は「停車駅非表示時に主要駅線を経由路線色で等分表示」処理
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
   const { majors } = majorStops(path);
@@ -652,13 +652,14 @@ function renderRouteCardForPart(part, partIndex){
 
     let lineListHtml = '';
 
+    // --- ここで usedLines を計算して大線用に保持 ---
+    let usedLinesForSegment = [];
     if(nextStation && iFrom !== -1 && iTo !== -1){
-      const usedLines = [];
       for(let i=iFrom;i<iTo;i++){
         const ln = findLineOfSegment(path[i], path[i+1]);
-        if(ln && usedLines.indexOf(ln)===-1) usedLines.push(ln);
+        if(ln && !usedLinesForSegment.includes(ln)) usedLinesForSegment.push(ln);
       }
-      const badges = usedLines.length > 0 ? usedLines : findCommonLines(st, nextStation);
+      const badges = usedLinesForSegment.length > 0 ? usedLinesForSegment : findCommonLines(st, nextStation);
       if(badges.length > 0){
         lineListHtml = badges.map(l => `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${l}</div>`).join('');
       }
@@ -668,21 +669,51 @@ function renderRouteCardForPart(part, partIndex){
 
     const bigLineId = `part${partIndex}-bigline-${idx}`;
 
-    // 変更点: 停車駅が非表示（デフォルト: 非表示）なら major line を "color -> nextColor" のグラデーションにする
-    // 停車駅が表示状態のときは単色（color）にする。toggle の制御で切り替える。
+    // 変更点: 停車駅が非表示（デフォルト: 非表示）なら major line を「経由する路線の色を等分」して表示
+    // 停車駅が表示状態のときは単色（主要駅の色）にする。toggle の制御で切り替える。
     let bigLineStyle = '';
-    if(nextStation && nextColor){
-      // 初期レンダリング時は betweenList は display:none のため「停車駅非表示」とみなし、グラデーションを適用
-      bigLineStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
+    if(nextStation){
+      // usedLinesForSegment を使って等分塗りを作る（2本以上なら等分）
+      if(usedLinesForSegment.length > 1){
+        const step = 100 / usedLinesForSegment.length;
+        const stops = usedLinesForSegment.map((ln, j) => {
+          const col = lineColors[ln] || '#999';
+          const start = (j * step).toFixed(6);
+          const end = ((j+1) * step).toFixed(6);
+          return `${col} ${start}%, ${col} ${end}%`;
+        }).join(', ');
+        bigLineStyle = `background: linear-gradient(to bottom, ${stops});`;
+      } else if(usedLinesForSegment.length === 1){
+        const ln = usedLinesForSegment[0];
+        bigLineStyle = `background: ${lineColors[ln] || color};`;
+      } else {
+        // フォールバック: major の色と次の major 色を交互に分ける（ただし等分）
+        const cols = [color];
+        if(nextColor && nextColor !== color) cols.push(nextColor);
+        if(cols.length > 1){
+          const step = 100 / cols.length;
+          const stops = cols.map((col, j) => {
+            const start = (j * step).toFixed(6);
+            const end = ((j+1) * step).toFixed(6);
+            return `${col} ${start}%, ${col} ${end}%`;
+          }).join(', ');
+          bigLineStyle = `background: linear-gradient(to bottom, ${stops});`;
+        } else {
+          bigLineStyle = `background: ${color};`;
+        }
+      }
     } else {
       bigLineStyle = `background: ${color};`;
     }
+
+    // データ属性に usedLines を保存しておく（トグル時に再利用）
+    const usedLinesDataAttr = usedLinesForSegment.join('|');
 
     routeHtml += `
       <div class="rowStation">
         <div class="railCol">
           <div class="railDot" style="background:${color}"></div>
-          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" style="${bigLineStyle}"></div>` : `<div class="spacer6"></div>`}
+          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-usedlines="${usedLinesDataAttr}" style="${bigLineStyle}"></div>` : `<div class="spacer6"></div>`}
         </div>
         <div class="stationText">
           <div class="stationName">${st}</div>
@@ -856,15 +887,32 @@ function wireToggleButtons(){
       if(bigLine){
         // 停車駅を「表示」したときは大線を単色にする（主要駅の色）
         const baseColor = bigLine.dataset.color || '#999';
-        const nextColor = bigLine.dataset.nextcolor || baseColor;
+        const usedLinesRaw = bigLine.dataset.usedlines || '';
+        const usedLinesArr = usedLinesRaw ? usedLinesRaw.split('|').filter(x=>x) : [];
+
         if(isOpen){
           // 表示: 単色に
           bigLine.style.background = baseColor;
           // 大線を途中駅先頭まで短縮
           shortenBigLineToFirstBetween(bigLine, list);
         } else {
-          // 非表示: グラデーションに（base -> next）
-          bigLine.style.background = `linear-gradient(to bottom, ${baseColor}, ${nextColor})`;
+          // 非表示: 「経由する路線色を等分」で再計算して適用
+          if(usedLinesArr.length > 1){
+            const step = 100 / usedLinesArr.length;
+            const stops = usedLinesArr.map((ln, j) => {
+              const col = lineColors[ln] || '#999';
+              const start = (j * step).toFixed(6);
+              const end = ((j+1) * step).toFixed(6);
+              return `${col} ${start}%, ${col} ${end}%`;
+            }).join(', ');
+            bigLine.style.background = `linear-gradient(to bottom, ${stops})`;
+          } else if(usedLinesArr.length === 1){
+            const ln = usedLinesArr[0];
+            bigLine.style.background = lineColors[ln] || baseColor;
+          } else {
+            // フォールバック: baseColor の単色
+            bigLine.style.background = baseColor;
+          }
           // 非表示に戻すときは短縮フラグを削除して高さを通常に戻す（runAdjustments で再計算）
           delete bigLine.dataset.shortened;
         }
