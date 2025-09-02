@@ -448,29 +448,24 @@ function findIndexFrom(path, station, start){
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
 
-  // 事前計算：経路が「東橋方面（新東橋の東側） と 横宿線 を同時に含む」か？
+  // 事前計算：東橋本線 と 横宿線 の配列と 新東橋 の index
   const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
   const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
   const idxNewHigashi = tohashiEastLine.indexOf("新東橋");
 
-  // 定義
-  // - hasEast: 東橋方面（新東橋より東側＝index < idxNewHigashi）にある駅を含む
-  // - hasSakita: 咲田口方面（新東橋より咲田口側＝index > idxNewHigashi）にある駅を含む
-  // - hasYoko: 横宿線のいずれかの駅を含む
-  const hasEast = path.some(s => {
-    const idx = tohashiEastLine.indexOf(s);
-    return idx !== -1 && idx < idxNewHigashi;
-  });
-  const hasSakita = path.some(s => {
-    const idx = tohashiEastLine.indexOf(s);
-    return idx !== -1 && idx > idxNewHigashi;
-  });
-  const hasYoko = path.some(s => tohashiYokoshukuLine.indexOf(s) !== -1);
+  // helper: 東橋線上の駅がどの領域に入るかを判定
+  function isEastRegion(s){ const idx = tohashiEastLine.indexOf(s); return idx !== -1 && idx < idxNewHigashi; }      // 東橋側（新東橋より東）
+  function isSakitaRegion(s){ const idx = tohashiEastLine.indexOf(s); return idx !== -1 && idx > idxNewHigashi; }    // 咲田口側（新東橋より咲田口側）
+  function isYokoLine(s){ return tohashiYokoshukuLine.indexOf(s) !== -1; }
+
+  const hasEast = path.some(isEastRegion);
+  const hasSakita = path.some(isSakitaRegion);
+  const hasYoko = path.some(isYokoLine);
 
   // ご要望ルール:
-  // - 東橋方面 ⇄ 新東橋 ⇄ 横宿方面 のときは 新東橋 を主要駅にする（逆方向含む）
-  // - ただし 咲田口方面 が経路に含まれる場合は 新東橋 は途中駅扱いにする
-  const isMajorExceptionForShintohashi = (hasEast && hasYoko && !hasSakita);
+  // - 咲田口方面 が経路に含まれる場合は、新東橋は途中駅扱い（咲田口 ⇄ 新東橋 ⇄ 東橋/横宿 は途中駅）
+  // - ただし、東橋側 と 横宿線 を同時に含み、かつ咲田口側を含まない場合のみ 新東橋 を主要駅扱いにする
+  const shintohashi_should_be_major = (hasEast && hasYoko && !hasSakita);
 
   const majors = [path[0]];
   let curLine = findLineOfSegment(path[0], path[1]);
@@ -500,8 +495,8 @@ function majorStops(path){
       const idxPrev = i - 1;
       for(const conn of conns){
         // 変更点：
-        // 新東橋 の connectingStations エントリは、isMajorExceptionForShintohashi が true のときに限り無視する（＝主要駅として扱う）
-        if(conn.station === "新東橋" && isMajorExceptionForShintohashi){
+        // 新東橋 の connectingStations エントリは shintohashi_should_be_major が true のときに限り無視する（＝主要駅として扱う）
+        if(conn.station === "新東橋" && shintohashi_should_be_major){
           continue;
         }
 
@@ -769,21 +764,20 @@ function splitByCompany(path){
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
 
-  // 事前計算：経路が「東橋方面（新東橋より東側） と 横宿線 を同時に含む」か？
+  // 事前計算：東橋本線 と 横宿線 の配列と 新東橋 の index
   const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
   const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
   const idxNewHigashi = tohashiEastLine.indexOf("新東橋");
 
-  const hasEast = path.some(s => {
-    const idx = tohashiEastLine.indexOf(s);
-    return idx !== -1 && idx < idxNewHigashi;
-  });
-  const hasSakita = path.some(s => {
-    const idx = tohashiEastLine.indexOf(s);
-    return idx !== -1 && idx > idxNewHigashi;
-  });
-  const hasYoko = path.some(s => tohashiYokoshukuLine.indexOf(s) !== -1);
+  function isEastRegion(s){ const idx = tohashiEastLine.indexOf(s); return idx !== -1 && idx < idxNewHigashi; }
+  function isSakitaRegion(s){ const idx = tohashiEastLine.indexOf(s); return idx !== -1 && idx > idxNewHigashi; }
+  function isYokoLine(s){ return tohashiYokoshukuLine.indexOf(s) !== -1; }
 
+  const hasEast = path.some(isEastRegion);
+  const hasSakita = path.some(isSakitaRegion);
+  const hasYoko = path.some(isYokoLine);
+
+  // render 側でも同じ判定（表示のときに「新東橋の connectingStations を無視するか」を決める）
   const routeIsEastToYokoAndNotSakita = (hasEast && hasYoko && !hasSakita);
 
   const { majors } = majorStops(path);
@@ -1105,20 +1099,29 @@ function wireToggleButtons(){
 searchBtn.addEventListener('click', ()=>{
   const stationSelectsAll = Array.from(document.querySelectorAll('.stationSelect'));
   const from = stationSelectsAll[0] ? stationSelectsAll[0].value : '';
-  const to = stationSelectsAll[stationSelectsAll.length - 1] ? stationSelectsAll[stationSelectsAll.length - 1].value : '';
+  const to = stationSelectsAll[stationSelectsAll.length - 1] ? stationSelectsAll[stationSelects.length - 1].value : (stationSelectsAll[stationSelectsAll.length - 1] ? stationSelectsAll[stationSelectsAll.length - 1].value : '');
+  // 上は安全に最後の stationSelect を取るための保険（既存のUIで問題なければ元に戻してOK）
+
+  // 既存取得を使う（互換性優先）
+  const stationSelects = Array.from(document.querySelectorAll('.stationSelect'));
+  const fromVal = stationSelects[0] ? stationSelects[0].value : '';
+  const toVal = stationSelects[stationSelects.length - 1] ? stationSelects[stationSelects.length - 1].value : '';
   const viaSelects = Array.from(viaListDiv.querySelectorAll('.stationSelect'));
   const viaStations = viaSelects.map(s=>s.value).filter(v=>v);
 
-  if(!from || !to){
+  const f = fromVal || from;
+  const t = toVal || to;
+
+  if(!f || !t){
     resultArea.innerHTML = '<div class="card">駅を選択してください</div>';
     return;
   }
-  if(from === to && viaStations.length === 0){
+  if(f === t && viaStations.length === 0){
     resultArea.innerHTML = '<div class="card">発駅と着駅が同じです</div>';
     return;
   }
 
-  const parts = buildRoutePartsAvoidingDuplicates(from, viaStations, to);
+  const parts = buildRoutePartsAvoidingDuplicates(f, viaStations, t);
   if(!parts || parts.length === 0){
     resultArea.innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
     return;
