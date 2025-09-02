@@ -203,7 +203,7 @@ function buildGraphBidirectional(raw){
 const graph = buildGraphBidirectional(rawGraph);
 const allStations = Array.from(new Set([...Object.keys(graph), ...Object.values(graph).flatMap(x => Object.keys(x))])).sort();
 
-// ============ 会社別運賃ロジック（東橋鉄道を実装、ページに運賃表は表示しない） ============
+// ============ 運賃ロジック（省略表示なし） ============
 function fareImabashi(km){ return 0; }
 function fareSakuragawa(km){ return 0; }
 function fareSakatsu(km){ return 0; }
@@ -239,10 +239,7 @@ function fareNiizato(km){
   return 540;
 }
 
-// 東橋鉄道の運賃ロジックを実装（ページに運賃表は表示しない）
-// ユーザ指定：距離は小数のままで比較・計算（ただし 1km 未満は 1km 扱い）
 function fareTouhashi(km, segPath = [], companySegments = []){
-  // kmは小数のまま扱う。ただし 1km 未満は切り上げて1km扱い（元ルールの尊重）
   const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
   const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
   const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
@@ -265,7 +262,6 @@ function fareTouhashi(km, segPath = [], companySegments = []){
     return 250;
   }
 
-  // 以下は kmUsed （小数）を閾値と比較して判定する（切り上げ済みの1kmは既に処理済み）
   if(kmUsed <= 3) return 180;
   if(kmUsed <= 4) return 190;
   if(kmUsed <= 7) return 210;
@@ -393,7 +389,9 @@ function shortestPathWithinCompany(start, goal, company){
   return {path, distance: dist[goal]};
 }
 
-// ==== 途中駅扱いの「接続」定義（ユーザ指定に合わせて変更） ====
+// ==== 途中駅扱いの「接続」定義（**新東橋のみ削除**） ====
+// 元のリストから新東橋のエントリだけを削除しています。
+// 他の接続ルールはそのまま残します。
 const connectingStations = [
   { station: "北鶴宮", endpoints: ["鶴宮","鬼越峠"] },
   { station: "鶴宮",   endpoints: ["鶴宮神社","南鶴宮"] },
@@ -409,9 +407,7 @@ const connectingStations = [
 
   { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
 
-  // 新東橋 の扱いをユーザ指定どおりに変更（ただし特別除外はしない）
-  { station: "新東橋", endpoints: ["浅見", "黒田"] },
-  { station: "新東橋", endpoints: ["浅見", "東黒田"] },
+  // ※ 新東橋 のエントリはここから削除しました
 
   { station: "横宿", endpoints: ["日森町", "北横宿"] },
   { station: "成津", endpoints: ["北成津", "大町"] }
@@ -440,7 +436,7 @@ function findIndexFrom(path, station, start){
   return -1;
 }
 
-// --- 主要駅抽出（修正版：新東橋の例外なし） ---
+// --- 主要駅抽出（接続駅判定は残す） ---
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
 
@@ -453,7 +449,7 @@ function majorStops(path){
     return idx !== -1 && idx <= idxNewHigashi; // 新東橋を含む「東橋方面」
   });
   const hasYoko = path.some(s => tohashiYokoshukuLine.indexOf(s) !== -1);
-  const routeIsEastToYoko = hasEast && hasYoko; // true のときは 新東橋 を途中駅扱いにしない（ただし今回は新東橋固有処理はなし）
+  const routeIsEastToYoko = hasEast && hasYoko;
 
   const majors = [path[0]];
   let curLine = findLineOfSegment(path[0], path[1]);
@@ -466,7 +462,7 @@ function majorStops(path){
     // 会社や路線が変わるポイント
     let isBoundary = (ln !== curLine);
 
-    // 元の specialMajorStations によるスキップ判定
+    // 元の specialMajorStations によるスキップ判定（維持）
     let isSpecialSkip = false;
     if(specialMajorStations.includes(here) && i > 0 && i < path.length-1){
       const before = path[i-1];
@@ -476,12 +472,12 @@ function majorStops(path){
       }
     }
 
-    // 接続駅ルール（prev と here の両方を評価）
+    // 接続駅ルール（prev が connectingStations に該当する場合） — 新東橋は connectingStations に無いためここでは無視される
     let connectionSkipPrev = false;
-    const connsPrev = connectingStations.filter(c => c.station === prev);
-    if(connsPrev && connsPrev.length > 0){
+    const conns = connectingStations.filter(c => c.station === prev);
+    if(conns && conns.length > 0){
       const idxPrev = i - 1;
-      for(const conn of connsPrev){
+      for(const conn of conns){
         const idxsA = indexesOf(path, conn.endpoints[0]);
         const idxsB = indexesOf(path, conn.endpoints[1]);
         if(idxsA.length > 0 && idxsB.length > 0){
@@ -932,7 +928,7 @@ function renderRouteCardForPart(part, partIndex){
         for(let bj = betweenStart; bj <= betweenEnd; bj++){
           const jIndex = bj;
           const s = path[jIndex];
-          // connectingStations の複数エントリをすべて評価（新東橋の例外は無し）
+          // connectingStations の複数エントリをすべて評価（新東橋はリストに無いのでここでは無視されます）
           let isCondMinor = false;
           const condsAll = connectingStations.filter(c => c.station === s);
           let conds = [];
