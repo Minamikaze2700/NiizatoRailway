@@ -35,8 +35,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
 .railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:2;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;}
 .rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:2;}
-.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:transparent;overflow:visible;}
-.railLineMajor .strip-svg{position:absolute;left:0;top:0;display:block;}
+.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
 .railLineMinor{width:var(--lineWMinor);border-radius:1px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
 .stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
 .stationName{font-weight:700;font-size:16px;line-height:1.25;margin:0}
@@ -453,119 +452,24 @@ addViaBtn.addEventListener('click', ()=>{
 });
 
 // レイアウト補助
-// --- 新関数: SVG を生成して線を描画（色境界を ∨ 型にし、境界上に白線(2px) を描く） ---
-function createStripedSVG(widthPx, heightPx, baseColor, nextColor, usedLinesArr, startPx, endPx){
-  const NS = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("width", widthPx);
-  svg.setAttribute("height", heightPx);
-  svg.setAttribute("viewBox", `0 0 ${widthPx} ${heightPx}`);
-  svg.setAttribute("preserveAspectRatio", "none");
-  svg.classList.add('strip-svg');
-
-  // 背景トップ（上部: baseColor）
-  if(startPx > 0){
-    const r = document.createElementNS(NS, "rect");
-    r.setAttribute("x", 0);
-    r.setAttribute("y", 0);
-    r.setAttribute("width", widthPx);
-    r.setAttribute("height", Math.max(0, startPx));
-    r.setAttribute("fill", baseColor);
-    svg.appendChild(r);
-  }
-
-  // 中央のセグメント（usedLinesArr があるなら等分で矩形を配置）
-  const segTop = startPx;
-  const segBottom = endPx;
-  const segHeightTotal = Math.max(0, segBottom - segTop);
-
-  if(usedLinesArr && usedLinesArr.length > 0 && segHeightTotal > 0){
-    const segCount = usedLinesArr.length;
-    for(let j=0;j<segCount;j++){
-      const ln = usedLinesArr[j];
-      const col = lineColors[ln] || baseColor;
-      const y = segTop + (segHeightTotal * j / segCount);
-      const h = segHeightTotal * (1/segCount);
-      const rect = document.createElementNS(NS, "rect");
-      rect.setAttribute("x", 0);
-      rect.setAttribute("y", y);
-      rect.setAttribute("width", widthPx);
-      rect.setAttribute("height", Math.max(0, h));
-      rect.setAttribute("fill", col);
-      svg.appendChild(rect);
-    }
-  } else {
-    // フォールバック：segStart..segEnd を baseColor
-    const r2 = document.createElementNS(NS, "rect");
-    r2.setAttribute("x", 0);
-    r2.setAttribute("y", segTop);
-    r2.setAttribute("width", widthPx);
-    r2.setAttribute("height", Math.max(0, segHeightTotal));
-    r2.setAttribute("fill", baseColor);
-    svg.appendChild(r2);
-  }
-
-  // ボトム（下部: nextColor）
-  if(endPx < heightPx){
-    const r3 = document.createElementNS(NS, "rect");
-    r3.setAttribute("x", 0);
-    r3.setAttribute("y", endPx);
-    r3.setAttribute("width", widthPx);
-    r3.setAttribute("height", Math.max(0, heightPx - endPx));
-    r3.setAttribute("fill", nextColor || baseColor);
-    svg.appendChild(r3);
-  }
-
-  // 境界ごとに ∨ 型の白線 (stroke) を描く
-  // 境界は segTop + k * (segHeightTotal/segCount) の位置（k = 1..segCount-1）
-  if(usedLinesArr && usedLinesArr.length > 0 && segHeightTotal > 0){
-    const segCount = usedLinesArr.length;
-    const centerX = widthPx / 2;
-    // Vの深さ（ピクセル）を計算: セグメント高さに応じて適用（最小4 最大12）
-    const approxSegH = segHeightTotal / segCount;
-    const vDepth = Math.max(4, Math.min(12, approxSegH * 0.5));
-
-    for(let k=1;k<segCount;k++){
-      const yb = segTop + (segHeightTotal * k / segCount);
-      const yUp = Math.max(0, yb - vDepth);
-      // points: left, apex, right
-      const leftX = 0;
-      const rightX = widthPx;
-      const points = `${leftX},${yUp} ${centerX},${yb} ${rightX},${yUp}`;
-      const poly = document.createElementNS(NS, "polyline");
-      poly.setAttribute("points", points);
-      poly.setAttribute("fill", "none");
-      poly.setAttribute("stroke", "#fff");
-      poly.setAttribute("stroke-width", "2");
-      poly.setAttribute("stroke-linecap", "round");
-      poly.setAttribute("stroke-linejoin", "round");
-      svg.appendChild(poly);
-    }
-  }
-
-  return svg;
-}
-
+// --- 新関数: ピクセル計測に基づいて「主要駅間の丸の下端 と 次の丸の上端の間隔」を等分して色を切り替える
 function applyStripedGradientForBigLine(lineElem, dotRect, nextDotRect, parentRect){
   if(!lineElem) return;
   const baseColor = lineElem.dataset.color || '#999';
   const usedLinesRaw = lineElem.dataset.usedlines || '';
   const usedLinesArr = usedLinesRaw ? usedLinesRaw.split('|').filter(x=>x) : [];
 
-  // remove old svg if present
-  const old = lineElem.querySelector('.strip-svg');
-  if(old) lineElem.removeChild(old);
-
   // 計測値（ピクセル）
   const lineTop = parseFloat(lineElem.style.top) || 0;
   const lineHeight = parseFloat(lineElem.style.height) || 0;
   if(lineHeight <= 0){
-    // fallback: 単色背景（直接 background）
+    // fallback: 単色
     lineElem.style.background = baseColor;
     return;
   }
 
   // dotRect, nextDotRect, parentRect を使って、区間の開始/終了ピクセル（lineElement内での相対位置）を算出
+  // 要求: 色を変えるのは「主要駅の丸の下端（current dot bottom）と次の主要駅の丸の上端（next dot top）」の間を等分
   const currentDotBottom_px = (dotRect.top - parentRect.top) + dotRect.height; // 親要素基準
   const nextDotTop_px = (nextDotRect.top - parentRect.top); // 親要素基準
 
@@ -579,30 +483,52 @@ function applyStripedGradientForBigLine(lineElem, dotRect, nextDotRect, parentRe
 
   if(clampedEndPx <= clampedStartPx){
     // 順序がおかしい or 高さが不足 -> 単色フォールバック
-    lineElem.style.background = baseColor;
+    if(usedLinesArr.length === 1){
+      lineElem.style.background = lineColors[usedLinesArr[0]] || baseColor;
+    } else {
+      lineElem.style.background = baseColor;
+    }
     return;
   }
 
-  // 実際のSVGを生成して挿入する
-  // lineElem の幅（ピクセル）を計測
-  const computed = getComputedStyle(lineElem);
-  const widthPx = Math.max(2, parseFloat(computed.width) || parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--lineWMajor')) || 5);
-  const heightPx = Math.max(1, Math.round(lineHeight));
+  // 比率(%)に変換
+  const startPercent = (clampedStartPx / lineHeight) * 100;
+  const endPercent = (clampedEndPx / lineHeight) * 100;
 
-  // 次の主要駅の色（data-nextcolor）を利用
+  // セグメントを作る（等分）
+  let gradientStops = [];
+
+  // 前半部（丸と重なる上の部分）は baseColor で塗る
+  gradientStops.push(`${baseColor} 0%`);
+  gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
+
+  if(usedLinesArr.length > 0){
+    const segCount = usedLinesArr.length;
+    const segSize = (endPercent - startPercent) / segCount;
+    for(let j=0;j<segCount;j++){
+      const ln = usedLinesArr[j];
+      const col = lineColors[ln] || baseColor;
+      const segStart = startPercent + segSize * j;
+      const segEnd = startPercent + segSize * (j+1);
+      // 各セグメントは [segStart, segEnd]
+      gradientStops.push(`${col} ${segStart.toFixed(4)}%`);
+      gradientStops.push(`${col} ${segEnd.toFixed(4)}%`);
+    }
+  } else {
+    // usedLines がない場合は、start..end を baseColor で埋める
+    gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
+    gradientStops.push(`${baseColor} ${endPercent.toFixed(4)}%`);
+  }
+
+  // 後半部（次の丸の上端〜下方）は次の色（もし data-nextcolor あれば使う、無ければ baseColor）
   const nextColor = lineElem.dataset.nextcolor || baseColor;
+  gradientStops.push(`${nextColor} ${endPercent.toFixed(4)}%`);
+  gradientStops.push(`${nextColor} 100%`);
 
-  const svg = createStripedSVG(widthPx, heightPx, baseColor, nextColor, usedLinesArr, clampedStartPx, clampedEndPx);
-
-  // SVG を lineElem に追加 (位置は top:0 left:0 相対でOK)
-  svg.style.position = 'absolute';
-  svg.style.left = '0';
-  svg.style.top = '0';
-  svg.style.pointerEvents = 'none';
-  lineElem.appendChild(svg);
-
-  // remove any inline background (we use svg)
-  lineElem.style.background = 'transparent';
+  // linear-gradient の文字列を組み立てる
+  // 例: linear-gradient(to bottom, c0 0%, c0 10%, c1 10%, c1 40%, c2 40%, c2 70%, c3 70%, c3 100%)
+  const stopsStr = gradientStops.join(', ');
+  lineElem.style.background = `linear-gradient(to bottom, ${stopsStr})`;
 }
 
 function adjustMajorLines(){
@@ -622,9 +548,6 @@ function adjustMajorLines(){
     const nextRow = rows.slice(idx + 1).find(r => r.querySelector('.railDot'));
     if (!nextRow) {
       line.style.height = '0px';
-      // remove svg if any
-      const old = line.querySelector('.strip-svg');
-      if(old) line.removeChild(old);
       return;
     }
 
@@ -638,7 +561,7 @@ function adjustMajorLines(){
     const h = Math.max(0, (nextDotRect.top - dotRect.top)) + 5;
     line.style.height = h + 'px';
 
-    // ここでピクセル計測に基づいて等分ストライプ（SVG）を適用
+    // ここでピクセル計測に基づいて等分ストライプを適用
     applyStripedGradientForBigLine(line, dotRect, nextDotRect, parentRect);
   });
 
@@ -723,7 +646,7 @@ function splitByCompany(path){
   return segments.filter(s => !!s.company && s.from !== s.to);
 }
 
-// 描画：主要駅の色決定は維持。変更点は「停車駅非表示時に主要駅線を経由路線色で等分表示」＋ ∨ 境界と白線
+// 描画：主要駅の色決定は維持。変更点は「停車駅非表示時に主要駅線を経由路線色で等分表示」処理（切り替え位置は丸の下端→次丸の上端の間を等分）
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
   const { majors } = majorStops(path);
@@ -829,14 +752,45 @@ function renderRouteCardForPart(part, partIndex){
 
     const bigLineId = `part${partIndex}-bigline-${idx}`;
 
-    // 初期スタイルは透明（正確なSVGは runAdjustments() で生成）
+    // 変更点: 停車駅が非表示（デフォルト: 非表示）なら major line を「経由する路線の色を等分」して表示（位置は丸下端→次丸上端を等分）
+    // 停車駅が表示状態のときは単色（主要駅の色）にする。toggle の制御で切り替える。
+    // 初期はサイズが不明なので仮のスタイルを入れる（実レンダリング後 runAdjustments() で applyStripedGradientForBigLine が上書きする）
+    let initialStyle = '';
+    if(nextStation){
+      if(usedLinesForSegment.length > 0){
+        if(usedLinesForSegment.length === 1){
+          initialStyle = `background: ${lineColors[usedLinesForSegment[0]] || color};`;
+        } else {
+          // 仮に等分で全体に適用（正確な切替位置は adjustMajorLines で再計算）
+          const step = 100 / usedLinesForSegment.length;
+          const stops = usedLinesForSegment.map((ln, j) => {
+            const col = lineColors[ln] || '#999';
+            const start = (j * step).toFixed(4);
+            const end = ((j+1) * step).toFixed(4);
+            return `${col} ${start}%, ${col} ${end}%`;
+          }).join(', ');
+          initialStyle = `background: linear-gradient(to bottom, ${stops});`;
+        }
+      } else {
+        // フォールバック: major color -> next major color
+        if(nextColor && nextColor !== color){
+          initialStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
+        } else {
+          initialStyle = `background: ${color};`;
+        }
+      }
+    } else {
+      initialStyle = `background: ${color};`;
+    }
+
+    // データ属性に usedLines を保存しておく（adjustMajorLines で正確なピクセル計算を行う）
     const usedLinesDataAttr = usedLinesForSegment.join('|');
 
     routeHtml += `
       <div class="rowStation">
         <div class="railCol">
           <div class="railDot" style="background:${color}"></div>
-          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style="background:transparent;"></div>` : `<div class="spacer6"></div>`}
+          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style="${initialStyle}"></div>` : `<div class="spacer6"></div>`}
         </div>
         <div class="stationText">
           <div class="stationName">${st}</div>
@@ -989,9 +943,6 @@ function shortenBigLineToFirstBetween(bigLine, betweenEl){
   bigLine.style.top = newTop + 'px';
   bigLine.style.height = newHeight + 'px';
   bigLine.dataset.shortened = "true";
-  // remove svg so a re-render won't overlap; runAdjustments() will recreate when needed
-  const old = bigLine.querySelector('.strip-svg');
-  if(old) bigLine.removeChild(old);
 }
 
 // wire toggle
@@ -1013,19 +964,16 @@ function wireToggleButtons(){
       if(bigLine){
         // 停車駅を「表示」したときは大線を単色にする（主要駅の色）
         const baseColor = bigLine.dataset.color || '#999';
+
         if(isOpen){
-          // 表示: 単色に（かつ短縮）
-          // remove svg if any
-          const old = bigLine.querySelector('.strip-svg');
-          if(old) bigLine.removeChild(old);
+          // 表示: 単色に
           bigLine.style.background = baseColor;
+          // 大線を途中駅先頭まで短縮
           shortenBigLineToFirstBetween(bigLine, list);
         } else {
-          // 非表示: 短縮フラグを削除して高さ・位置を再計算し、adjustMajorLines 内で正確なSVGを適用する
+          // 非表示: 短縮フラグを削除して高さ・位置を再計算し、adjustMajorLines 内で正確なピクセル分割を適用する
           delete bigLine.dataset.shortened;
-          // remove existing svg to let adjustMajorLines recreate with new dimensions
-          const old = bigLine.querySelector('.strip-svg');
-          if(old) bigLine.removeChild(old);
+          // runAdjustments で applyStripedGradientForBigLine が実行される（サイズが確定した後で）
           runAdjustments();
         }
       }
@@ -1088,7 +1036,7 @@ searchBtn.addEventListener('click', ()=>{
   resultArea.innerHTML = headerHtml + bodyHtml;
 
   wireToggleButtons();
-  // DOM 挿入直後に高さ等を計測してSVG（等分位置・∨境界）を適用
+  // DOM 挿入直後に高さ等を計測してグラデーション（等分位置）を適用
   setTimeout(runAdjustments, 0);
 });
 
