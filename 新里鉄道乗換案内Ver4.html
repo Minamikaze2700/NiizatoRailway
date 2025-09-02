@@ -187,7 +187,7 @@ const rawGraph={"豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水
   "日森町": { "横宿": 3.9 }
 };
 
-// --- ユーティリティ ---
+// --- グラフ生成ユーティリティ ---
 function buildGraphBidirectional(raw){
   const g = {};
   for(const [a,edges] of Object.entries(raw)){
@@ -203,7 +203,7 @@ function buildGraphBidirectional(raw){
 const graph = buildGraphBidirectional(rawGraph);
 const allStations = Array.from(new Set([...Object.keys(graph), ...Object.values(graph).flatMap(x => Object.keys(x))])).sort();
 
-// ============ 会社別運賃ロジック（東橋鉄道を実装、ページに運賃表は表示しない） ============
+// ============ 運賃ロジック（省略表示なし） ============
 function fareImabashi(km){ return 0; }
 function fareSakuragawa(km){ return 0; }
 function fareSakatsu(km){ return 0; }
@@ -239,10 +239,7 @@ function fareNiizato(km){
   return 540;
 }
 
-// 東橋鉄道の運賃ロジックを実装（ページに運賃表は表示しない）
-// ユーザ指定：距離は小数のままで比較・計算（ただし 1km 未満は 1km 扱い）
 function fareTouhashi(km, segPath = [], companySegments = []){
-  // kmは小数のまま扱う。ただし 1km 未満は切り上げて1km扱い（元ルールの尊重）
   const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
   const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
   const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
@@ -265,7 +262,6 @@ function fareTouhashi(km, segPath = [], companySegments = []){
     return 250;
   }
 
-  // 以下は kmUsed （小数）を閾値と比較して判定する（切り上げ済みの1kmは既に処理済み）
   if(kmUsed <= 3) return 180;
   if(kmUsed <= 4) return 190;
   if(kmUsed <= 7) return 210;
@@ -348,6 +344,7 @@ function findLineOfSegment(a,b){
   return cs.length ? cs[0] : null;
 }
 
+// ダイクストラ（最短経路）
 function shortestPath(start,goal){
   if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity};
   const dist = {}, prev = {}, Q = new Set(allStations);
@@ -394,10 +391,6 @@ function shortestPathWithinCompany(start, goal, company){
 }
 
 // ==== 途中駅扱いの「接続」定義（ユーザ指定に合わせて変更） ====
-// 変更内容:
-// - 園木 を分割して2つのエントリに (東園木⇄富士町) と (東園木⇄大木沢)
-// - 新東橋 を (浅見⇄黒田) と (浅見⇄東黒田)
-// （既存の他エントリは維持）
 const connectingStations = [
   { station: "北鶴宮", endpoints: ["鶴宮","鬼越峠"] },
   { station: "鶴宮",   endpoints: ["鶴宮神社","南鶴宮"] },
@@ -407,13 +400,13 @@ const connectingStations = [
   { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
   { station: "豊町", endpoints: ["削野", "東豊町"] },
 
-  // ユーザ指定により分割した園木エントリ（順序は問いません）
+  // 園木 を分割して2つのエントリに
   { station: "園木", endpoints: ["東園木", "富士町"] },
   { station: "園木", endpoints: ["東園木", "大木沢"] },
 
   { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
 
-  // 新東橋 の扱いをユーザ指定どおりに変更
+  // 新東橋 の扱い
   { station: "新東橋", endpoints: ["浅見", "黒田"] },
   { station: "新東橋", endpoints: ["浅見", "東黒田"] },
 
@@ -444,16 +437,17 @@ function findIndexFrom(path, station, start){
   return -1;
 }
 
-// --- 主要駅抽出（修正版：新東橋の例外条件を "咲田口を含むかどうか" を考慮して判定） ---
+// --- 主要駅抽出（修正版） ---
+// ルール（ご要望）:
+// - 咲田口方面が経路に含まれる場合は新東橋は途中駅扱い
+// - 東橋方面 と 横宿方面 を両方含み、かつ咲田口方面を含まない場合は新東橋を主要駅扱い
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
 
-  // 事前計算：東橋本線 と 横宿線 の配列と 新東橋 の index
   const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
   const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
   const idxNewHigashi = tohashiEastLine.indexOf("新東橋");
 
-  // helper: 東橋線上の駅がどの領域に入るかを判定
   function isEastRegion(s){ const idx = tohashiEastLine.indexOf(s); return idx !== -1 && idx < idxNewHigashi; }      // 東橋側（新東橋より東）
   function isSakitaRegion(s){ const idx = tohashiEastLine.indexOf(s); return idx !== -1 && idx > idxNewHigashi; }    // 咲田口側（新東橋より咲田口側）
   function isYokoLine(s){ return tohashiYokoshukuLine.indexOf(s) !== -1; }
@@ -462,9 +456,6 @@ function majorStops(path){
   const hasSakita = path.some(isSakitaRegion);
   const hasYoko = path.some(isYokoLine);
 
-  // ご要望ルール:
-  // - 咲田口方面 が経路に含まれる場合は、新東橋は途中駅扱い（咲田口 ⇄ 新東橋 ⇄ 東橋/横宿 は途中駅）
-  // - ただし、東橋側 と 横宿線 を同時に含み、かつ咲田口側を含まない場合のみ 新東橋 を主要駅扱いにする
   const shintohashi_should_be_major = (hasEast && hasYoko && !hasSakita);
 
   const majors = [path[0]];
@@ -475,10 +466,9 @@ function majorStops(path){
     const here = path[i];
     const ln = findLineOfSegment(prev, here);
 
-    // 会社や路線が変わるポイント
     let isBoundary = (ln !== curLine);
 
-    // 元の specialMajorStations によるスキップ判定
+    // specialMajorStations のスキップ
     let isSpecialSkip = false;
     if(specialMajorStations.includes(here) && i > 0 && i < path.length-1){
       const before = path[i-1];
@@ -488,14 +478,13 @@ function majorStops(path){
       }
     }
 
-    // 接続駅ルール（prev が connectingStations に該当し、すべての該当エントリを評価）
+    // connectingStations 判定（prev が接続駅候補）
     let connectionSkipPrev = false;
     const conns = connectingStations.filter(c => c.station === prev);
     if(conns && conns.length > 0){
       const idxPrev = i - 1;
       for(const conn of conns){
-        // 変更点：
-        // 新東橋 の connectingStations エントリは shintohashi_should_be_major が true のときに限り無視する（＝主要駅として扱う）
+        // 新東橋エントリは shintohashi_should_be_major が true のときのみ無視（＝主要駅として扱う）
         if(conn.station === "新東橋" && shintohashi_should_be_major){
           continue;
         }
@@ -598,7 +587,7 @@ addViaBtn.addEventListener('click', ()=>{
   viaListDiv.appendChild(viaRow);
 });
 
-// レイアウト補助（省略せず同じロジックを保持）
+// レイアウト補助
 function applyStripedGradientForBigLine(lineElem, dotRect, nextDotRect, parentRect){
   if(!lineElem) return;
   const baseColor = lineElem.dataset.color || '#999';
@@ -764,7 +753,7 @@ function splitByCompany(path){
 function renderRouteCardForPart(part, partIndex){
   const path = part.path;
 
-  // 事前計算：東橋本線 と 横宿線 の配列と 新東橋 の index
+  // 判定を majorStops と一致させるための事前計算
   const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
   const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
   const idxNewHigashi = tohashiEastLine.indexOf("新東橋");
@@ -777,8 +766,8 @@ function renderRouteCardForPart(part, partIndex){
   const hasSakita = path.some(isSakitaRegion);
   const hasYoko = path.some(isYokoLine);
 
-  // render 側でも同じ判定（表示のときに「新東橋の connectingStations を無視するか」を決める）
-  const routeIsEastToYokoAndNotSakita = (hasEast && hasYoko && !hasSakita);
+  // majorStops と同じ条件（表示側）
+  const shintohashi_should_be_major = (hasEast && hasYoko && !hasSakita);
 
   const { majors } = majorStops(path);
 
@@ -930,12 +919,12 @@ function renderRouteCardForPart(part, partIndex){
         for(let bj = betweenStart; bj <= betweenEnd; bj++){
           const jIndex = bj;
           const s = path[jIndex];
-          // connectingStations の複数エントリをすべて評価（ただし新東橋エントリは routeIsEastToYokoAndNotSakita の場合無視）
+          // connectingStations の複数エントリをすべて評価（ただし新東橋エントリは shintohashi_should_be_major の場合無視）
           let isCondMinor = false;
           const condsAll = connectingStations.filter(c => c.station === s);
           let conds = [];
           if(condsAll && condsAll.length > 0){
-            if(s === "新東橋" && routeIsEastToYokoAndNotSakita){
+            if(s === "新東橋" && shintohashi_should_be_major){
               conds = [];
             } else {
               conds = condsAll;
@@ -1094,49 +1083,40 @@ function wireToggleButtons(){
 }
 
 /* ===========================
-   検索イベント
+   検索イベント（修正済み）
    =========================== */
 searchBtn.addEventListener('click', ()=>{
-  const stationSelectsAll = Array.from(document.querySelectorAll('.stationSelect'));
-  const from = stationSelectsAll[0] ? stationSelectsAll[0].value : '';
-  const to = stationSelectsAll[stationSelectsAll.length - 1] ? stationSelectsAll[stationSelects.length - 1].value : (stationSelectsAll[stationSelectsAll.length - 1] ? stationSelectsAll[stationSelectsAll.length - 1].value : '');
-  // 上は安全に最後の stationSelect を取るための保険（既存のUIで問題なければ元に戻してOK）
-
-  // 既存取得を使う（互換性優先）
+  // 一貫して stationSelects を使用（未定義参照を排除）
   const stationSelects = Array.from(document.querySelectorAll('.stationSelect'));
-  const fromVal = stationSelects[0] ? stationSelects[0].value : '';
-  const toVal = stationSelects[stationSelects.length - 1] ? stationSelects[stationSelects.length - 1].value : '';
+  const from = stationSelects[0] ? stationSelects[0].value : '';
+  const to   = stationSelects[stationSelects.length - 1] ? stationSelects[stationSelects.length - 1].value : '';
   const viaSelects = Array.from(viaListDiv.querySelectorAll('.stationSelect'));
   const viaStations = viaSelects.map(s=>s.value).filter(v=>v);
 
-  const f = fromVal || from;
-  const t = toVal || to;
-
-  if(!f || !t){
+  if(!from || !to){
     resultArea.innerHTML = '<div class="card">駅を選択してください</div>';
     return;
   }
-  if(f === t && viaStations.length === 0){
+  if(from === to && viaStations.length === 0){
     resultArea.innerHTML = '<div class="card">発駅と着駅が同じです</div>';
     return;
   }
 
-  const parts = buildRoutePartsAvoidingDuplicates(f, viaStations, t);
+  const parts = buildRoutePartsAvoidingDuplicates(from, viaStations, to);
   if(!parts || parts.length === 0){
     resultArea.innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
     return;
   }
 
-  // 合計距離は小数（そのまま）で計算・表示
+  // 合計距離（小数のまま）
   const totalDistance = parts.reduce((acc,p)=>acc+p.distance, 0);
 
-  // 運賃計算 — 各会社区間ごとに、その区間の小数距離を使って算出
+  // 運賃計算
   let totalFare = 0;
   for(const part of parts){
     const companySegments = splitByCompany(part.path);
     for(const seg of companySegments){
       const spComp = shortestPathWithinCompany(seg.from, seg.to, seg.company);
-      // spComp.distance は小数（切り上げなし）だが fareTouhashi 内で 1km 未満は 1 と扱う仕様
       totalFare += fareByCompany(seg.company, spComp.distance, spComp.path, companySegments);
     }
   }
@@ -1159,7 +1139,6 @@ searchBtn.addEventListener('click', ()=>{
   wireToggleButtons();
   setTimeout(runAdjustments, 0);
 });
-
 </script>
 </body>
 </html>
