@@ -40,11 +40,11 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
 .stationName{font-weight:700;font-size:16px;line-height:1.25;margin:0}
 .lineBadge{display:inline-block;color:#fff;font-size:13.5px;line-height:1;padding:2px 6px;border-radius:6px;margin-top:6px;white-space:nowrap;margin-right:6px}
-.lineBadge img{width:16px;height:16px;vertical-align:middle;margin-right:6px;border-radius:2;object-fit:cover}
+.lineBadge img{width:18px;height:18px;vertical-align:middle;margin-right:6px;border-radius:2;object-fit:cover}
 
 /* 駅名の左に表示するアイコン群（主要駅および途中駅） */
 .stationWithIcons{display:flex;align-items:center;gap:8px}
-.stationIcon{width:20px;height:20px;vertical-align:middle;margin-right:4px;border-radius:2px;display:inline-block;object-fit:cover}
+.stationIcon{width:25px;height:25px;vertical-align:middle;margin-right:4px;border-radius:2px;display:inline-block;object-fit:cover}
 .rowBetween .stationIcon {
   position: relative;
   top: -2px; /* 途中駅のアイコンを1px上に */
@@ -945,9 +945,13 @@ document.addEventListener('DOMContentLoaded', function(){
           const badges = usedLinesForSegment.length > 0 ? usedLinesForSegment : findCommonLines(st, nextStation);
           if(badges.length > 0){
             lineListHtml = badges.map(l => {
-              const imgSrc = (lineIcons[l] && lineIcons[l].trim()) ? lineIcons[l] : defaultIcon;
-              return `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff"><img src="${imgSrc}" alt="${l}" width="16" height="16" loading="eager" decoding="async">${l}</div>`;
-            }).join('');
+  let imgHtml = '';
+  if (l.startsWith("新里鉄道")) {
+    const imgSrc = (lineIcons[l] && lineIcons[l].trim()) ? lineIcons[l] : defaultIcon;
+    imgHtml = `<img src="${imgSrc}" alt="${l}" width="16" height="16" loading="eager" decoding="async">`;
+  }
+  return `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${imgHtml}${l}</div>`;
+}).join('');
           }
         } else if(!nextStation){
           lineListHtml = '';
