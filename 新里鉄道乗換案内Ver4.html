@@ -203,7 +203,44 @@ function buildGraphBidirectional(raw){
 const graph = buildGraphBidirectional(rawGraph);
 const allStations = Array.from(new Set([...Object.keys(graph), ...Object.values(graph).flatMap(x => Object.keys(x))])).sort();
 
-// ============ 運賃ロジック（省略表示なし） ============
+// ============ 運賃ロジック（更新） ============
+
+// 新里鉄道（画像の運賃表に合わせて更新）
+// 0～2:130, 2～5:140, 5～8:160, 8～12:190, 12～16:220,
+// 16～20:250, 20～25:290, 25～30:340, 30～35:390, 35～40:450, 40～50:510, 50～:580
+function fareNiizato(km){
+  const k = (typeof km === 'number' && km > 0) ? km : 0;
+  if(k <= 2) return 130;
+  if(k <= 5) return 140;
+  if(k <= 8) return 160;
+  if(k <= 12) return 190;
+  if(k <= 16) return 220;
+  if(k <= 20) return 250;
+  if(k <= 25) return 290;
+  if(k <= 30) return 340;
+  if(k <= 35) return 390;
+  if(k <= 40) return 450;
+  if(k <= 50) return 510;
+  return 580;
+}
+
+// 豊野鉄道（画像の運賃表に合わせて更新）
+// 0～2:140, 2～4:150, 4～6:170, 6～9:200, 9～12:230,
+// 12～16:270, 16～20:310, 20～25:350, 25～30:400, 30～:450
+function fareToyono(km){
+  const k = (typeof km === 'number' && km > 0) ? km : 0;
+  if(k <= 2) return 140;
+  if(k <= 4) return 150;
+  if(k <= 6) return 170;
+  if(k <= 9) return 200;
+  if(k <= 12) return 230;
+  if(k <= 16) return 270;
+  if(k <= 20) return 310;
+  if(k <= 25) return 350;
+  if(k <= 30) return 400;
+  return 450;
+}
+
 function fareImabashi(km){ return 0; }
 function fareSakuragawa(km){ return 0; }
 function fareSakatsu(km){ return 0; }
@@ -223,22 +260,9 @@ function fareSuzuhama(km){
   if (km <= 60) return 450;
   return 450;
 }
-function fareToyono(km){ return 0; }
-function fareNiizato(km){
-  if(km<=1)return 130;
-  if(km<=2)return 140;
-  if(km<=3)return 150;
-  if(km<=5)return 170;
-  if(km<=8)return 200;
-  if(km<=12)return 240;
-  if(km<=20)return 290;
-  if(km<=30)return 350;
-  if(km<=40)return 420;
-  if(km<=50)return 490;
-  if(km<=59)return 540;
-  return 540;
-}
 
+function fareNiizato_old(km){ return fareNiizato(km); } // 保険
+// fareTouhashi は既存のまま
 function fareTouhashi(km, segPath = [], companySegments = []){
   const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
   // fareTouhashi では東橋本線の index を使って「東橋側の範囲」を判定する仕様を維持しています。
@@ -1093,15 +1117,43 @@ searchBtn.addEventListener('click', ()=>{
   // 合計距離は小数（そのまま）で計算・表示
   const totalDistance = parts.reduce((acc,p)=>acc+p.distance, 0);
 
-  // 運賃計算 — 各会社区間ごとに、その区間の小数距離を使って算出
-  let totalFare = 0;
+  // --- 運賃計算 ---
+  // 各パートごとの会社セグメントを結合して一つの配列にする
+  const allCompanySegments = [];
   for(const part of parts){
-    const companySegments = splitByCompany(part.path);
-    for(const seg of companySegments){
-      const spComp = shortestPathWithinCompany(seg.from, seg.to, seg.company);
-      // spComp.distance は小数（切り上げなし）だが fareTouhashi 内で 1km 未満は 1 と扱う仕様
-      totalFare += fareByCompany(seg.company, spComp.distance, spComp.path, companySegments);
+    const comps = splitByCompany(part.path);
+    for(const c of comps) allCompanySegments.push(c);
+  }
+
+  // 合計運賃の計算（各会社セグメントごとに、その区間の小数距離を使って算出）
+  let totalFare = 0;
+  for(const seg of allCompanySegments){
+    const spComp = shortestPathWithinCompany(seg.from, seg.to, seg.company);
+    totalFare += fareByCompany(seg.company, spComp.distance, spComp.path, allCompanySegments);
+  }
+
+  // 特別割引ルール：
+  // ルートが「新里鉄道」「豊野鉄道」「桜川電気鉄道」のみで構成されている場合、
+  // 合計運賃から（乗り換え回数 × 100円）を引く。
+  // 「乗り換え回数」は会社が変わる回数（隣接する company セグメントの company が異なる回数）で算出。
+  const eligibleCompanies = new Set(["新里鉄道","豊野鉄道","桜川電気鉄道"]);
+  const usedCompaniesSet = new Set(allCompanySegments.map(s => s.company).filter(Boolean));
+  let applyDiscount = true;
+  if(usedCompaniesSet.size === 0) applyDiscount = false;
+  for(const c of usedCompaniesSet){
+    if(!eligibleCompanies.has(c)){ applyDiscount = false; break; }
+  }
+
+  if(applyDiscount){
+    // 乗り換え回数の計算（すべての company セグメントを時系列に並べたうえでの変化回数）
+    let transferCount = 0;
+    for(let i=1;i<allCompanySegments.length;i++){
+      const prev = allCompanySegments[i-1].company;
+      const cur = allCompanySegments[i].company;
+      if(prev !== cur) transferCount++;
     }
+    const discount = transferCount * 100;
+    totalFare = Math.max(0, totalFare - discount);
   }
 
   const headerHtml = `
