@@ -34,7 +34,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;align-items:start;column-gap:10px;position:relative;}
 .railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
 .railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:2;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;}
-.rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:49.5%;top:0;transform:translateX(-50%);z-index:2;}
+.rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:2;}
 .railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
 .railLineMinor{width:var(--lineWMinor);border-radius:1px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
 .stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
@@ -250,7 +250,18 @@ document.addEventListener('DOMContentLoaded', function(){
         "玖川": "https://img.atwiki.jp/niizato-area/attach/18/87/N05.png",
         "中野原": "https://img.atwiki.jp/niizato-area/attach/18/86/N06.png",
       },
-      "新里鉄道彩山線": {}
+      "新里鉄道彩山線": {
+        "彩山": "https://img.atwiki.jp/niizato-area/attach/19/101/S01.png",
+        "彩山口": "https://img.atwiki.jp/niizato-area/attach/19/100/S02.png",
+        "新里国際スキー場": "https://img.atwiki.jp/niizato-area/attach/19/99/S03.png",
+        "鷹見台": "https://img.atwiki.jp/niizato-area/attach/19/98/S04.png",
+        "久我原": "https://img.atwiki.jp/niizato-area/attach/19/97/S05.png",
+        "浪原": "https://img.atwiki.jp/niizato-area/attach/19/96/S06.png",
+        "深江": "https://img.atwiki.jp/niizato-area/attach/19/95/S07.png",
+        "三栗谷": "https://img.atwiki.jp/niizato-area/attach/19/94/S08.png",
+        "桜川公園": "https://img.atwiki.jp/niizato-area/attach/19/93/S09.png",
+        "桜川": "https://img.atwiki.jp/niizato-area/attach/19/92/S10.png",
+      }
     };
     // 空文字や未定義の場合は lineIcons（路線アイコン）を代替として使います。
 
