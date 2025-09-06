@@ -185,7 +185,6 @@ document.addEventListener('DOMContentLoaded', function(){
     };
 
     // ==== 駅画像定義（駅ごとに路線別の画像を格納） ====
-    // stationIcons[路線名][駅名] = "https://.../image.png"
     const stationIcons = {
       "新里鉄道湯の浜線": {
         "豊町": "https://img.atwiki.jp/niizato-area/attach/15/38/Y01.png",
@@ -275,16 +274,12 @@ document.addEventListener('DOMContentLoaded', function(){
         } catch(e){}
       });
     }
-    // 収集して少数プリロード
     (function(){
       const urls = [];
-      // lineIcons
       Object.values(lineIcons).forEach(u => { if(u && u.trim()) urls.push(u); });
-      // stationIcons nested
       Object.values(stationIcons).forEach(m=>{
         Object.values(m).forEach(u => { if(u && u.trim()) urls.push(u); });
       });
-      // 最大40個だけプリロード（やりすぎ回避）
       if(urls.length) preloadImages(urls.slice(0,40));
     })();
 
@@ -576,9 +571,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // === 特例：りんくう桜川 ⇄ 桜川国際空港 の扱い ===
     function specialFareCheckForAirportPair(path, km){
-      // pathはその会社セグメントの駅配列（from...to）。kmは距離。
-      // 条件：区間がちょうど「りんくう桜川」-「桜川国際空港」のみの場合は
-      // 鈴浜（鈴浜電気鉄道）と桜川（空港線）の双方で計算して安い方を採用する。
       if(path && path.length === 2){
         const a = path[0], b = path[1];
         const isPair = ( (a === 'りんくう桜川' && b === '桜川国際空港') || (a === '桜川国際空港' && b === 'りんくう桜川') );
@@ -600,7 +592,7 @@ document.addEventListener('DOMContentLoaded', function(){
             return 450;
           };
           // 桜川空港線運賃（空港線は桜川電気鉄道の運賃ロジックを利用）
-          const fareAirportLine = fareToyono(km); // 桜川電気鉄道空港線は豊野運賃表と同一（既存のロジックでは桜川は別関数だがここは空港線用に豊野を参照する）
+          const fareAirportLine = fareToyono(km);
           return Math.min(fareSuzuhama(km), fareAirportLine);
         }
       }
@@ -1228,11 +1220,8 @@ document.addEventListener('DOMContentLoaded', function(){
         if(nextStation && iFrom !== -1 && iTo !== -1){
           for(let j = iFrom; j < iTo; j++){
             if(j+1 > iTo) break;
-            // 途中駅表示（簡易）
             const a = path[j], b = path[j+1];
-            // 途中駅の色はその区間の路線色を使う（単一の場合）
             let segLine = findLineOfSegment(a,b);
-            // 特例：りんくう桜川 - 桜川国際空港 のペアは接続側の会社名で案内するよう優先処理
             if((a === 'りんくう桜川' && b === '桜川国際空港') || (a === '桜川国際空港' && b === 'りんくう桜川')){
               let preferred = null;
               if(j-1 >= 0){
@@ -1267,36 +1256,23 @@ document.addEventListener('DOMContentLoaded', function(){
       return routeHtml;
     }
 
-    function findCommonLines(a,b){
-      const list = [];
-      for(const [line,stations] of Object.entries(stationLines)){
-        if(stations.indexOf(a) !== -1 && stations.indexOf(b) !== -1) list.push(line);
-      }
-      return list;
-    }
-
     // 実際の検索と結果表示（元ロジックを尊重して実装）
     function computeAndRender(from, viaArr, to){
       resultArea.innerHTML = '';
       const parts = buildRoutePartsAvoidingDuplicates(from, viaArr, to);
-      if(!parts){ resultArea.innerHTML = '<div class=\"card\">経路が見つかりません。</div>'; return; }
+      if(!parts){ resultArea.innerHTML = '<div class="card">経路が見つかりません。</div>'; return; }
 
-      // 各 part は path + distance のオブジェクト（path:駅配列, distance:km）
       parts.forEach((p, idx) => {
-        // 分割：会社ごとに分ける
         const companySegs = splitByCompany(p.path);
-        // 各会社セグメントごとに距離を算出（最短会社内距離で計算）
         const segsDetailed = [];
         for(const seg of companySegs){
-          // shortest path within that company for precise distance
           const sp = shortestPathWithinCompany(seg.from, seg.to, seg.company);
-          const usedPath = sp.path.length ? sp.path : (function(){ // fallback: the portion of p.path between from..to
+          const usedPath = sp.path.length ? sp.path : (function(){
             const aidx = p.path.indexOf(seg.from);
             const bidx = p.path.indexOf(seg.to);
             if(aidx !== -1 && bidx !== -1) return p.path.slice(aidx, bidx+1);
             return [seg.from, seg.to];
           })();
-          // distance compute along usedPath via graph edges
           let dist = 0;
           for(let i=0;i<usedPath.length-1;i++){
             const a = usedPath[i], b = usedPath[i+1];
@@ -1305,25 +1281,22 @@ document.addEventListener('DOMContentLoaded', function(){
           segsDetailed.push({ company: seg.company, path: usedPath, distance: dist, from: seg.from, to: seg.to });
         }
 
-        // 全体のHTML（パート単位）
-        // renderRouteCardForPart expects a part with path: full p.path
         const html = renderRouteCardForPart({ path: p.path, distance: p.distance }, idx);
         const container = document.createElement('div');
         container.innerHTML = html;
         resultArea.appendChild(container);
 
-        // 料金計算部分（各会社セグメントについて運賃を合算）
         let totalFare = 0;
-        let fareBreakdownHtml = '<div style=\"margin-top:8px\">';
+        let fareBreakdownHtml = '<div style="margin-top:8px">';
         for(const sd of segsDetailed){
           const company = sd.company;
           const km = sd.distance;
-          const companySegmentsContext = segsDetailed; // 全セグを渡す（東橋割引等で利用）
+          const companySegmentsContext = segsDetailed;
           const f = fareByCompany(company, km, sd.path, companySegmentsContext);
           totalFare += f;
           fareBreakdownHtml += `<div>${company}：${sd.from} → ${sd.to} （${km.toFixed(1)} km） = <strong>${f} 円</strong></div>`;
         }
-        fareBreakdownHtml += `<div style=\"margin-top:6px\">合計運賃：<strong>${totalFare} 円</strong></div>`;
+        fareBreakdownHtml += `<div style="margin-top:6px">合計運賃：<strong>${totalFare} 円</strong></div>`;
         fareBreakdownHtml += '</div>';
 
         const fareDiv = document.createElement('div');
@@ -1349,11 +1322,9 @@ document.addEventListener('DOMContentLoaded', function(){
       computeAndRender(fromStation, via, toStation);
     });
 
-    // 初回表示例（元のUIと同じ動作）
-    // computeAndRender('新里','', '燠野温泉'); // デフォルトは未実行（ユーザ操作を待つ）
   } catch(e){
     const out = document.getElementById('resultArea');
-    if(out) out.innerHTML = '<div class=\"card\" style=\"color:#b00020\">初期化エラー: '+ (e && e.message || e) +'</div>';
+    if(out) out.innerHTML = '<div class="card" style="color:#b00020">初期化エラー: '+ (e && e.message || e) +'</div>';
     console.error(e);
   }
 });
