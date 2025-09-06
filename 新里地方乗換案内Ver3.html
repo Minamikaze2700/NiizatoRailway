@@ -264,23 +264,52 @@ document.addEventListener('DOMContentLoaded', function(){
       }
     };
 
-    // ---- 画像のプリロード（重要アイコンだけ軽めにプリロード） ----
+    // ---- 画像のプリロード（関数定義：必要な画像のみプリロードする） ----
     function preloadImages(urls){
-      urls.forEach(u => {
-        if(!u) return;
+      // urls: string[]
+      const uniq = Array.from(new Set((urls||[]).filter(u=>u && u.trim())));
+      for(const u of uniq){
         try {
           const img = new Image();
           img.src = u;
         } catch(e){}
-      });
+      }
     }
-    (function(){
-      const urls = [];
-      Object.values(lineIcons).forEach(u => { if(u && u.trim()) urls.push(u); });
-      Object.values(stationIcons).forEach(m=>{
-        Object.values(m).forEach(u => { if(u && u.trim()) urls.push(u); });
+
+    // ルート（parts）から必要な画像URLを収集する関数
+    function gatherImageURLsForParts(parts){
+      const urls = new Set();
+      if(!parts || !Array.isArray(parts)) return [];
+      for(const part of parts){
+        const path = part.path || [];
+        for(let i=0;i<path.length;i++){
+          const st = path[i];
+          // 駅アイコン（路線ごとに探す）
+          for(const [ln, map] of Object.entries(stationIcons || {})){
+            if(map && map[st]) urls.add(map[st]);
+          }
+          // その駅から次駅への辺に関係する路線アイコン
+          if(i < path.length - 1){
+            const ln = findLineOfSegment(path[i], path[i+1]);
+            if(ln && lineIcons[ln]) urls.add(lineIcons[ln]);
+          }
+        }
+      }
+      return Array.from(urls);
+    }
+
+    // フルフォールバック：全画像を集める（stationIcons + lineIcons）
+    function gatherAllKnownImageURLs(){
+      const urls = new Set();
+      Object.values(lineIcons || {}).forEach(u => { if(u && u.trim()) urls.add(u); });
+      Object.values(stationIcons || {}).forEach(map => {
+        Object.values(map || {}).forEach(u => { if(u && u.trim()) urls.add(u); });
       });
-      if(urls.length) preloadImages(urls.slice(0,40));
+      return Array.from(urls);
+    }
+
+    (function(){
+      // 初期時点ではプリロードしない（検索結果に応じて後でプリロード）
     })();
 
     // ==== 距離グラフ ====
@@ -1227,8 +1256,17 @@ document.addEventListener('DOMContentLoaded', function(){
       if(!from || !to){ alert('発着駅を選択してください'); return; }
       const parts = buildRoutePartsAvoidingDuplicates(from, via, to);
       if(!parts){ resultArea.innerHTML = '<div class="card">経路を構築できませんでした（指定経路に未接続の箇所があります）</div>'; return; }
-      // parts は {path:[], distance: } の配列
-      // ここでは単純に表示する
+
+      // --- ここでルートに必要な画像のみプリロードする（要求どおり） ---
+      const urls = gatherImageURLsForParts(parts);
+      if(urls.length === 0){
+        // 取得できなかった場合は全てをプリロード（フォールバック）
+        preloadImages(gatherAllKnownImageURLs());
+      } else {
+        preloadImages(urls);
+      }
+
+      // 出力（表示）は元のプログラムのまま
       renderFullRoute(parts);
     });
 
