@@ -1,0 +1,1485 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>新里地方 乗換案内</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --bg:#f1f5f9;
+  --card:#fff;
+  --muted:#667085;
+  --radius:12px;
+  --gutter:34px;
+  --dotMajor:16px;
+  --dotMinor:12px;
+  --lineWMajor:5px;
+  --lineWMinor:5px;
+  --font-sans:"Hiragino Kaku Gothic ProN","Meiryo",system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif;
+}
+html,body{height:100%;margin:0;font-family:var(--font-sans);background:var(--bg);color:#0b1324}
+.wrap{max-width:980px;margin:28px auto;padding:20px}
+h1{margin:0 0 12px;font-size:20px}
+.card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:0 8px 24px rgba(2,6,23,0.07);margin-bottom:12px}
+.row{display:flex;gap:12px;align-items:flex-start;flex-direction:column}
+.col{display:flex;flex-direction:column;gap:6px;position:relative;align-items:flex-start}
+select,button{font-size:14px;padding:8px 10px;border-radius:4px;border:1px solid #d1d5db;background:#fff}
+label{font-size:13px;color:var(--muted)}
+button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
+.resultHeader{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.resultHeader .meta{display:flex;gap:18px;color:#111}
+
+/* 路線図レイアウト */
+.routeLine{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;align-items:start;column-gap:10px;position:relative;}
+.railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
+.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:2;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;}
+.rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:51%;top:0;transform:translateX(-50%);z-index:2;}
+.railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
+.railLineMinor{width:var(--lineWMinor);border-radius:1px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:0;height:0;background:#999;}
+.stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
+.stationName{font-weight:700;font-size:16px;line-height:1.25;margin:0}
+.lineBadge{display:inline-block;color:#fff;font-size:13.5px;line-height:1;padding:2px 6px;border-radius:6px;margin-top:6px;white-space:nowrap;margin-right:6px}
+.lineBadge img{width:18px;height:18px;vertical-align:middle;margin-right:6px;border-radius:2;object-fit:cover}
+
+/* 駅名の左に表示するアイコン群（主要駅および途中駅） */
+.stationWithIcons{display:flex;align-items:center;gap:0px}
+.stationIcon{width:25px;height:25px;vertical-align:middle;margin-right:4px;border-radius:2px;display:inline-block;object-fit:cover}
+.rowBetween .stationIcon {
+  position: relative;
+  top: -5px; /* 途中駅のアイコンを1px上に */
+}
+.toggleWrap{margin-top:6px}
+.toggleBtn{cursor:pointer;padding:4px 8px;font-size:12px}
+.rowBetween{display:grid;grid-template-columns:var(--gutter) 1fr;column-gap:10px;align-items:start;height:auto;padding-top:12px;}
+.rowBetween .stationText{display:flex;align-items:flex-start;padding-top:0;}
+.minorName{font-size:15px;font-weight:300;margin:0;position:relative;top:-4px;}
+.condMinorName{font-size:15px;font-weight:300;margin:0;position:relative;top:-4px;color:#333;}
+.rowBetween .railLineMinor{height:48px;}
+.betweenList{ display:none; }
+.spacer4{height:4px}
+.spacer6{height:6px}
+.viaList{display:flex;flex-direction:column;gap:6px;margin:6px 0;align-items:flex-start}
+.viaRow{display:flex;align-items:center;gap:6px;justify-content:flex-start}
+.viaRow button{font-size:12px;padding:4px 6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>新里地方 乗換案内</h1>
+
+<div class="card">
+  <div id="stationSelector">
+    <div class="row">
+      <div class="col">
+        <label>発駅</label>
+        <div style="display:flex;gap:6px">
+          <select class="lineSelect" id="fromLine"></select>
+          <select class="stationSelect" id="fromStation"></select>
+        </div>
+      </div>
+
+      <div class="col">
+        <label>経由地</label>
+        <div class="viaList" id="viaList"></div>
+        <button id="addViaBtn" class="primary">経由地を追加</button>
+      </div>
+
+      <div class="col">
+        <label>着駅</label>
+        <div style="display:flex;gap:6px">
+          <select class="lineSelect" id="toLine"></select>
+          <select class="stationSelect" id="toStation"></select>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:flex-end;">
+        <button id="searchBtn" class="primary">検索</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="resultArea"></div>
+</div>
+
+<script>
+/* === グローバルなエラーハンドラ（画面に出す） === */
+window.addEventListener('error', function(ev){
+  const msg = ev && (ev.message || (ev.error && ev.error.message)) || String(ev);
+  console.error('Window error:', ev);
+  const out = document.getElementById('resultArea');
+  if(out) out.innerHTML = '<div class="card" style="color:#b00020">JS エラー: '+ msg +'</div>';
+});
+window.addEventListener('unhandledrejection', function(ev){
+  console.error('UnhandledRejection', ev);
+  const out = document.getElementById('resultArea');
+  if(out) out.innerHTML = '<div class="card" style="color:#b00020">Promise Rejection: '+ (ev.reason && (ev.reason.message || JSON.stringify(ev.reason)) || String(ev.reason)) +'</div>';
+});
+
+/* === DOM が準備されてから全初期化を行う === */
+document.addEventListener('DOMContentLoaded', function(){
+  try {
+    // ==== 駅・路線データ （横宿線は逆順） ====
+    const stationLines = {
+     "新里鉄道湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
+     "新里鉄道燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
+     "新里鉄道鶴宮線":["鶴宮","南鶴宮","あずさ台","橘町","燠野山口","白枝","燠野","紅葉台","桐山","湊川","彩山親水公園","彩山","蓮華寺","星宮","田ノ原"],
+     "新里鉄道新里線":["新里","南新里","田ノ原","北玖川","玖川","中野原"],
+     "新里鉄道彩山線":["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"],
+    "鈴浜電気鉄道鈴浜電鉄線":["桜川国際空港(鈴浜電鉄)","りんくう桜川","余田","白砂","千種園","大三浜","外神","紅原台","恋野宮","南河都","河都","北河都","百合ヶ丘公園","猫崎海岸","籾井","白木稲荷","流沢温泉口","流沢温泉","京新峡","奥沢高原","原津","神道山口","新的場","虹川","片牧町","鬼越峠","北鶴宮"],
+    "桜川電気鉄道彩山線":["喜多瀬浜","喜多瀬","久我山","桜鉄彩山口"],
+    "桜川電気鉄道空港線":["桜川","公園東口","桜川公園北口","御厨","南深江","北深江","桜鉄浪原","東浪原","喜多瀬浜","葵台","汐見台","月野原","高瀬","結原","りんくう桜川","桜川国際空港(桜川電鉄)"],
+    "桜川電気鉄道桜州環状線":["八軒町","川渡","西中野","中野","東中野","桜台","福原","桜鉄久我原","浪原","桜鉄浪原","彩山川","似島","中洲","糸島","南糸島","野瀬","新浜","海岸通り","桜町","東片野","東新地","新地"],
+    "桜川電気鉄道中野線":["中野","南中野","大里","栄町","北桜川","桜川","南桜川","東豊野","すすき野","永田","平川","片野","北新地","新地"],
+      "豊野鉄道豊野線":["糸島","西糸島","平田","文京町","東桜川","桜川","豊野月見台","豊野","西豊野","白州川","春田","桜峠","桑畑","常盤台","天津川","広野","追分","野川","幕生","羽草","清見台","東園木","園木"],
+    "豊野鉄道新地線":["春田","南春田","日野原","加納","永楽町","室町","西新地","新地"],
+    "豊野鉄道坂川線":["桑畑","北桑畑","坂川","天津温泉"],
+      "坂津電鉄坂津本線":["坂津港","港通","坂電坂津","大井野","中天神町","飯倉町","酒何町","能地","初川","春原","岩川崎"],
+    "坂津電鉄豊町線":["豊町","削野","勝垰","重石町","東坂津","港通"],
+      "坂津ポートライナー線":["横宿","北横宿","総合運動場","郡元","鈴里","港通","坂津港"],
+    "今橋鉄道成津線":["今橋","新今橋","土川","小弥又","大弥又","今橋学園前","久末","大町","成津","東成津","津塚","牛ヶ瀬","松橋","合浜","綿部","陣中原","萱海","弦川","二番街","高越","築田市","南築田","榎仏子","高座","口松","津垣","大道寺"],
+    "今橋鉄道豊海線":["成津","北成津","原葉","徳橋","発樫","豊海","虹松","甲部","夕陽ヶ浜","艶華","富士町","園木"],
+      "東橋鉄道東橋本線":[
+        "東橋","河井町","黒田","新東橋","浅見","柴若","六日市通","岩田城","内山","新荘",
+        "葉賀ノ台","木森","理李ヶ丘","小査","寺尾","栗島","宮間","大木沢","園木","新東園木",
+        "綾山","豊川大野","垂生崎","南豊川","幕ヶ原","咲田口"
+      ],
+      // 横宿線を逆順にしました（ユーザ指定）
+      "東橋鉄道横宿線":[
+        "横宿","日森町","和泉原","朋田","小柴","新大崎","杜山","東黒田","新東橋"
+      ]
+    };
+
+    const lineColors = {
+      "新里鉄道湯の浜線":"#00bfff",
+      "新里鉄道燠野線":"#ff4d6d",
+      "新里鉄道鶴宮線":"#ffa500",
+      "新里鉄道新里線":"#228b22",
+      "新里鉄道彩山線":"#32cd32",
+      "鈴浜電気鉄道鈴浜電鉄線":"#0c9451",
+      "桜川電気鉄道彩山線":"#20b07b",
+      "桜川電気鉄道中野線":"#e296f1",
+      "桜川電気鉄道空港線":"#2dbbe5",
+      "桜川電気鉄道桜州環状線":"#f18b23",
+      "豊野鉄道豊野線":"#239d54",
+      "豊野鉄道新地線":"#f06719",
+      "豊野鉄道坂川線":"#fdc01f",
+      "坂津電鉄坂津本線":"#0044cc",
+      "坂津電鉄豊町線":"#0044cc",
+      "坂津ポートライナー線":"#33ccff",
+      "今橋鉄道豊海線":"#1f1fff",
+      "今橋鉄道成津線":"#ff0000",
+      "東橋鉄道東橋本線":"#00cc99",
+      "東橋鉄道横宿線":"#0099cc"
+    };
+
+    // ==== 路線アイコン定義（路線バッジ用） ====
+    const defaultIcon = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"></svg>';
+    const lineIcons = {
+      "新里鉄道湯の浜線": "https://img.atwiki.jp/niizato-area/attach/15/105/Yunohama.png",
+      "新里鉄道燠野線": "https://img.atwiki.jp/niizato-area/attach/16/106/Atano.png",
+      "新里鉄道鶴宮線": "https://img.atwiki.jp/niizato-area/attach/17/104/Tsurumiya.png",
+      "新里鉄道彩山線": "https://img.atwiki.jp/niizato-area/attach/19/103/Sayama.png",
+      "新里鉄道新里線": "https://img.atwiki.jp/niizato-area/attach/18/108/Niizato.png"
+    };
+
+    // ==== 駅画像定義（駅ごとに路線別の画像を格納） ====
+    // stationIcons[路線名][駅名] = "https://.../image.png"
+    const stationIcons = {
+      "新里鉄道湯の浜線": {
+        "豊町": "https://img.atwiki.jp/niizato-area/attach/15/38/Y01.png",
+        "東豊町": "https://img.atwiki.jp/niizato-area/attach/15/37/Y02.png",
+        "清水浜": "https://img.atwiki.jp/niizato-area/attach/15/40/Y03.png",
+        "安田町": "https://img.atwiki.jp/niizato-area/attach/15/39/Y04.png",
+        "南栃原": "https://img.atwiki.jp/niizato-area/attach/15/62/Y05.png",
+        "栃原": "https://img.atwiki.jp/niizato-area/attach/15/61/Y06.png",
+        "宇城": "https://img.atwiki.jp/niizato-area/attach/15/60/Y07.png",
+        "須川": "https://img.atwiki.jp/niizato-area/attach/15/59/Y08.png",
+        "御浜埼公園": "https://img.atwiki.jp/niizato-area/attach/15/58/Y09.png",
+        "御浜": "https://img.atwiki.jp/niizato-area/attach/15/57/Y10.png",
+        "伊坂": "https://img.atwiki.jp/niizato-area/attach/15/56/Y11.png",
+        "垳下": "https://img.atwiki.jp/niizato-area/attach/15/55/Y12.png",
+        "北浜": "https://img.atwiki.jp/niizato-area/attach/15/54/Y13.png",
+        "西新里": "https://img.atwiki.jp/niizato-area/attach/15/53/Y14.png",
+        "新里": "https://img.atwiki.jp/niizato-area/attach/15/52/Y15.png",
+        "河岸": "https://img.atwiki.jp/niizato-area/attach/15/51/Y16.png",
+        "新里海浜公園": "https://img.atwiki.jp/niizato-area/attach/15/50/Y17.png",
+        "湯の浜海岸": "https://img.atwiki.jp/niizato-area/attach/15/49/Y18.png",
+        "湯の浜": "https://img.atwiki.jp/niizato-area/attach/15/48/Y19.png",
+        "七浦": "https://img.atwiki.jp/niizato-area/attach/15/47/Y20.png",
+        "那珂町": "https://img.atwiki.jp/niizato-area/attach/15/46/Y21.png",
+        "宇多野": "https://img.atwiki.jp/niizato-area/attach/15/45/Y22.png",
+        "伊奈崎": "https://img.atwiki.jp/niizato-area/attach/15/44/Y23.png",
+        "鶴宮神社": "https://img.atwiki.jp/niizato-area/attach/15/43/Y24.png",
+        "鶴宮": "https://img.atwiki.jp/niizato-area/attach/15/42/Y25.png",
+        "北鶴宮": "https://img.atwiki.jp/niizato-area/attach/15/41/Y26.png",
+      },
+      "新里鉄道燠野線": {
+        "湯の浜": "https://img.atwiki.jp/niizato-area/attach/16/70/A01.png",
+        "新里大学前": "https://img.atwiki.jp/niizato-area/attach/16/69/A02.png",
+        "綾原": "https://img.atwiki.jp/niizato-area/attach/16/68/A03.png",
+        "福来": "https://img.atwiki.jp/niizato-area/attach/16/67/A04.png",
+        "燠野": "https://img.atwiki.jp/niizato-area/attach/16/66/A05.png",
+        "湯川": "https://img.atwiki.jp/niizato-area/attach/16/65/A06.png",
+        "温泉口": "https://img.atwiki.jp/niizato-area/attach/16/64/A07.png",
+        "燠野温泉": "https://img.atwiki.jp/niizato-area/attach/16/63/A08.png"
+      },
+      "新里鉄道鶴宮線": {
+        "鶴宮": "https://img.atwiki.jp/niizato-area/attach/17/84/T01.png",
+        "南鶴宮": "https://img.atwiki.jp/niizato-area/attach/17/83/T02.png",
+        "あずさ台": "https://img.atwiki.jp/niizato-area/attach/17/82/T03.png",
+        "橘町": "https://img.atwiki.jp/niizato-area/attach/17/81/T04.png",
+        "燠野山口": "https://img.atwiki.jp/niizato-area/attach/17/80/T05.png",
+        "白枝": "https://img.atwiki.jp/niizato-area/attach/17/79/T06.png",
+        "燠野": "https://img.atwiki.jp/niizato-area/attach/17/78/T07.png",
+        "紅葉台": "https://img.atwiki.jp/niizato-area/attach/17/77/T08.png",
+        "桐山": "https://img.atwiki.jp/niizato-area/attach/17/76/T09.png",
+        "湊川": "https://img.atwiki.jp/niizato-area/attach/17/75/T10.png",
+        "彩山親水公園": "https://img.atwiki.jp/niizato-area/attach/17/74/T11.png",
+        "彩山": "https://img.atwiki.jp/niizato-area/attach/17/73/T12.png",
+        "蓮華寺": "https://img.atwiki.jp/niizato-area/attach/17/72/T13.png",
+        "星宮": "https://img.atwiki.jp/niizato-area/attach/17/71/T14.png",
+        "田ノ原": "https://img.atwiki.jp/niizato-area/attach/17/85/T15.png"
+      },
+      "新里鉄道新里線": {
+        "新里": "https://img.atwiki.jp/niizato-area/attach/18/91/N01.png",
+        "南新里": "https://img.atwiki.jp/niizato-area/attach/18/90/N02.png",
+        "田ノ原": "https://img.atwiki.jp/niizato-area/attach/18/89/N03.png",
+        "北玖川": "https://img.atwiki.jp/niizato-area/attach/18/88/N04.png",
+        "玖川": "https://img.atwiki.jp/niizato-area/attach/18/87/N05.png",
+        "中野原": "https://img.atwiki.jp/niizato-area/attach/18/86/N06.png",
+      },
+      "新里鉄道彩山線": {
+        "彩山": "https://img.atwiki.jp/niizato-area/attach/19/101/S01.png",
+        "彩山口": "https://img.atwiki.jp/niizato-area/attach/19/100/S02.png",
+        "新里国際スキー場": "https://img.atwiki.jp/niizato-area/attach/19/99/S03.png",
+        "鷹見台": "https://img.atwiki.jp/niizato-area/attach/19/98/S04.png",
+        "久我原": "https://img.atwiki.jp/niizato-area/attach/19/97/S05.png",
+        "浪原": "https://img.atwiki.jp/niizato-area/attach/19/96/S06.png",
+        "深江": "https://img.atwiki.jp/niizato-area/attach/19/95/S07.png",
+        "三栗谷": "https://img.atwiki.jp/niizato-area/attach/19/94/S08.png",
+        "桜川公園": "https://img.atwiki.jp/niizato-area/attach/19/93/S09.png",
+        "桜川": "https://img.atwiki.jp/niizato-area/attach/19/92/S10.png",
+      }
+    };
+    // 空文字や未定義の場合は lineIcons（路線アイコン）を代替として使います。
+
+    // ---- 画像のプリロード（重要アイコンだけ軽めにプリロード） ----
+    function preloadImages(urls){
+      urls.forEach(u => {
+        if(!u) return;
+        try {
+          const img = new Image();
+          img.src = u;
+        } catch(e){}
+      });
+    }
+    // 初期プリロードは行わず、ルートに含まれる路線と駅のみをプリロードします。
+    // プリロードは renderRouteCardForPart() 内で行います。
+
+
+    // ==== 距離グラフ ====
+    const rawGraph={"豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},"安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},"栃原":{"宇城":2.2},"宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},"御浜":{"伊坂":2.5},"伊坂":{"垳下":2.6},"垳下":{"北浜":2.3},"北浜":{"西新里":1.4},"西新里":{"新里":1.7},"新里":{"河岸":0.9,"南新里":2.5},"河岸":{"新里海浜公園":1.7},"新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5},"湯の浜":{"七浦":2.5,"新里大学前":0.8},"七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},"伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.1,"南鶴宮":1.7},"新里大学前":{"綾原":0.7},"綾原":{"福来":1.2},"福来":{"燠野":1.4},"燠野":{"湯川":2.6,"紅葉台":1.1},"湯川":{"温泉口":1.6},"温泉口":{"燠野温泉":1.9},"南鶴宮":{"あずさ台":1.4},"あずさ台":{"橘町":1.8},"橘町":{"燠野山口":1.1},"燠野山口":{"白枝":1.2},"白枝":{"燠野":1.1},"紅葉台":{"桐山":0.8},"桐山":{"湊川":0.8},"湊川":{"彩山親水公園":1.1},"彩山親水公園":{"彩山":1.2},"彩山":{"蓮華寺":0.8,"彩山口":2.1},"蓮華寺":{"星宮":1.1},"星宮":{"田ノ原":1.1},"南新里":{"田ノ原":2.3},"田ノ原":{"北玖川":2.4},"北玖川":{"玖川":3.1},"玖川":{"中野原":3.1},"彩山口":{"新里国際スキー場":3.4},"新里国際スキー場":{"鷹見台":10.7},"鷹見台":{"久我原":2.7},"久我原":{"浪原":1.5},"浪原":{"深江":1.4,"桜鉄浪原": 1.2},"深江":{"三栗谷":1.3},"三栗谷":{"桜川公園":1.5},"桜川公園":{"桜川":2.2},"北鶴宮":{"鬼越峠":2.6},"鬼越峠":{"片牧町":3.1},"片牧町":{"虹川":2.2},"虹川":{"新的場":1.9},"新的場":{"神道山口":2.8},"神道山口":{"原津":2.6},"原津":{"奥沢高原":1.7},"奥沢高原":{"京新峡":2.0},"京新峡":{"流沢温泉":1.9},"流沢温泉":{"流沢温泉口":2.5},"流沢温泉口":{"白木稲荷":2.0},"白木稲荷":{"籾井":2.4},"籾井":{"猫崎海岸":2.3},"猫崎海岸":{"百合ヶ丘公園":2.1},"百合ヶ丘公園":{"北河都":2.7},"北河都":{"河都":2.1},"河都":{"南河都":1.7},"南河都":{"恋野宮":2.2},"恋野宮":{"紅原台":2.4},"紅原台":{"外神":2.4},"外神":{"大三浜":1.9},"大三浜":{"千種園":2.1},"千種園":{"白砂":2.3},"白砂":{"余田":2.2},"余田":{"りんくう桜川":2.3},"富士町":{"艶華":1.1},"艶華":{"夕陽ヶ浜":0.7},"夕陽ヶ浜":{"甲部":1.0},"甲部":{"虹松":0.8},"虹松":{"豊海":0.9},"豊海":{"発樫":0.8},"発樫":{"徳橋":1.0},"徳橋":{"原葉":1.1},"原葉":{"北成津":1.2},"北成津":{"成津":1.1},"大道寺":{"津垣":1.2},"津垣":{"口松":0.9},"口松":{"高座":0.8},"高座":{"榎仏子":0.9},"榎仏子":{"南築田":0.9},"南築田":{"築田市":0.7},"築田市":{"高越":1.0},"高越":{"二番街":1.1},"二番街":{"弦川":1.0},"弦川":{"萱海":0.9},"萱海":{"陣中原":0.8},"陣中原":{"綿部":0.9},"綿部":{"合浜":0.9},"合浜":{"松橋":0.8},"松橋":{"牛ヶ瀬":1.1},"牛ヶ瀬":{"津塚":1.0},"津塚":{"東成津":0.8},"東成津":{"成津":1.2},"成津":{"大町":1.1},"大町":{"久末":1.3},"久末":{"今橋学園前":0.9},"今橋学園前":{"大弥又":0.8},"大弥又":{"小弥又":0.9},"小弥又":{"土川":0.9},"土川":{"新今橋":1.2},"新今橋":{"今橋":1.3},"糸島":{"西糸島":1.4},"西糸島":{"平田":1.7},"平田":{"文京町":1.2},"文京町":{"東桜川":1.8},"東桜川":{"桜川":1.5},"桜川":{"豊野月見台":1.3,"公園東口": 1.3,"南桜川": 1.0},"豊野月見台":{"豊野":1.9},"豊野":{"西豊野":1.6},"西豊野":{"白州川":1.2},"白州川":{"春田":1.8},"春田":{"桜峠":3.6,"南春田":1.5},"桜峠":{"桑畑":4.3},"桑畑":{"常盤台":1.5,"北桑畑":1.3},"常盤台":{"天津川":1.1},"天津川":{"広野":1.9},"広野":{"追分":1.6},"追分":{"野川":1.2},"野川":{"幕生":1.8},"幕生":{"羽草":1.3},"羽草":{"清見台":1.7},"清見台":{"東園木":1.4},"東園木":{"園木":1.5},"南春田":{"日野原":1.4},"日野原":{"加納":1.3},"加納":{"永楽町":1.2},"永楽町":{"室町":1.1},"室町":{"西新地":1.2},"西新地":{"新地":1.1},"北桑畑":{"坂川":1.6},"坂川":{"天津温泉":1.8},
+      "東橋": { "河井町": 2.2 },"りんくう桜川":{"桜川国際空港(桜川電鉄)":1.1,"桜川国際空港(鈴浜電鉄)":1.1},
+      "河井町": { "黒田": 2.1 },
+      "黒田": { "新東橋": 4.0 },
+      "新東橋": { "浅見": 2.5 ,"東黒田": 2.2},
+      "浅見": { "柴若": 2.2 },
+      "柴若": { "六日市通": 1.9 },
+      "六日市通": { "岩田城": 2.7 },
+      "岩田城": { "内山": 3.7 },
+      "内山": { "新荘": 2.5 },
+      "新荘": { "葉賀ノ台": 2.0 },
+      "葉賀ノ台": { "木森": 3.1 },
+      "木森": { "理李ヶ丘": 2.7 },
+      "理李ヶ丘": { "小査": 4.6 },
+      "小査": { "寺尾": 4.0 },
+      "寺尾": { "栗島": 3.8 },
+      "栗島": { "宮間": 5.1 },
+      "宮間": { "大木沢": 4.0 },
+      "大木沢": { "園木": 3.4 },
+      "園木": { "新東園木": 2.1 ,"富士町":1.4},
+      "新東園木": { "綾山": 5.1 },
+      "綾山": { "豊川大野": 4.2 },
+      "豊川大野": { "垂生崎": 3.9 },
+      "垂生崎": { "南豊川": 6.0 },
+      "南豊川": { "幕ヶ原": 4.7 },
+      "幕ヶ原": { "咲田口": 5.0 },
+      "東黒田": { "杜山": 2.4 },
+      "杜山": { "新大崎": 2.7 },
+      "新大崎": { "小柴": 2.2 },
+      "小柴": { "朋田": 1.9 },
+      "朋田": { "和泉原": 2.5 },
+      "和泉原": { "日森町": 2.0 },
+      "日森町": { "横宿": 3.9 },
+  "喜多瀬浜": {
+    "喜多瀬": 1.3,
+    "葵台": 1.1
+  },
+  "喜多瀬": {
+    "久我山": 1.3
+  },
+  "久我山": {
+    "桜鉄彩山口": 1.2
+  },
+  "公園東口": {
+    "桜川公園北口": 1.3
+  },
+  "桜川公園北口": {
+    "御厨": 1.3
+  },
+  "御厨": {
+    "南深江": 1.5
+  },
+  "南深江": {
+    "北深江": 1.2
+  },
+  "北深江": {
+    "桜鉄浪原": 1.4
+  },
+  "桜鉄浪原": {
+    "東浪原": 1.3,
+    "彩山川": 1.2
+  },
+  "東浪原": {
+    "喜多瀬浜": 1.2
+  },
+  "葵台": {
+    "汐見台": 1.4
+  },
+  "汐見台": {
+    "月野原": 1.1
+  },
+  "月野原": {
+    "高瀬": 1.3
+  },
+  "高瀬": {
+    "結原": 1.1
+  },
+  "結原": {
+    "りんくう桜川": 1.5
+  },
+  "八軒町": {
+    "川渡": 1.3
+  },
+  "川渡": {
+    "西中野": 1.0
+  },
+  "西中野": {
+    "中野": 1.4
+  },
+  "中野": {
+    "東中野": 1.1,
+    "南中野": 1.3
+  },
+  "東中野": {
+    "桜台": 1.2
+  },
+  "桜台": {
+    "福原": 1.4
+  },
+  "福原": {
+    "桜鉄久我原": 1.5
+  },
+  "桜鉄久我原": {
+    "浪原": 1.1
+  },
+  "彩山川": {
+    "似島": 1.2
+  },
+  "似島": {
+    "中洲": 1.1
+  },
+  "中洲": {
+    "糸島": 1.4
+  },
+  "糸島": {
+    "南糸島": 1.0
+  },
+  "南糸島": {
+    "野瀬": 1.4
+  },
+  "野瀬": {
+    "新浜": 1.4
+  },
+  "新浜": {
+    "海岸通り": 1.1
+  },
+  "海岸通り": {
+    "桜町": 1.5
+  },
+  "桜町": {
+    "東片野": 1.1
+  },
+  "東片野": {
+    "東新地": 1.4
+  },
+  "東新地": {
+    "新地": 1.4
+  },
+  "南中野": {
+    "大里": 1.4
+  },
+  "大里": {
+    "栄町": 1.3
+  },
+  "栄町": {
+    "北桜川": 1.3
+  },
+  "北桜川": {
+    "桜川": 1.1
+  },
+  "南桜川": {
+    "東豊野": 1.2
+  },
+  "東豊野": {
+    "すすき野": 1.4
+  },
+  "すすき野": {
+    "永田": 1.3
+  },
+  "永田": {
+    "平川": 1.3
+  },
+  "平川": {
+    "片野": 1.4
+  },
+  "片野": {
+    "北新地": 1.0
+  },
+  "北新地": {
+    "新地": 1.1
+  }
+    };
+
+    // --- ユーティリティ ---
+    function buildGraphBidirectional(raw){
+      const g = {};
+      for(const [a,edges] of Object.entries(raw)){
+        if(!g[a]) g[a]={};
+        for(const [b,d] of Object.entries(edges)){
+          g[a][b]=d;
+          if(!g[b]) g[b]={};
+          if(g[b][a]==null) g[b][a]=d;
+        }
+      }
+      return g;
+    }
+    const graph = buildGraphBidirectional(rawGraph);
+    const allStations = Array.from(new Set([...Object.keys(graph), ...Object.values(graph).flatMap(x => Object.keys(x))])).sort();
+
+    // ============ 運賃ロジック（省略表示なし） ============
+    function fareImabashi(km){ return 0; }
+    function fareSakuragawa(km){ return 0; }
+    function fareSakatsu(km){ return 0; }
+    function fareSakatsuPortliner(km){ return 0; }
+    function fareSuzuhama(km){
+      if (km <= 4)  return 140;
+      if (km <= 6)  return 160;
+      if (km <= 9)  return 190;
+      if (km <= 12) return 210;
+      if (km <= 15) return 230;
+      if (km <= 19) return 280;
+      if (km <= 24) return 320;
+      if (km <= 30) return 360;
+      if (km <= 37) return 390;
+      if (km <= 44) return 410;
+      if (km <= 52) return 430;
+      if (km <= 60) return 450;
+      return 450;
+    }
+    function fareToyono(km){
+      // 豊野鉄道 運賃表（スクリーンの表に合わせる）
+      if(km <= 2) return 140;
+      if(km <= 4) return 150;
+      if(km <= 6) return 170;
+      if(km <= 9) return 200;
+      if(km <= 12) return 230;
+      if(km <= 16) return 270;
+      if(km <= 20) return 310;
+      if(km <= 25) return 350;
+      if(km <= 30) return 400;
+      return 450;
+    }
+    function fareNiizato(km){
+      // 新里鉄道 運賃表（スクリーンの表に合わせる）
+      if(km <= 2) return 130;
+      if(km <= 5) return 140;
+      if(km <= 8) return 160;
+      if(km <= 12) return 190;
+      if(km <= 16) return 220;
+      if(km <= 20) return 250;
+      if(km <= 25) return 290;
+      if(km <= 30) return 340;
+      if(km <= 35) return 390;
+      if(km <= 40) return 450;
+      if(km <= 50) return 510;
+      return 580;
+    }
+
+    // 表示用の駅名を簡易に整形（見かけ上の会社名表記を削る）
+    function sanitizeDisplayName(name){
+      if(!name) return name;
+      return name.replace(/\(桜川電鉄\)/g,'').replace(/\(鈴浜電鉄\)/g,'').trim();
+    }
+
+    function fareTouhashi(km, segPath = [], companySegments = []){ 
+      const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
+      const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
+      const tohashiYokoshukuLine = stationLines["東橋鉄道横宿線"] || [];
+      const idxNewHigashi = tohashiEastLine.indexOf("新東橋");
+      function stationInTO(s){
+        if(tohashiYokoshukuLine.indexOf(s) !== -1) return true;
+        const idx = tohashiEastLine.indexOf(s);
+        if(idx !== -1 && idx <= idxNewHigashi) return true;
+        return false;
+      }
+      let fullyInTO = true;
+      if(!segPath || segPath.length === 0){
+        fullyInTO = false;
+      } else {
+        for(const s of segPath){
+          if(!stationInTO(s)){ fullyInTO = false; break; }
+        }
+      }
+      if(fullyInTO){
+        return 250;
+      }
+
+      if(kmUsed <= 3) return 180;
+      if(kmUsed <= 4) return 190;
+      if(kmUsed <= 7) return 210;
+      if(kmUsed <= 10) return 250;
+      if(kmUsed <= 14) return 330;
+      if(kmUsed <= 18) return 400;
+      if(kmUsed <= 23) return 470;
+      if(kmUsed <= 28) return 530;
+      if(kmUsed <= 33) return 590;
+      if(kmUsed <= 38) return 650;
+      if(kmUsed <= 43) return 690;
+      if(kmUsed <= 49) return 750;
+      if(kmUsed <= 55) return 810;
+      if(kmUsed <= 62) return 860;
+      if(kmUsed <= 69) return 910;
+      if(kmUsed <= 76) return 960;
+      if(kmUsed <= 84) return 1010;
+      if(kmUsed <= 92) return 1050;
+      if(kmUsed <= 100) return 1090;
+      if(kmUsed <= 109) return 1130;
+      if(kmUsed <= 120) return 1170;
+      if(kmUsed <= 132) return 1210;
+      if(kmUsed <= 145) return 1250;
+      return 1250;
+    }
+
+    function companyFromLineName(line){
+      if(!line) return null;
+      if(line.startsWith("今橋鉄道")) return "今橋鉄道";
+      if(line.startsWith("桜川電気鉄道")) return "桜川電気鉄道";
+      if(line.startsWith("坂津電鉄")) return "坂津電鉄";
+      if(line.startsWith("坂津ポートライナー")) return "坂津ポートライナー";
+      if(line.startsWith("鈴浜電気鉄道")) return "鈴浜電気鉄道";
+      if(line.startsWith("豊野鉄道")) return "豊野鉄道";
+      if(line.startsWith("東橋鉄道")) return "東橋鉄道";
+      if(line.startsWith("新里鉄道")) return "新里鉄道";
+      return null;
+    }
+
+    function fareByCompany(company, km, segPath = [], companySegments = []){
+      switch(company){
+        case "今橋鉄道": return fareImabashi(km);
+        case "桜川電気鉄道": return fareSakuragawa(km);
+        case "坂津電鉄": return fareSakatsu(km);
+        case "坂津ポートライナー": return fareSakatsuPortliner(km);
+        case "鈴浜電気鉄道": return fareSuzuhama(km);
+        case "豊野鉄道": return fareToyono(km);
+        case "東橋鉄道": {
+          let base = fareTouhashi(km, segPath, companySegments);
+          let otherCompanyExists = false;
+          for(const s of companySegments){
+            if(s.company && s.company !== "東橋鉄道"){
+              otherCompanyExists = true;
+              break;
+            }
+          }
+          if(otherCompanyExists){
+            base = Math.max(0, base - 50);
+          }
+          return base;
+        }
+        case "新里鉄道": return fareNiizato(km);
+        default: return 0;
+      }
+    }
+
+    function findLinesOfSegment(a,b){
+      const candidates = [];
+      for(const [line, stations] of Object.entries(stationLines)){
+        const ia = stations.indexOf(a);
+        const ib = stations.indexOf(b);
+        if(ia !== -1 && ib !== -1 && Math.abs(ia - ib) === 1){
+          candidates.push(line);
+        }
+      }
+      return candidates;
+    }
+    function findLineOfSegment(a,b){
+      const cs = findLinesOfSegment(a,b);
+      return cs.length ? cs[0] : null;
+    }
+
+    function shortestPath(start,goal){
+      if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity};
+      const dist = {}, prev = {}, Q = new Set(allStations);
+      allStations.forEach(s=>{ dist[s] = Infinity; prev[s] = null; });
+      dist[start] = 0;
+      while(Q.size){
+        let u = null, best = Infinity;
+        for(const v of Q){ if(dist[v] < best){ u = v; best = dist[v]; } }
+        if(u === null) break;
+        Q.delete(u);
+        if(u === goal) break;
+        for(const [v,w] of Object.entries(graph[u]||{})){
+          const alt = dist[u] + w;
+          if(alt < dist[v]){ dist[v] = alt; prev[v] = u; }
+        }
+      }
+      if(!isFinite(dist[goal])) return {path:[],distance:Infinity};
+      const path = []; for(let cur = goal; cur != null; cur = prev[cur]) path.unshift(cur);
+      return {path, distance: dist[goal]};
+    }
+
+    function shortestPathWithinCompany(start, goal, company){
+      if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity};
+      const dist = {}, prev = {}, Q = new Set(allStations);
+      allStations.forEach(s=>{ dist[s] = Infinity; prev[s] = null; });
+      dist[start] = 0;
+      while(Q.size){
+        let u = null, best = Infinity;
+        for(const v of Q){ if(dist[v] < best){ u = v; best = dist[v]; } }
+        if(u === null) break;
+        Q.delete(u);
+        if(u === goal) break;
+        for(const [v,w] of Object.entries(graph[u]||{})){
+          const ln = findLineOfSegment(u, v);
+          const comp = ln ? companyFromLineName(ln) : null;
+          if(comp !== company) continue;
+          const alt = dist[u] + w;
+          if(alt < dist[v]){ dist[v] = alt; prev[v] = u; }
+        }
+      }
+      if(!isFinite(dist[goal])) return {path:[],distance:Infinity};
+      const path = []; for(let cur = goal; cur != null; cur = prev[cur]) path.unshift(cur);
+      return {path, distance: dist[goal]};
+    }
+
+    // ==== 途中駅扱いの「接続」定義 ====
+    const connectingStations = [
+      { station: "北鶴宮", endpoints: ["鶴宮","鬼越峠"] },
+      { station: "鶴宮",   endpoints: ["鶴宮神社","南鶴宮"] },
+      { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
+      { station: "彩山",   endpoints: ["彩山親水公園","彩山口"] },
+      { station: "桜川",   endpoints: ["桜川公園","豊野月見台"] },
+      { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
+      { station: "豊町", endpoints: ["削野", "東豊町"] },
+
+      { station: "園木", endpoints: ["東園木", "富士町"] },
+      { station: "園木", endpoints: ["東園木", "大木沢"] },
+
+      { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
+
+      { station: "横宿", endpoints: ["日森町", "北横宿"] },
+      { station: "成津", endpoints: ["北成津", "大町"] },
+
+      { station: "新東橋", endpoints: ["浅見", "東黒田"] },
+    ];
+
+    const specialMajorStations = [
+      "新里", "湯の浜", "鶴宮",
+      "坂電坂津", "港通", "東坂津",
+      "削野", "豊町", "東豊町",
+      "東園木", "園木", "富士町", "大木沢",
+      "北桑畑", "桑畑", "常盤台",
+      "日森町", "横宿", "北横宿",
+      "北成津", "成津", "大町"
+    ];
+
+    function indexesOf(arr, value){
+      const out=[]; for(let i=0;i<arr.length;i++) if(arr[i]===value) out.push(i); return out;
+    }
+    function betweenExclusive(idx, a, b){ return (a < idx && idx < b) || (b < idx && b < a); }
+
+    function findIndexFrom(path, station, start){
+      for(let i=start;i<path.length;i++){
+        if(path[i] === station) return i;
+      }
+      return -1;
+    }
+
+    // --- 主要駅抽出 ---
+    function majorStops(path){
+      if(path.length <= 1) return {majors: path};
+
+      const majors = [path[0]];
+      let curLine = findLineOfSegment(path[0], path[1]);
+
+      for(let i = 1; i < path.length; i++){
+        const prev = path[i-1];
+        const here = path[i];
+        const ln = findLineOfSegment(prev, here);
+
+        let isBoundary = (ln !== curLine);
+
+        let isSpecialSkip = false;
+        if(specialMajorStations.includes(here) && i > 0 && i < path.length-1){
+          const before = path[i-1];
+          const after  = path[i+1];
+          if(findLineOfSegment(before, here) && findLineOfSegment(here, after)){
+            isSpecialSkip = true;
+          }
+        }
+
+        let connectionSkipPrev = false;
+        const connsPrev = connectingStations.filter(c => c.station === prev);
+        if(connsPrev && connsPrev.length > 0){
+          const idxPrev = i - 1;
+          for(const conn of connsPrev){
+            const idxsA = indexesOf(path, conn.endpoints[0]);
+            const idxsB = indexesOf(path, conn.endpoints[1]);
+            if(idxsA.length > 0 && idxsB.length > 0){
+              let matched = false;
+              outer: for(const ia of idxsA){
+                for(const ib of idxsB){
+                  if(betweenExclusive(idxPrev, ia, ib)){
+                    matched = true;
+                    break outer;
+                  }
+                }
+              }
+              if(matched){ connectionSkipPrev = true; break; }
+            }
+          }
+        }
+
+        let connectionSkipHere = false;
+        const connsHere = connectingStations.filter(c => c.station === here);
+        if(connsHere && connsHere.length > 0){
+          const idxHere = i;
+          for(const conn of connsHere){
+            const idxsA = indexesOf(path, conn.endpoints[0]);
+            const idxsB = indexesOf(path, conn.endpoints[1]);
+            if(idxsA.length > 0 && idxsB.length > 0){
+              let matched = false;
+              outer2: for(const ia of idxsA){
+                for(const ib of idxsB){
+                  if(betweenExclusive(idxHere, ia, ib)){
+                    matched = true;
+                    break outer2;
+                  }
+                }
+              }
+              if(matched){ connectionSkipHere = true; break; }
+            }
+          }
+        }
+
+        const connectionSkip = connectionSkipPrev || connectionSkipHere;
+
+        if(isBoundary && !isSpecialSkip && !connectionSkip){
+          majors.push(prev);
+          curLine = ln;
+        } else {
+          curLine = ln;
+        }
+      }
+
+      majors.push(path[path.length-1]);
+      return {majors};
+    }
+
+    function findCommonLines(a,b){
+      const list = [];
+      for(const [line,stations] of Object.entries(stationLines)){
+        if(stations.indexOf(a) !== -1 && stations.indexOf(b) !== -1) list.push(line);
+      }
+      return list;
+    }
+
+    // --- UI 初期化 ---
+    const fromLineSel = document.getElementById('fromLine');
+    const toLineSel = document.getElementById('toLine');
+    const fromStationSel = document.getElementById('fromStation');
+    const toStationSel = document.getElementById('toStation');
+    const addViaBtn = document.getElementById('addViaBtn');
+    const viaListDiv = document.getElementById('viaList');
+    const searchBtn = document.getElementById('searchBtn');
+    const resultArea = document.getElementById('resultArea');
+
+    function populateLineSelect(sel){
+      sel.innerHTML = '';
+      Object.keys(stationLines).forEach(l=>{
+        const o = document.createElement('option'); o.value = l; o.textContent = l; sel.appendChild(o);
+      });
+    }
+    function populateStationSelect(lineSel, stationSel){
+      stationSel.innerHTML = '';
+      const line = lineSel.value;
+      (stationLines[line] || []).forEach(st=>{
+        const o = document.createElement('option'); o.value = st; o.textContent = sanitizeDisplayName(st); stationSel.appendChild(o);
+      });
+    }
+    [ fromLineSel, toLineSel ].forEach(sel => populateLineSelect(sel));
+    populateStationSelect(fromLineSel, fromStationSel);
+    populateStationSelect(toLineSel, toStationSel);
+
+    fromLineSel.addEventListener('change', ()=> populateStationSelect(fromLineSel, fromStationSel));
+    toLineSel.addEventListener('change', ()=> populateStationSelect(toLineSel, toStationSel));
+
+    // 初期値設定
+    if(stationLines['新里鉄道湯の浜線'] && stationLines['新里鉄道湯の浜線'].indexOf('新里')!==-1){
+      fromLineSel.value = '新里鉄道湯の浜線';
+      populateStationSelect(fromLineSel, fromStationSel);
+      fromStationSel.value = '新里';
+    }
+    if(stationLines['新里鉄道燠野線'] && stationLines['新里鉄道燠野線'].indexOf('燠野温泉')!==-1){
+      toLineSel.value = '新里鉄道燠野線';
+      populateStationSelect(toLineSel, toStationSel);
+      toStationSel.value = '燠野温泉';
+    }
+
+    addViaBtn.addEventListener('click', ()=>{ 
+      const viaRow = document.createElement('div');
+      viaRow.className = 'viaRow';
+      const lineSel = document.createElement('select');
+      lineSel.className = 'lineSelect';
+      populateLineSelect(lineSel);
+      const stationSel = document.createElement('select');
+      stationSel.className = 'stationSelect';
+      populateStationSelect(lineSel, stationSel);
+      lineSel.addEventListener('change', ()=> populateStationSelect(lineSel, stationSel));
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.textContent = '削除';
+      delBtn.addEventListener('click', ()=> { viaListDiv.removeChild(viaRow); });
+      viaRow.appendChild(lineSel);
+      viaRow.appendChild(stationSel);
+      viaRow.appendChild(delBtn);
+      viaListDiv.appendChild(viaRow);
+    });
+
+    // ---- 駅アイコン判定（暫定：新里鉄道の5路線のみ対応） ----
+    const supportedNiizatoLines = [
+      "新里鉄道湯の浜線",
+      "新里鉄道燠野線",
+      "新里鉄道鶴宮線",
+      "新里鉄道彩山線",
+      "新里鉄道新里線"
+    ];
+    const niizatoPriority = [
+      "新里鉄道湯の浜線",
+      "新里鉄道燠野線",
+      "新里鉄道鶴宮線",
+      "新里鉄道彩山線",
+      "新里鉄道新里線"
+    ];
+
+    function getStationIconsForIndex(path, idx){
+      const linesSet = new Set();
+      if(idx > 0){
+        const lnPrev = findLineOfSegment(path[idx-1], path[idx]);
+        if(lnPrev && supportedNiizatoLines.includes(lnPrev)) linesSet.add(lnPrev);
+      }
+      if(idx < path.length - 1){
+        const lnNext = findLineOfSegment(path[idx], path[idx+1]);
+        if(lnNext && supportedNiizatoLines.includes(lnNext)) linesSet.add(lnNext);
+      }
+      const ordered = niizatoPriority.filter(l => linesSet.has(l)).slice(0,2);
+      return ordered.map(l => ({ line: l, src: (stationIcons[l] && stationIcons[l][path[idx]] && stationIcons[l][path[idx]].trim()) ? stationIcons[l][path[idx]] : ((lineIcons[l] && lineIcons[l].trim()) ? lineIcons[l] : defaultIcon) }));
+    }
+
+    // レイアウト補助（既存ロジック）
+    function applyStripedGradientForBigLine(lineElem, dotRect, nextDotRect, parentRect){
+      if(!lineElem) return;
+      const baseColor = lineElem.dataset.color || '#999';
+      const usedLinesRaw = lineElem.dataset.usedlines || '';
+      const usedLinesArr = usedLinesRaw ? usedLinesRaw.split('|').filter(x=>x) : [];
+
+      const lineTop = parseFloat(lineElem.style.top) || 0;
+      const lineHeight = parseFloat(lineElem.style.height) || 0;
+      if(lineHeight <= 0){
+        lineElem.style.background = baseColor;
+        return;
+      }
+
+      const currentDotBottom_px = (dotRect.top - parentRect.top) + dotRect.height;
+      const nextDotTop_px = (nextDotRect.top - parentRect.top);
+
+      const startPx = currentDotBottom_px - lineTop;
+      const endPx = nextDotTop_px - lineTop;
+
+      const clampedStartPx = Math.max(0, Math.min(lineHeight, startPx));
+      const clampedEndPx = Math.max(0, Math.min(lineHeight, endPx));
+
+      if(clampedEndPx <= clampedStartPx){
+        if(usedLinesArr.length === 1){
+          lineElem.style.background = lineColors[usedLinesArr[0]] || baseColor;
+        } else {
+          lineElem.style.background = baseColor;
+        }
+        return;
+      }
+
+      const startPercent = (clampedStartPx / lineHeight) * 100;
+      const endPercent = (clampedEndPx / lineHeight) * 100;
+
+      let gradientStops = [];
+      gradientStops.push(`${baseColor} 0%`);
+      gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
+
+      if(usedLinesArr.length > 0){
+        const segCount = usedLinesArr.length;
+        const segSize = (endPercent - startPercent) / segCount;
+        for(let j=0;j<segCount;j++){
+          const ln = usedLinesArr[j];
+          const col = lineColors[ln] || baseColor;
+          const segStart = startPercent + segSize * j;
+          const segEnd = startPercent + segSize * (j+1);
+          gradientStops.push(`${col} ${segStart.toFixed(4)}%`);
+          gradientStops.push(`${col} ${segEnd.toFixed(4)}%`);
+        }
+      } else {
+        gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
+        gradientStops.push(`${baseColor} ${endPercent.toFixed(4)}%`);
+      }
+
+      const nextColor = lineElem.dataset.nextcolor || baseColor;
+      gradientStops.push(`${nextColor} ${endPercent.toFixed(4)}%`);
+      gradientStops.push(`${nextColor} 100%`);
+
+      const stopsStr = gradientStops.join(', ');
+      lineElem.style.background = `linear-gradient(to bottom, ${stopsStr})`;
+    }
+
+    function adjustMajorLines(){
+      const rows = Array.from(document.querySelectorAll('.rowStation'));
+      rows.forEach((row, idx) => {
+        const railCol = row.querySelector('.railCol');
+        if(!railCol) return;
+        const dot = railCol.querySelector('.railDot');
+        const line = railCol.querySelector('.railLineMajor');
+        if (!dot || !line) return;
+        if(line.dataset && line.dataset.shortened === 'true'){ return; }
+        const nextRow = rows.slice(idx + 1).find(r => r.querySelector('.railDot'));
+        if (!nextRow) { line.style.height = '0px'; return; }
+        const parentRect = railCol.getBoundingClientRect();
+        const dotRect = dot.getBoundingClientRect();
+        const nextDot = nextRow.querySelector('.railDot');
+        const nextDotRect = nextDot.getBoundingClientRect();
+        line.style.top = (dotRect.top - parentRect.top) + 'px';
+        const h = Math.max(0, (nextDotRect.top - dotRect.top)) + 5;
+        line.style.height = h + 'px';
+        applyStripedGradientForBigLine(line, dotRect, nextDotRect, parentRect);
+      });
+
+      document.querySelectorAll('.rowBetween').forEach(r => {
+        const railCol = r.querySelector('.railCol');
+        if(!railCol) return;
+        const dot = r.querySelector('.railDot');
+        const minorLine = r.querySelector('.railLineMinor');
+        if(!dot || !minorLine) return;
+        const parentRect = railCol.getBoundingClientRect();
+        const dotRect = dot.getBoundingClientRect();
+        minorLine.style.top = (dotRect.top - parentRect.top) + 'px';
+        minorLine.style.height = '48px';
+      });
+    }
+    function runAdjustments(){ adjustMajorLines(); }
+    window.addEventListener('resize', runAdjustments);
+
+    function buildRoutePartsAvoidingDuplicates(from, viaStations, to){
+      const waypoints = [from, ...viaStations, to];
+      const parts = [];
+      let currentPath = [];
+      let currentDistance = 0;
+      let visited = new Set();
+
+      for(let i=0;i<waypoints.length-1;i++){
+        const a = waypoints[i], b = waypoints[i+1];
+        const sp = shortestPath(a,b);
+        if(!sp.path.length) return null;
+
+        const segment = (i===0) ? sp.path : sp.path.slice(1);
+
+        let conflict = false;
+        for(const st of segment){
+          if(visited.has(st)){ conflict = true; break; }
+        }
+
+        if(conflict){
+          if(currentPath.length){
+            parts.push({ path: currentPath.slice(), distance: currentDistance });
+          }
+          currentPath = sp.path.slice();
+          currentDistance = sp.distance;
+          visited = new Set(sp.path);
+        } else {
+          currentPath = [...currentPath, ...segment];
+          currentDistance += sp.distance;
+          for(const st of segment) visited.add(st);
+        }
+      }
+      if(currentPath.length){
+        parts.push({ path: currentPath.slice(), distance: currentDistance });
+      }
+      return parts;
+    }
+
+    function splitByCompany(path){
+      if(path.length < 2) return [];
+      let segments = [];
+      let start = path[0];
+      let prev = path[0];
+      let curCompany = null;
+
+      const firstLine = findLineOfSegment(path[0], path[1]);
+      curCompany = firstLine ? companyFromLineName(firstLine) : null;
+
+      for(let i=1;i<path.length;i++){
+        const a = path[i-1], b = path[i];
+        const ln = findLineOfSegment(a,b);
+        const comp = ln ? companyFromLineName(ln) : null;
+
+        if(comp !== curCompany){
+          segments.push({ from:start, to:prev, company:curCompany });
+          start = a;
+          curCompany = comp;
+        }
+        prev = b;
+      }
+      segments.push({ from:start, to:prev, company:curCompany });
+      return segments.filter(s => !!s.company && s.from !== s.to);
+    }
+
+    function renderRouteCardForPart(part, partIndex){
+      const path = part.path;
+
+      // ルートに含まれる路線と駅だけをプリロードする
+      (function(){
+        const urls = [];
+        // 駅画像と路線バッジ
+        for(let i=0;i<path.length;i++){
+          const st = path[i];
+          for(const [ln,map] of Object.entries(stationIcons)){
+            if(map && map[st]) urls.push(map[st]);
+          }
+          if(i < path.length - 1){
+            const ln = findLineOfSegment(path[i], path[i+1]);
+            if(ln && lineIcons[ln]) urls.push(lineIcons[ln]);
+          }
+        }
+        const uniq = Array.from(new Set(urls)).slice(0,40);
+        if(uniq.length) preloadImages(uniq);
+      })();
+
+      const { majors } = majorStops(path);
+
+      const majorIndices = [];
+      let scanStart = 0;
+      for(let m = 0; m < majors.length; m++){
+        const mi = findIndexFrom(path, majors[m], scanStart);
+        if(mi === -1){
+          majorIndices.push(path.indexOf(majors[m]));
+          scanStart = (majorIndices[majorIndices.length-1] >= 0) ? majorIndices[majorIndices.length-1] + 1 : scanStart+1;
+        } else {
+          majorIndices.push(mi);
+          scanStart = mi + 1;
+        }
+      }
+
+      const majorsColors = new Array(majors.length).fill("#999");
+
+      for(let idx = 0; idx < majors.length; idx++){
+        const st = majors[idx];
+        const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
+
+        let color = "#999";
+
+        const iFrom = majorIndices[idx];
+        const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
+
+        if(nextStation && iFrom !== -1 && iTo !== -1){
+          const usedLines = [];
+          const usedPairs = [];
+          for(let i=iFrom;i<iTo;i++){
+            const ln = findLineOfSegment(path[i], path[i+1]);
+            usedPairs.push({pair:[path[i], path[i+1]], line:ln, idx:i});
+            if(ln && usedLines.indexOf(ln)===-1) usedLines.push(ln);
+          }
+
+          const topPair = usedPairs.find(p=>p.idx===iFrom && p.line);
+          if(topPair && topPair.line && lineColors[topPair.line]) color = lineColors[topPair.line];
+          else {
+            for(const ln of usedLines){
+              if(lineColors[ln]){ color = lineColors[ln]; break; }
+            }
+          }
+
+        } else if(!nextStation){
+          if(iFrom > 0){
+            const ln = findLineOfSegment(path[iFrom-1], path[iFrom]);
+            if(ln && lineColors[ln]) color = lineColors[ln];
+          } else if(path.length >= 2){
+            const ln0 = findLineOfSegment(path[0], path[1]);
+            if(ln0 && lineColors[ln0]) color = lineColors[ln0];
+          }
+        } else {
+          if(path.length >= 2){
+            const ln0 = findLineOfSegment(path[0], path[1]);
+            if(ln0 && lineColors[ln0]) color = lineColors[ln0];
+          }
+        }
+
+        majorsColors[idx] = color;
+      }
+
+      let routeHtml = `
+        <div class="card">
+          <div class="resultHeader">
+            <div class="meta"></div>
+          </div>
+          <div class="routeLine">
+      `;
+
+      for(let idx = 0; idx < majors.length; idx++){
+        const st = majors[idx];
+        const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
+
+        const iFrom = majorIndices[idx];
+        const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
+
+        const color = majorsColors[idx];
+        const nextColor = nextStation ? majorsColors[idx+1] : null;
+
+        // --- 駅アイコンの生成（主要駅） ---
+        const iconsForThisMajor = (typeof iFrom === 'number' && iFrom >= 0) ? getStationIconsForIndex(path, iFrom) : [];
+        const iconsHtmlMajor = iconsForThisMajor.map(ic => `<img class="stationIcon" src="${ic.src}" alt="${ic.line}" width="20" height="20" loading="eager" decoding="async">`).join('');
+
+        let lineListHtml = '';
+
+        let usedLinesForSegment = [];
+        if(nextStation && iFrom !== -1 && iTo !== -1){
+          for(let i=iFrom;i<iTo;i++){
+            const ln = findLineOfSegment(path[i], path[i+1]);
+            if(ln && !usedLinesForSegment.includes(ln)) usedLinesForSegment.push(ln);
+          }
+          const badges = usedLinesForSegment.length > 0 ? usedLinesForSegment : findCommonLines(st, nextStation);
+          if(badges.length > 0){
+            lineListHtml = badges.map(l => {
+  let imgHtml = '';
+  if (l.startsWith("新里鉄道")) {
+    const imgSrc = (lineIcons[l] && lineIcons[l].trim()) ? lineIcons[l] : defaultIcon;
+    imgHtml = `<img src="${imgSrc}" alt="${l}" width="16" height="16" loading="eager" decoding="async">`;
+  }
+  return `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${imgHtml}${l}</div>`;
+}).join('');
+          }
+        } else if(!nextStation){
+          lineListHtml = '';
+        }
+
+        const bigLineId = `part${partIndex}-bigline-${idx}`;
+
+        let initialStyle = '';
+        if(nextStation){
+          if(usedLinesForSegment.length > 0){
+            if(usedLinesForSegment.length === 1){
+              initialStyle = `background: ${lineColors[usedLinesForSegment[0]] || color};`;
+            } else {
+              const step = 100 / usedLinesForSegment.length;
+              const stops = usedLinesForSegment.map((ln, j) => {
+                const col = lineColors[ln] || '#999';
+                const start = (j * step).toFixed(4);
+                const end = ((j+1) * step).toFixed(4);
+                return `${col} ${start}%, ${col} ${end}%`;
+              }).join(', ');
+              initialStyle = `background: linear-gradient(to bottom, ${stops});`;
+            }
+          } else {
+            if(nextColor && nextColor !== color){
+              initialStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
+            } else {
+              initialStyle = `background: ${color};`;
+            }
+          }
+        } else {
+          initialStyle = `background: ${color};`;
+        }
+
+        const usedLinesDataAttr = usedLinesForSegment.join('|');
+
+        routeHtml += `
+          <div class="rowStation">
+            <div class="railCol">
+              <div class="railDot" style="background:${color}"></div>
+              ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style="${initialStyle}"></div>` : `<div class="spacer6"></div>`}
+            </div>
+            <div class="stationText">
+              <div class="stationWithIcons">
+                ${iconsHtmlMajor}
+                <div class="stationName">${sanitizeDisplayName(st)}</div>
+              </div>
+              ${lineListHtml}
+              ${nextStation ? `<div class="toggleWrap"><button class="toggleBtn" data-part="${partIndex}" data-seg="${idx}" data-open="false">停車駅を表示</button></div>` : ''}
+            </div>
+          </div>
+        `;
+
+        if(nextStation && iFrom !== -1 && iTo !== -1){
+          if(iTo - iFrom > 1){
+            const betweenStart = iFrom + 1;
+            const betweenEnd = iTo - 1;
+            const betweenCount = betweenEnd - betweenStart + 1;
+            const pairColors = new Array(Math.max(0, betweenCount)).fill('#999');
+            const isCondArr = new Array(Math.max(0, betweenCount)).fill(false);
+
+            for(let bj = betweenStart; bj <= betweenEnd; bj++){
+              const jIndex = bj;
+              const s = path[jIndex];
+              // connectingStations の複数エントリをすべて評価
+              let isCondMinor = false;
+              const condsAll = connectingStations.filter(c => c.station === s);
+              let conds = [];
+              if(condsAll && condsAll.length > 0){
+                conds = condsAll;
+              }
+              if(conds && conds.length > 0){
+                const idxS = jIndex;
+                for(const cond of conds){
+                  const idxsA = indexesOf(path, cond.endpoints[0]);
+                  const idxsB = indexesOf(path, cond.endpoints[1]);
+                  if(idxsA.length > 0 && idxsB.length > 0){
+                    outer3: for(const ia of idxsA){
+                      for(const ib of idxsB){
+                        if(betweenExclusive(idxS, ia, ib)){ isCondMinor = true; break outer3; }
+                      }
+                    }
+                    if(isCondMinor) break;
+                  }
+                }
+              }
+              isCondArr[bj - betweenStart] = isCondMinor;
+
+              const prevSt = path[jIndex-1];
+              const nextSt = path[jIndex+1];
+
+              const directCandidates = findLinesOfSegment(s, nextSt);
+              if(directCandidates.length > 0){
+                let chosen = null;
+                for(const ln of directCandidates){
+                  if(lineColors[ln]){ chosen = ln; break; }
+                }
+                if(chosen){
+                  pairColors[bj - betweenStart] = lineColors[chosen];
+                  continue;
+                }
+              }
+
+              let threeLine = null;
+              for(const [ln, stations] of Object.entries(stationLines)){
+                if(stations.indexOf(prevSt) !== -1 && stations.indexOf(s) !== -1 && stations.indexOf(nextSt) !== -1){
+                  threeLine = ln;
+                  break;
+                }
+              }
+              if(threeLine && lineColors[threeLine]){
+                pairColors[bj - betweenStart] = lineColors[threeLine];
+                continue;
+              }
+
+              let bothLine = null;
+              for(const [ln, stations] of Object.entries(stationLines)){
+                if(stations.indexOf(prevSt) !== -1 && stations.indexOf(nextSt) !== -1){
+                  bothLine = ln;
+                  break;
+                }
+              }
+              if(bothLine && lineColors[bothLine]){
+                pairColors[bj - betweenStart] = lineColors[bothLine];
+                continue;
+              }
+
+              const adjPairs = [];
+              if(jIndex > 0) adjPairs.push([path[jIndex-1], path[jIndex]]);
+              if(jIndex < path.length - 1) adjPairs.push([path[jIndex], path[jIndex+1]]);
+              for(const p of adjPairs){
+                const ln = findLineOfSegment(p[0], p[1]);
+                if(ln && lineColors[ln]){ pairColors[bj - betweenStart] = lineColors[ln]; break; }
+              }
+            }
+
+            routeHtml += `<div id="part${partIndex}-between-${idx}" class="betweenList">`;
+            for(let bj = betweenStart; bj <= betweenEnd; bj++){
+              const s = path[bj];
+              const arrIdx = bj - betweenStart;
+              const isCondMinor = isCondArr[arrIdx];
+              const minorClass = isCondMinor ? 'condMinorName' : 'minorName';
+              let displayColor = pairColors[arrIdx];
+              if(isCondMinor){
+                const nextArrIdx = arrIdx + 1;
+                if(nextArrIdx < pairColors.length){
+                  displayColor = pairColors[nextArrIdx];
+                } else {
+                  displayColor = pairColors[arrIdx];
+                }
+              }
+
+              // 途中駅（between）のアイコンを判定して左に出す
+              const iconsForBetween = getStationIconsForIndex(path, bj);
+              const iconsHtmlBetween = iconsForBetween.map(ic => `<img class="stationIcon" src="${ic.src}" alt="${ic.line}" width="20" height="20" loading="eager" decoding="async">`).join('');
+
+              routeHtml += `
+                <div class="rowBetween">
+                  <div class="railCol">
+                    <div class="railDot" style="background:${displayColor}"></div>
+                    <div class="railLineMinor" style="background:${displayColor}"></div>
+                  </div>
+                  <div class="stationText">
+                    <div class="stationWithIcons">
+                      ${iconsHtmlBetween}
+                      <div class="${minorClass}">${sanitizeDisplayName(s)}</div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }
+            routeHtml += `</div>`;
+          }
+        }
+      }
+
+      routeHtml += `</div></div>`;
+      return routeHtml;
+    }
+
+    function shortenBigLineToFirstBetween(bigLine, betweenEl){
+      if(!bigLine || !betweenEl) return;
+      const railCol = bigLine.parentElement;
+      if(!railCol) return;
+      const parentRect = railCol.getBoundingClientRect();
+      const dot = railCol.querySelector('.railDot');
+      if(!dot) return;
+      const dotRect = dot.getBoundingClientRect();
+      const firstBetweenRow = betweenEl.querySelector('.rowBetween');
+      if(!firstBetweenRow) return;
+      const betweenDot = firstBetweenRow.querySelector('.railDot');
+      if(!betweenDot) return;
+      const betweenDotRect = betweenDot.getBoundingClientRect();
+      const newTop = dotRect.top - parentRect.top;
+      const newHeight = Math.max(0, (betweenDotRect.top - dotRect.top)) + 2;
+      bigLine.style.top = newTop + 'px';
+      bigLine.style.height = newHeight + 'px';
+      bigLine.dataset.shortened = "true";
+    }
+
+    function wireToggleButtons(){
+      document.querySelectorAll('.toggleBtn').forEach(btn=>{
+        if(btn._routeToggleListener) btn.removeEventListener('click', btn._routeToggleListener);
+        const listener = ()=>{
+          const part = btn.dataset.part;
+          const idx = btn.dataset.seg;
+          const list = document.getElementById(`part${part}-between-${idx}`);
+          const bigLine = document.getElementById(`part${part}-bigline-${idx}`);
+          if(!list) return;
+          const isOpen = getComputedStyle(list).display !== 'block';
+          list.style.display = isOpen ? 'block' : 'none';
+          btn.dataset.open = isOpen.toString();
+          btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
+
+          if(bigLine){
+            const baseColor = bigLine.dataset.color || '#999';
+
+            if(isOpen){
+              bigLine.style.background = baseColor;
+              shortenBigLineToFirstBetween(bigLine, list);
+            } else {
+              delete bigLine.dataset.shortened;
+              runAdjustments();
+            }
+          }
+          runAdjustments();
+        };
+        btn.addEventListener('click', listener);
+        btn._routeToggleListener = listener;
+      });
+    }
+
+    /* ===========================
+       検索イベント
+       =========================== */
+    searchBtn.addEventListener('click', ()=>{
+      const stationSelectsAll = Array.from(document.querySelectorAll('.stationSelect'));
+      const from = stationSelectsAll[0] ? stationSelectsAll[0].value : '';
+      const to = stationSelectsAll[stationSelectsAll.length - 1] ? stationSelectsAll[stationSelectsAll.length - 1].value : '';
+      const viaSelects = Array.from(viaListDiv.querySelectorAll('.stationSelect'));
+      const viaStations = viaSelects.map(s=>s.value).filter(v=>v);
+
+      if(!from || !to){
+        resultArea.innerHTML = '<div class="card">駅を選択してください</div>';
+        return;
+      }
+      if(from === to && viaStations.length === 0){
+        resultArea.innerHTML = '<div class="card">発駅と着駅が同じです</div>';
+        return;
+      }
+
+      const parts = buildRoutePartsAvoidingDuplicates(from, viaStations, to);
+      if(!parts || parts.length === 0){
+        resultArea.innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
+        return;
+      }
+
+      // 合計距離は小数（そのまま）で計算・表示
+      const totalDistance = parts.reduce((acc,p)=>acc+p.distance, 0);
+
+      // 運賃計算 — 各会社区間ごとに、その区間の小数距離を使って算出
+      let totalFare = 0;
+      for(const part of parts){
+        const companySegments = splitByCompany(part.path);
+        for(const seg of companySegments){
+          const spComp = shortestPathWithinCompany(seg.from, seg.to, seg.company);
+          totalFare += fareByCompany(seg.company, spComp.distance, spComp.path, companySegments);
+        }
+      }
+
+      const headerHtml = `
+        <div class="card">
+          <div class="resultHeader">
+            <div style="font-weight:800">検索結果</div>
+            <div class="meta">
+              <div>合計距離: <strong>${totalDistance.toFixed(1)} km</strong></div>
+              <div>合計運賃: <strong>${totalFare} 円</strong></div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const bodyHtml = parts.map((part, idx) => renderRouteCardForPart(part, idx)).join('');
+      resultArea.innerHTML = headerHtml + bodyHtml;
+
+      wireToggleButtons();
+      setTimeout(runAdjustments, 0);
+    });
+
+    // 初期レイアウト調整
+    setTimeout(runAdjustments, 0);
+
+  } catch(e) {
+    console.error('初期化で例外:', e);
+    const out = document.getElementById('resultArea');
+    if(out) out.innerHTML = '<div class="card" style="color:#b00020">初期化エラー: '+ (e && e.message) +'</div>';
+  }
+});
+</script>
+</body>
+</html>
