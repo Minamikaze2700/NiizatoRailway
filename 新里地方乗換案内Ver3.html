@@ -62,6 +62,8 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .viaList{display:flex;flex-direction:column;gap:6px;margin:6px 0;align-items:flex-start}
 .viaRow{display:flex;align-items:center;gap:6px;justify-content:flex-start}
 .viaRow button{font-size:12px;padding:4px 6px}
+.detailList{margin-top:10px;padding:8px;background:#f8fafc;border-radius:8px;font-size:13px;color:#344054}
+.small{font-size:13px;color:#475569}
 </style>
 </head>
 <body>
@@ -274,6 +276,7 @@ document.addEventListener('DOMContentLoaded', function(){
           img.src = u;
         } catch(e){}
       }
+      return uniq;
     }
 
     // ルート（parts）から必要な画像URLを収集する関数
@@ -1087,6 +1090,7 @@ document.addEventListener('DOMContentLoaded', function(){
     }
 
     // splitByCompany: 各辺ごとに会社を判定して連続区間化（**特例処理を削除**）
+    // 戻り値は各セグメントに company, from, to, edgeStart, edgeEnd を含む
     function splitByCompany(path){
       if(path.length < 2) return [];
       // edgeCompanies[i] corresponds to edge path[i] -> path[i+1]
@@ -1118,12 +1122,27 @@ document.addEventListener('DOMContentLoaded', function(){
       // --- 特例（りんくう桜川 ⇄ 桜川国際空港）の特別処理は削除しました ---
       // これ以降は単純に隣接区間の会社ごとに分割した配列を返します。
 
-      // map to simpler segments for caller (drop edgeStart/edgeEnd)
-      return filtered.map(s => ({ from: s.from, to: s.to, company: s.company }));
+      return filtered;
+    }
+
+    // 路線上の区間距離を計算（pathのインデックス startIdx から endIdx までの距離）
+    function distanceAlongPath(path, startIdx, endIdx){
+      if(!path || path.length===0) return 0;
+      let d = 0;
+      for(let i = startIdx; i < endIdx; i++){
+        const a = path[i], b = path[i+1];
+        if(graph[a] && graph[a][b] != null) d += graph[a][b];
+        else {
+          // try reverse
+          if(graph[b] && graph[b][a] != null) d += graph[b][a];
+          else d += 0;
+        }
+      }
+      return d;
     }
 
     // ---- ルート描画ロジック ----
-    function renderRouteCardForPart(part, partIndex){
+    function renderRouteCardForPart(part, partIndex, preloadedUrls, companySegmentsDetail){
       const path = part.path;
       const { majors } = majorStops(path);
 
@@ -1172,7 +1191,7 @@ document.addEventListener('DOMContentLoaded', function(){
         majorsColors[idx] = color;
       }
 
-      // build a simple card showing the sequence (簡略表示だが十分)
+      // build a card showing the sequence and added details
       const card = document.createElement('div');
       card.className = 'card';
       const header = document.createElement('div');
@@ -1213,7 +1232,6 @@ document.addEventListener('DOMContentLoaded', function(){
             badge.className = 'lineBadge';
             badge.textContent = ln;
             badge.style.background = lineColors[ln] || '#999';
-            // 見た目では路線名はそのまま出して差し支えないが、ここも必要なら displayName(ln) で加工可能
             textCol.appendChild(badge);
           }
         }
@@ -1224,17 +1242,67 @@ document.addEventListener('DOMContentLoaded', function(){
       }
 
       card.appendChild(routeDiv);
+
+      // 追加表示：会社ごとの区間情報（会社・区間・距離・運賃）
+      const detailDiv = document.createElement('div');
+      detailDiv.className = 'detailList';
+      detailDiv.innerHTML = '<div class="small"><strong>区間会社情報</strong></div>';
+      const ul = document.createElement('div');
+      ul.style.display = 'flex';
+      ul.style.flexDirection = 'column';
+      ul.style.gap = '6px';
+      // companySegmentsDetail: array of {company, from, to, startIdx, endIdx, distance, fare}
+      (companySegmentsDetail || []).forEach(seg=>{
+        const row = document.createElement('div');
+        row.className = 'small';
+        row.innerHTML = `<div><strong>${seg.company}</strong>: ${displayName(seg.from)} → ${displayName(seg.to)} (` + seg.distance.toFixed(1) + ` km) — 運賃 ${seg.fare} 円</div>`;
+        ul.appendChild(row);
+      });
+      if((companySegmentsDetail || []).length === 0){
+        const none = document.createElement('div');
+        none.className = 'small';
+        none.textContent = '（区間会社情報なし）';
+        ul.appendChild(none);
+      }
+      detailDiv.appendChild(ul);
+
+      // 追加表示：プリロードされた画像URL（要約）
+      const preloadDiv = document.createElement('div');
+      preloadDiv.className = 'detailList';
+      preloadDiv.style.marginTop = '8px';
+      preloadDiv.innerHTML = '<div class="small"><strong>プリロード画像（要約）</strong></div>';
+      const pList = document.createElement('div');
+      pList.className = 'small';
+      if(preloadedUrls && preloadedUrls.length){
+        const show = preloadedUrls.slice(0,10);
+        pList.innerHTML = show.map(u => `<div style="word-break:break-all">${u}</div>`).join('');
+        if(preloadedUrls.length > 10){
+          const more = document.createElement('div');
+          more.className = 'small';
+          more.textContent = '...他 ' + (preloadedUrls.length - 10) + ' 件';
+          pList.appendChild(more);
+        }
+      } else {
+        pList.innerHTML = '<div class="small">（プリロード無し）</div>';
+      }
+      preloadDiv.appendChild(pList);
+
+      card.appendChild(detailDiv);
+      card.appendChild(preloadDiv);
+
       return card;
     }
 
-    function renderFullRoute(parts){
+    function renderFullRoute(parts, preloadedUrlsByPart){
       resultArea.innerHTML = '';
       if(!parts || parts.length===0){
         resultArea.innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
         return;
       }
       for(let i=0;i<parts.length;i++){
-        const c = renderRouteCardForPart(parts[i], i);
+        const companyDetail = parts[i].companyDetail || [];
+        const urls = preloadedUrlsByPart && preloadedUrlsByPart[i] ? preloadedUrlsByPart[i] : [];
+        const c = renderRouteCardForPart(parts[i], i, urls, companyDetail);
         resultArea.appendChild(c);
       }
       // run layout adjustments after DOM appended
@@ -1258,16 +1326,62 @@ document.addEventListener('DOMContentLoaded', function(){
       if(!parts){ resultArea.innerHTML = '<div class="card">経路を構築できませんでした（指定経路に未接続の箇所があります）</div>'; return; }
 
       // --- ここでルートに必要な画像のみプリロードする（要求どおり） ---
-      const urls = gatherImageURLsForParts(parts);
-      if(urls.length === 0){
+      const preloadedUrlsByPart = [];
+      let anyUrls = [];
+      for(let i=0;i<parts.length;i++){
+        const urls = gatherImageURLsForParts([parts[i]]);
+        if(urls.length === 0){
+          // fallback later
+          preloadedUrlsByPart.push([]);
+        } else {
+          const pre = preloadImages(urls);
+          preloadedUrlsByPart.push(pre);
+          anyUrls = anyUrls.concat(pre);
+        }
+      }
+      if(anyUrls.length === 0){
         // 取得できなかった場合は全てをプリロード（フォールバック）
-        preloadImages(gatherAllKnownImageURLs());
-      } else {
-        preloadImages(urls);
+        const all = gatherAllKnownImageURLs();
+        const pre = preloadImages(all);
+        // store the fallback list into every part's preloadedUrls for display
+        for(let i=0;i<parts.length;i++) preloadedUrlsByPart[i] = pre;
       }
 
-      // 出力（表示）は元のプログラムのまま
-      renderFullRoute(parts);
+      // --- 追加処理：各パートごとに会社区間を算出し、距離と運賃を計算して parts に埋め込む ---
+      for(let pIdx=0;pIdx<parts.length;pIdx++){
+        const part = parts[pIdx];
+        const path = part.path || [];
+        const segs = splitByCompany(path); // each has from,to,company,edgeStart,edgeEnd
+        const detail = [];
+        for(const s of segs){
+          // find start index and end index within path
+          const startIdx = findIndexFrom(path, s.from, 0);
+          const endIdx = (function(){
+            // find the last occurrence of s.to starting from startIdx
+            for(let k = startIdx; k < path.length; k++){
+              if(path[k] === s.to) return k;
+            }
+            return -1;
+          })();
+          if(startIdx === -1 || endIdx === -1 || endIdx <= startIdx){
+            // fallback: try to use edgeStart/edgeEnd if available
+            const st = (s.edgeStart != null) ? s.edgeStart : startIdx;
+            const ed = (s.edgeEnd != null) ? (s.edgeEnd + 1) : endIdx;
+            const dist = distanceAlongPath(path, st, ed);
+            const fare = fareByCompany(s.company, dist, path.slice(st, ed+1), segs);
+            detail.push({ company: s.company, from: s.from, to: s.to, startIdx: st, endIdx: ed, distance: dist, fare: fare });
+          } else {
+            const dist = distanceAlongPath(path, startIdx, endIdx);
+            const fare = fareByCompany(s.company, dist, path.slice(startIdx, endIdx+1), segs);
+            detail.push({ company: s.company, from: s.from, to: s.to, startIdx: startIdx, endIdx: endIdx, distance: dist, fare: fare });
+          }
+        }
+        part.companyDetail = detail;
+        part.preloadedUrls = preloadedUrlsByPart[pIdx] || [];
+      }
+
+      // 出力（表示）は「追加したプログラムのまま」 — すなわち会社区間・距離・運賃・プリロード情報を含めて表示
+      renderFullRoute(parts, preloadedUrlsByPart);
     });
 
     // 最低限の初期描画
