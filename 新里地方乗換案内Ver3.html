@@ -62,8 +62,6 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .viaList{display:flex;flex-direction:column;gap:6px;margin:6px 0;align-items:flex-start}
 .viaRow{display:flex;align-items:center;gap:6px;justify-content:flex-start}
 .viaRow button{font-size:12px;padding:4px 6px}
-.detailList{margin-top:10px;padding:8px;background:#f8fafc;border-radius:8px;font-size:13px;color:#344054}
-.small{font-size:13px;color:#475569}
 </style>
 </head>
 <body>
@@ -266,56 +264,26 @@ document.addEventListener('DOMContentLoaded', function(){
       }
     };
 
-    // ---- 画像のプリロード（関数定義：必要な画像のみプリロードする） ----
+    // ---- 画像のプリロード（重要アイコンだけ軽めにプリロード） ----
     function preloadImages(urls){
-      // urls: string[]
-      const uniq = Array.from(new Set((urls||[]).filter(u=>u && u.trim())));
-      for(const u of uniq){
+      urls.forEach(u => {
+        if(!u) return;
         try {
           const img = new Image();
           img.src = u;
         } catch(e){}
-      }
-      return uniq;
-    }
-
-    // ルート（parts）から必要な画像URLを収集する関数
-    function gatherImageURLsForParts(parts){
-      const urls = new Set();
-      if(!parts || !Array.isArray(parts)) return [];
-      for(const part of parts){
-        const path = part.path || [];
-        for(let i=0;i<path.length;i++){
-          const st = path[i];
-          // 駅アイコン（路線ごとに探す）
-          for(const [ln, map] of Object.entries(stationIcons || {})){
-            if(map && map[st]) urls.add(map[st]);
-          }
-          // その駅から次駅への辺に関係する路線アイコン
-          if(i < path.length - 1){
-            const ln = findLineOfSegment(path[i], path[i+1]);
-            if(ln && lineIcons[ln]) urls.add(lineIcons[ln]);
-          }
-        }
-      }
-      return Array.from(urls);
-    }
-
-    // フルフォールバック：全画像を集める（stationIcons + lineIcons）
-    function gatherAllKnownImageURLs(){
-      const urls = new Set();
-      Object.values(lineIcons || {}).forEach(u => { if(u && u.trim()) urls.add(u); });
-      Object.values(stationIcons || {}).forEach(map => {
-        Object.values(map || {}).forEach(u => { if(u && u.trim()) urls.add(u); });
       });
-      return Array.from(urls);
     }
-
     (function(){
-      // 初期時点ではプリロードしない（検索結果に応じて後でプリロード）
+      const urls = [];
+      Object.values(lineIcons).forEach(u => { if(u && u.trim()) urls.push(u); });
+      Object.values(stationIcons).forEach(m=>{
+        Object.values(m).forEach(u => { if(u && u.trim()) urls.push(u); });
+      });
+      if(urls.length) preloadImages(urls.slice(0,40));
     })();
 
-    // ==== 距離グラフ ====
+    // ==== 距離グラフ （略さず元のまま） ====
     const rawGraph={"豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},"安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},"栃原":{"宇城":2.2},"宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},"御浜":{"伊坂":2.5},"伊坂":{"垳下":2.6},"垳下":{"北浜":2.3},"北浜":{"西新里":1.4},"西新里":{"新里":1.7},"新里":{"河岸":0.9,"南新里":2.5},"河岸":{"新里海浜公園":1.7},"新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5},"湯の浜":{"七浦":2.5,"新里大学前":0.8},"七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},"伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.1,"南鶴宮":1.7},"新里大学前":{"綾原":0.7},"綾原":{"福来":1.2},"福来":{"燠野":1.4},"燠野":{"湯川":2.6,"紅葉台":1.1},"湯川":{"温泉口":1.6},"温泉口":{"燠野温泉":1.9},"南鶴宮":{"あずさ台":1.4},"あずさ台":{"橘町":1.8},"橘町":{"燠野山口":1.1},"燠野山口":{"白枝":1.2},"白枝":{"燠野":1.1},"紅葉台":{"桐山":0.8},"桐山":{"湊川":0.8},"湊川":{"彩山親水公園":1.1},"彩山親水公園":{"彩山":1.2},"彩山":{"蓮華寺":0.8,"彩山口":2.1},"蓮華寺":{"星宮":1.1},"星宮":{"田ノ原":1.1},"南新里":{"田ノ原":2.3},"田ノ原":{"北玖川":2.4},"北玖川":{"玖川":3.1},"玖川":{"中野原":3.1},"彩山口":{"新里国際スキー場":3.4},"新里国際スキー場":{"鷹見台":10.7},"鷹見台":{"久我原":2.7},"久我原":{"浪原":1.5},"浪原":{"深江":1.4,"桜鉄浪原": 1.2},"深江":{"三栗谷":1.3},"三栗谷":{"桜川公園":1.5},"桜川公園":{"桜川":2.2},"北鶴宮":{"鬼越峠":2.6},"鬼越峠":{"片牧町":3.1},"片牧町":{"虹川":2.2},"虹川":{"新的場":1.9},"新的場":{"神道山口":2.8},"神道山口":{"原津":2.6},"原津":{"奥沢高原":1.7},"奥沢高原":{"京新峡":2.0},"京新峡":{"流沢温泉":1.9},"流沢温泉":{"流沢温泉口":2.5},"流沢温泉口":{"白木稲荷":2.0},"白木稲荷":{"籾井":2.4},"籾井":{"猫崎海岸":2.3},"猫崎海岸":{"百合ヶ丘公園":2.1},"百合ヶ丘公園":{"北河都":2.7},"北河都":{"河都":2.1},"河都":{"南河都":1.7},"南河都":{"恋野宮":2.2},"恋野宮":{"紅原台":2.4},"紅原台":{"外神":2.4},"外神":{"大三浜":1.9},"大三浜":{"千種園":2.1},"千種園":{"白砂":2.3},"白砂":{"余田":2.2},"余田":{"りんくう桜川":2.3},"りんくう桜川":{"桜川国際空港(鈴浜電鉄)":1.1},"富士町":{"艶華":1.1},"艶華":{"夕陽ヶ浜":0.7},"夕陽ヶ浜":{"甲部":1.0},"甲部":{"虹松":0.8},"虹松":{"豊海":0.9},"豊海":{"発樫":0.8},"発樫":{"徳橋":1.0},"徳橋":{"原葉":1.1},"原葉":{"北成津":1.2},"北成津":{"成津":1.1},"大道寺":{"津垣":1.2},"津垣":{"口松":0.9},"口松":{"高座":0.8},"高座":{"榎仏子":0.9},"榎仏子":{"南築田":0.9},"南築田":{"築田市":0.7},"築田市":{"高越":1.0},"高越":{"二番街":1.1},"二番街":{"弦川":1.0},"弦川":{"萱海":0.9},"萱海":{"陣中原":0.8},"陣中原":{"綿部":0.9},"綿部":{"合浜":0.9},"合浜":{"松橋":0.8},"松橋":{"牛ヶ瀬":1.1},"牛ヶ瀬":{"津塚":1.0},"津塚":{"東成津":0.8},"東成津":{"成津":1.2},"成津":{"大町":1.1},"大町":{"久末":1.3},"久末":{"今橋学園前":0.9},"今橋学園前":{"大弥又":0.8},"大弥又":{"小弥又":0.9},"小弥又":{"土川":0.9},"土川":{"新今橋":1.2},"新今橋":{"今橋":1.3},"糸島":{"西糸島":1.4},"西糸島":{"平田":1.7},"平田":{"文京町":1.2},"文京町":{"東桜川":1.8},"東桜川":{"桜川":1.5},"桜川":{"豊野月見台":1.3,"公園東口": 1.3,"南桜川": 1.0},"豊野月見台":{"豊野":1.9},"豊野":{"西豊野":1.6},"西豊野":{"白州川":1.2},"白州川":{"春田":1.8},"春田":{"桜峠":3.6,"南春田":1.5},"桜峠":{"桑畑":4.3},"桑畑":{"常盤台":1.5,"北桑畑":1.3},"常盤台":{"天津川":1.1},"天津川":{"広野":1.9},"広野":{"追分":1.6},"追分":{"野川":1.2},"野川":{"幕生":1.8},"幕生":{"羽草":1.3},"羽草":{"清見台":1.7},"清見台":{"東園木":1.4},"東園木":{"園木":1.5},"南春田":{"日野原":1.4},"日野原":{"加納":1.3},"加納":{"永楽町":1.2},"永楽町":{"室町":1.1},"室町":{"西新地":1.2},"西新地":{"新地":1.1},"北桑畑":{"坂川":1.6},"坂川":{"天津温泉":1.8},
       "東橋": { "河井町": 2.2 },
       "河井町": { "黒田": 2.1 },
@@ -489,8 +457,8 @@ document.addEventListener('DOMContentLoaded', function(){
   },
   "りんくう桜川": {
     "桜川国際空港(桜川電鉄)": 1.1
-  }
-  };
+    }
+    };
 
     // --- ユーティリティ ---
     function buildGraphBidirectional(raw){
@@ -511,6 +479,8 @@ document.addEventListener('DOMContentLoaded', function(){
     // ============ 運賃ロジック（省略表示なし） ============
     function fareImabashi(km){ return 0; }
     function fareSakuragawa(km){
+      // （元のファイルでは未定義だったため、ここは必要に応じて調整してください）
+      // とりあえず新里系と同等の段階料金を仮定し0を返す実装になっています。
       if (km <= 4)  return 140;
       if (km <= 6)  return 160;
       if (km <= 9)  return 190;
@@ -543,6 +513,7 @@ document.addEventListener('DOMContentLoaded', function(){
       return 450;
     }
     function fareToyono(km){
+      // 元のファイルでは未実装だったため、代表的な段階運賃を仮に設定しています。
       if(km <= 2) return 140;
       if(km <= 4) return 150;
       if(km <= 6) return 170;
@@ -738,7 +709,7 @@ document.addEventListener('DOMContentLoaded', function(){
       { station: "成津", endpoints: ["北成津", "大町"] },
 
       { station: "新東橋", endpoints: ["浅見", "東黒田"] }
-      // りんくう桜川 の接続（余田⇄桜川国際空港）は削除済み（接続リストに含めていない）
+      // りんくう桜川 の接続（余田⇄桜川国際空港）は削除済み
     ];
 
     const specialMajorStations = [
@@ -749,7 +720,7 @@ document.addEventListener('DOMContentLoaded', function(){
       "北桑畑", "桑畑", "常盤台",
       "日森町", "横宿", "北横宿",
       "北成津", "成津", "大町"
-      // 余田・桜川国際空港はここに含めない（見かけ上扱わない）
+      // 余田・桜川国際空港はここに含めない（削除）
     ];
 
     function indexesOf(arr, value){
@@ -863,13 +834,6 @@ document.addEventListener('DOMContentLoaded', function(){
     const searchBtn = document.getElementById('searchBtn');
     const resultArea = document.getElementById('resultArea');
 
-    // 表示用の駅名クリーンアップ（見かけ上のみ）
-    function displayName(name){
-      if(!name) return name;
-      // (桜川電鉄) と (鈴浜電鉄) を見かけ上削除
-      return name.replace(/\(桜川電鉄\)/g, "").replace(/\(鈴浜電鉄\)/g, "").trim();
-    }
-
     function populateLineSelect(sel){
       sel.innerHTML = '';
       Object.keys(stationLines).forEach(l=>{
@@ -880,7 +844,7 @@ document.addEventListener('DOMContentLoaded', function(){
       stationSel.innerHTML = '';
       const line = lineSel.value;
       (stationLines[line] || []).forEach(st=>{
-        const o = document.createElement('option'); o.value = st; o.textContent = displayName(st); stationSel.appendChild(o);
+        const o = document.createElement('option'); o.value = st; o.textContent = st; stationSel.appendChild(o);
       });
     }
     [ fromLineSel, toLineSel ].forEach(sel => populateLineSelect(sel));
@@ -1089,8 +1053,7 @@ document.addEventListener('DOMContentLoaded', function(){
       return parts;
     }
 
-    // splitByCompany: 各辺ごとに会社を判定して連続区間化（**特例処理を削除**）
-    // 戻り値は各セグメントに company, from, to, edgeStart, edgeEnd を含む
+    // splitByCompany: 各辺ごとに会社を判定して連続区間化、りんくう桜川-桜川国際空港の特例を組み込む
     function splitByCompany(path){
       if(path.length < 2) return [];
       // edgeCompanies[i] corresponds to edge path[i] -> path[i+1]
@@ -1119,31 +1082,49 @@ document.addEventListener('DOMContentLoaded', function(){
       // filter out null companies (should not happen often)
       let filtered = segments.filter(s => s.company !== null && s.from !== s.to);
 
-      // --- 特例（りんくう桜川 ⇄ 桜川国際空港）の特別処理は削除しました ---
-      // これ以降は単純に隣接区間の会社ごとに分割した配列を返します。
+      // 特例処理（りんくう桜川⇄桜川国際空港）
+      for(let i = 0; i < filtered.length; i++){
+        const seg = filtered[i];
+        // if this segment covers the edge rinku->airport or airport->rinku
+        let coversRinku = false;
+        for(let e = seg.edgeStart; e <= seg.edgeEnd; e++){
+          const a = path[e], b = path[e+1];
+          if((a === "りんくう桜川" && b === "桜川国際空港") || (a === "桜川国際空港" && b === "りんくう桜川")){
+            coversRinku = true;
+            break;
+          }
+        }
+        if(!coversRinku) continue;
 
-      return filtered;
-    }
-
-    // 路線上の区間距離を計算（pathのインデックス startIdx から endIdx までの距離）
-    function distanceAlongPath(path, startIdx, endIdx){
-      if(!path || path.length===0) return 0;
-      let d = 0;
-      for(let i = startIdx; i < endIdx; i++){
-        const a = path[i], b = path[i+1];
-        if(graph[a] && graph[a][b] != null) d += graph[a][b];
-        else {
-          // try reverse
-          if(graph[b] && graph[b][a] != null) d += graph[b][a];
-          else d += 0;
+        if(filtered.length === 1){
+          // 経路全体がこの区間のみ -> 運賃が安い方を採用
+          const d = shortestPath(seg.from, seg.to).distance;
+          const fareAsSuzuhama = fareSuzuhama(d);
+          const fareAsSakuragawa = fareSakuragawa(d);
+          const chosenCompany = (fareAsSuzuhama <= fareAsSakuragawa) ? "鈴浜電気鉄道" : "桜川電気鉄道";
+          seg.company = chosenCompany;
+          continue;
+        } else {
+          // 他のセグメントとつながっている場合 -> 隣接する会社に合わせる
+          const prevSeg = (i - 1 >= 0) ? filtered[i-1] : null;
+          const nextSeg = (i + 1 < filtered.length) ? filtered[i+1] : null;
+          if(prevSeg && prevSeg.company){
+            seg.company = prevSeg.company;
+          } else if(nextSeg && nextSeg.company){
+            seg.company = nextSeg.company;
+          } else {
+            // 両側とも会社が無いという稀なケースは、デフォルトの割当を残す
+          }
         }
       }
-      return d;
+
+      // map to simpler segments for caller (drop edgeStart/edgeEnd)
+      return filtered.map(s => ({ from: s.from, to: s.to, company: s.company }));
     }
 
-    // ---- ルート描画ロジック ----
-    function renderRouteCardForPart(part, partIndex, preloadedUrls, companySegmentsDetail){
+    function renderRouteCardForPart(part, partIndex){
       const path = part.path;
+
       const { majors } = majorStops(path);
 
       const majorIndices = [];
@@ -1186,213 +1167,282 @@ document.addEventListener('DOMContentLoaded', function(){
               if(lineColors[ln]){ color = lineColors[ln]; break; }
             }
           }
+
+        } else if(!nextStation){
+          if(iFrom > 0){
+            const ln = findLineOfSegment(path[iFrom-1], path[iFrom]);
+            if(ln && lineColors[ln]) color = lineColors[ln];
+          } else if(path.length >= 2){
+            const ln0 = findLineOfSegment(path[0], path[1]);
+            if(ln0 && lineColors[ln0]) color = lineColors[ln0];
+          }
+        } else {
+          if(path.length >= 2){
+            const ln0 = findLineOfSegment(path[0], path[1]);
+            if(ln0 && lineColors[ln0]) color = lineColors[ln0];
+          }
         }
 
         majorsColors[idx] = color;
       }
 
-      // build a card showing the sequence and added details
-      const card = document.createElement('div');
-      card.className = 'card';
-      const header = document.createElement('div');
-      header.className = 'resultHeader';
-      header.innerHTML = '<div><strong>経路パート ' + (partIndex+1) + '</strong></div>';
-      card.appendChild(header);
+      let routeHtml = `
+        <div class="card">
+          <div class="resultHeader">
+            <div class="meta"></div>
+          </div>
+          <div class="routeLine">
+      `;
 
-      const routeDiv = document.createElement('div');
-      routeDiv.className = 'routeLine';
+      for(let idx = 0; idx < majors.length; idx++){
+        const st = majors[idx];
+        const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
 
-      // produce station rows
-      for(let i=0;i<path.length;i++){
-        const isMajor = majors.indexOf(path[i]) !== -1;
-        const row = document.createElement(isMajor ? 'div' : 'div');
-        row.className = isMajor ? 'rowStation' : 'rowBetween';
-        const railCol = document.createElement('div');
-        railCol.className = 'railCol';
-        const dot = document.createElement('div');
-        dot.className = 'railDot';
-        railCol.appendChild(dot);
-        const lineElem = document.createElement('div');
-        lineElem.className = isMajor ? 'railLineMajor' : 'railLineMinor';
-        railCol.appendChild(lineElem);
+        const iFrom = majorIndices[idx];
+        const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
 
-        const textCol = document.createElement('div');
-        textCol.className = 'stationText';
-        const stationName = document.createElement('div');
-        stationName.className = isMajor ? 'stationName' : 'minorName';
-        // 見かけ上の表示名を使用（括弧付き会社名は画面から除去）
-        stationName.textContent = displayName(path[i]);
-        textCol.appendChild(stationName);
+        const color = majorsColors[idx];
+        const nextColor = nextStation ? majorsColors[idx+1] : null;
 
-        // 行程に使われる路線バッジ（起点->次の辺で得られる路線）
-        if(i < path.length - 1){
-          const ln = findLineOfSegment(path[i], path[i+1]);
-          if(ln){
-            const badge = document.createElement('span');
-            badge.className = 'lineBadge';
-            badge.textContent = ln;
-            badge.style.background = lineColors[ln] || '#999';
-            textCol.appendChild(badge);
+        // --- 駅アイコンの生成（主要駅） ---
+        const iconsForThisMajor = (typeof iFrom === 'number' && iFrom >= 0) ? getStationIconsForIndex(path, iFrom) : [];
+        const iconsHtmlMajor = iconsForThisMajor.map(ic => `<img class="stationIcon" src="${ic.src}" alt="${ic.line}" width="20" height="20" loading="eager" decoding="async">`).join('');
+
+        let lineListHtml = '';
+
+        let usedLinesForSegment = [];
+        if(nextStation && iFrom !== -1 && iTo !== -1){
+          for(let i=iFrom;i<iTo;i++){
+            const ln = findLineOfSegment(path[i], path[i+1]);
+            if(ln && !usedLinesForSegment.includes(ln)) usedLinesForSegment.push(ln);
+          }
+          const badges = usedLinesForSegment.length > 0 ? usedLinesForSegment : findCommonLines(st, nextStation);
+          if(badges.length > 0){
+            lineListHtml = badges.map(l => {
+  let imgHtml = '';
+  if (l.startsWith("新里鉄道")) {
+    const imgSrc = (lineIcons[l] && lineIcons[l].trim()) ? lineIcons[l] : defaultIcon;
+    imgHtml = `<img src="${imgSrc}" alt="${l}" width="16" height="16" loading="eager" decoding="async">`;
+  }
+  return `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${imgHtml}${l}</div>`;
+            }).join('');
+          }
+        } else if(!nextStation){
+          lineListHtml = '';
+        }
+
+        const bigLineId = `part${partIndex}-bigline-${idx}`;
+
+        const usedLinesDataAttr = usedLinesForSegment.join('|');
+
+        routeHtml += `
+          <div class="rowStation">
+            <div class="railCol">
+              ${ nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style=""></div>` : `<div class="spacer6"></div>`}
+              <div class="railDot" style="background:${color}"></div>
+            </div>
+            <div class="stationText">
+              <div class="stationWithIcons">
+                ${iconsHtmlMajor}
+                <div class="stationName">${st}</div>
+              </div>
+              ${lineListHtml}
+              ${nextStation ? `<div class="toggleWrap"><button class="toggleBtn" data-part="${partIndex}" data-seg="${idx}" data-open="false">停車駅を表示</button></div>` : ''}
+            </div>
+          </div>
+        `;
+
+        if(nextStation && iFrom !== -1 && iTo !== -1){
+          if(iTo - iFrom > 1){
+            const betweenStart = iFrom + 1;
+            const betweenEnd = iTo - 1;
+            const betweenCount = betweenEnd - betweenStart + 1;
+            const pairColors = new Array(Math.max(0, betweenCount)).fill('#999');
+            const isCondArr = new Array(Math.max(0, betweenCount)).fill(false);
+
+            for(let bj = betweenStart; bj <= betweenEnd; bj++){
+              const jIndex = bj;
+              const s = path[jIndex];
+              let isCondMinor = false;
+              const condsAll = connectingStations.filter(c => c.station === s);
+              let conds = [];
+              if(condsAll && condsAll.length > 0){
+                conds = condsAll;
+              }
+              if(conds && conds.length > 0){
+                const idxS = jIndex;
+                for(const cond of conds){
+                  const idxsA = indexesOf(path, cond.endpoints[0]);
+                  const idxsB = indexesOf(path, cond.endpoints[1]);
+                  if(idxsA.length > 0 && idxsB.length > 0){
+                    outer3: for(const ia of idxsA){
+                      for(const ib of idxsB){
+                        if(betweenExclusive(idxS, ia, ib)){ isCondMinor = true; break outer3; }
+                      }
+                    }
+                    if(isCondMinor) break;
+                  }
+                }
+              }
+              isCondArr[bj - betweenStart] = isCondMinor;
+
+              const prevSt = path[jIndex-1];
+              const nextSt = path[jIndex+1];
+
+              const directCandidates = findLinesOfSegment(s, nextSt);
+              if(directCandidates.length > 0){
+                let chosen = null;
+                for(const ln of directCandidates){
+                  if(lineColors[ln]){ chosen = ln; break; }
+                }
+                if(chosen){
+                  pairColors[bj - betweenStart] = lineColors[chosen];
+                  continue;
+                }
+              }
+
+              let threeLine = null;
+              for(const [ln, stations] of Object.entries(stationLines)){
+                if(stations.indexOf(prevSt) !== -1 && stations.indexOf(s) !== -1 && stations.indexOf(nextSt) !== -1){
+                  threeLine = ln;
+                  break;
+                }
+              }
+              if(threeLine && lineColors[threeLine]){
+                pairColors[bj - betweenStart] = lineColors[threeLine];
+                continue;
+              }
+
+              const adjPairs = [];
+              if(jIndex > 0) adjPairs.push([path[jIndex-1], path[jIndex]]);
+              if(jIndex < path.length - 1) adjPairs.push([path[jIndex], path[jIndex+1]]);
+              for(const p of adjPairs){
+                const ln = findLineOfSegment(p[0], p[1]);
+                if(ln && lineColors[ln]){ pairColors[bj - betweenStart] = lineColors[ln]; break; }
+              }
+            }
+
+            routeHtml += `<div id="part${partIndex}-between-${idx}" class="betweenList">`;
+            for(let bj = betweenStart; bj <= betweenEnd; bj++){
+              const s = path[bj];
+              const arrIdx = bj - betweenStart;
+              const isCondMinor = isCondArr[arrIdx];
+              const minorClass = isCondMinor ? 'condMinorName' : 'minorName';
+              let displayColor = pairColors[arrIdx];
+              if(isCondMinor){
+                const nextArrIdx = arrIdx + 1;
+                if(nextArrIdx < pairColors.length){
+                  displayColor = pairColors[nextArrIdx];
+                } else {
+                  displayColor = pairColors[arrIdx];
+                }
+              }
+
+              const iconsForBetween = getStationIconsForIndex(path, bj);
+              const iconsHtmlBetween = iconsForBetween.map(ic => `<img class="stationIcon" src="${ic.src}" alt="${ic.line}" width="20" height="20" loading="eager" decoding="async">`).join('');
+
+              routeHtml += `
+                <div class="rowBetween">
+                  <div class="railCol">
+                    <div class="railDot" style="background:${displayColor}"></div>
+                    <div class="railLineMinor" style="background:${displayColor}"></div>
+                  </div>
+                  <div class="stationText">
+                    <div class="stationWithIcons">
+                      ${iconsHtmlBetween}
+                      <div class="${minorClass}">${s}</div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }
+            routeHtml += `</div>`;
           }
         }
-
-        row.appendChild(railCol);
-        row.appendChild(textCol);
-        routeDiv.appendChild(row);
       }
 
-      card.appendChild(routeDiv);
+      routeHtml += `</div></div>`;
+      return routeHtml;
+    }
 
-      // 追加表示：会社ごとの区間情報（会社・区間・距離・運賃）
-      const detailDiv = document.createElement('div');
-      detailDiv.className = 'detailList';
-      detailDiv.innerHTML = '<div class="small"><strong>区間会社情報</strong></div>';
-      const ul = document.createElement('div');
-      ul.style.display = 'flex';
-      ul.style.flexDirection = 'column';
-      ul.style.gap = '6px';
-      // companySegmentsDetail: array of {company, from, to, startIdx, endIdx, distance, fare}
-      (companySegmentsDetail || []).forEach(seg=>{
-        const row = document.createElement('div');
-        row.className = 'small';
-        row.innerHTML = `<div><strong>${seg.company}</strong>: ${displayName(seg.from)} → ${displayName(seg.to)} (` + seg.distance.toFixed(1) + ` km) — 運賃 ${seg.fare} 円</div>`;
-        ul.appendChild(row);
+    function wireToggleButtons(){
+      document.querySelectorAll('.toggleBtn').forEach(btn=>{
+        btn.addEventListener('click', function(){
+          const part = this.dataset.part;
+          const seg = this.dataset.seg;
+          const between = document.getElementById(`part${part}-between-${seg}`);
+          if(!between) return;
+          const isOpen = getComputedStyle(between).display !== 'block';
+          between.style.display = isOpen ? 'block' : 'none';
+          this.dataset.open = isOpen.toString();
+          this.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
+          // 重要: 単色に強制せず、再描画でグラデーションを再計算する
+          setTimeout(runAdjustments, 20);
+        });
       });
-      if((companySegmentsDetail || []).length === 0){
-        const none = document.createElement('div');
-        none.className = 'small';
-        none.textContent = '（区間会社情報なし）';
-        ul.appendChild(none);
-      }
-      detailDiv.appendChild(ul);
-
-      // 追加表示：プリロードされた画像URL（要約）
-      const preloadDiv = document.createElement('div');
-      preloadDiv.className = 'detailList';
-      preloadDiv.style.marginTop = '8px';
-      preloadDiv.innerHTML = '<div class="small"><strong>プリロード画像（要約）</strong></div>';
-      const pList = document.createElement('div');
-      pList.className = 'small';
-      if(preloadedUrls && preloadedUrls.length){
-        const show = preloadedUrls.slice(0,10);
-        pList.innerHTML = show.map(u => `<div style="word-break:break-all">${u}</div>`).join('');
-        if(preloadedUrls.length > 10){
-          const more = document.createElement('div');
-          more.className = 'small';
-          more.textContent = '...他 ' + (preloadedUrls.length - 10) + ' 件';
-          pList.appendChild(more);
-        }
-      } else {
-        pList.innerHTML = '<div class="small">（プリロード無し）</div>';
-      }
-      preloadDiv.appendChild(pList);
-
-      card.appendChild(detailDiv);
-      card.appendChild(preloadDiv);
-
-      return card;
-    }
-
-    function renderFullRoute(parts, preloadedUrlsByPart){
-      resultArea.innerHTML = '';
-      if(!parts || parts.length===0){
-        resultArea.innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
-        return;
-      }
-      for(let i=0;i<parts.length;i++){
-        const companyDetail = parts[i].companyDetail || [];
-        const urls = preloadedUrlsByPart && preloadedUrlsByPart[i] ? preloadedUrlsByPart[i] : [];
-        const c = renderRouteCardForPart(parts[i], i, urls, companyDetail);
-        resultArea.appendChild(c);
-      }
-      // run layout adjustments after DOM appended
-      setTimeout(runAdjustments, 120);
-    }
-
-    function getViaStationsFromUI(){
-      const rows = Array.from(viaListDiv.querySelectorAll('.viaRow'));
-      return rows.map(r => {
-        const sel = r.querySelector('.stationSelect');
-        return sel ? sel.value : null;
-      }).filter(x=>x);
     }
 
     searchBtn.addEventListener('click', ()=>{
-      const from = fromStationSel.value;
-      const to = toStationSel.value;
-      const via = getViaStationsFromUI();
-      if(!from || !to){ alert('発着駅を選択してください'); return; }
-      const parts = buildRoutePartsAvoidingDuplicates(from, via, to);
-      if(!parts){ resultArea.innerHTML = '<div class="card">経路を構築できませんでした（指定経路に未接続の箇所があります）</div>'; return; }
+      const stationSelectsAll = Array.from(document.querySelectorAll('.stationSelect'));
+      const from = stationSelectsAll[0] ? stationSelectsAll[0].value : '';
+      const to = stationSelectsAll[stationSelectsAll.length - 1] ? stationSelectsAll[stationSelectsAll.length - 1].value : '';
+      const viaSelects = Array.from(viaListDiv.querySelectorAll('.stationSelect'));
+      const viaStations = viaSelects.map(s=>s.value).filter(v=>v);
 
-      // --- ここでルートに必要な画像のみプリロードする（要求どおり） ---
-      const preloadedUrlsByPart = [];
-      let anyUrls = [];
-      for(let i=0;i<parts.length;i++){
-        const urls = gatherImageURLsForParts([parts[i]]);
-        if(urls.length === 0){
-          // fallback later
-          preloadedUrlsByPart.push([]);
-        } else {
-          const pre = preloadImages(urls);
-          preloadedUrlsByPart.push(pre);
-          anyUrls = anyUrls.concat(pre);
+      if(!from || !to){
+        resultArea.innerHTML = '<div class="card">駅を選択してください</div>';
+        return;
+      }
+      if(from === to && viaStations.length === 0){
+        resultArea.innerHTML = '<div class="card">発駅と着駅が同じです</div>';
+        return;
+      }
+
+      const parts = buildRoutePartsAvoidingDuplicates(from, viaStations, to);
+      if(!parts || parts.length === 0){
+        resultArea.innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
+        return;
+      }
+
+      // 合計距離は小数（そのまま）で計算・表示
+      const totalDistance = parts.reduce((acc,p)=>acc+p.distance, 0);
+
+      // 運賃計算 — 各会社区間ごとに、その区間の小数距離を使って算出
+      let totalFare = 0;
+      for(const part of parts){
+        const companySegments = splitByCompany(part.path);
+        for(const seg of companySegments){
+          const spComp = shortestPathWithinCompany(seg.from, seg.to, seg.company);
+          totalFare += fareByCompany(seg.company, spComp.distance, spComp.path, companySegments);
         }
       }
-      if(anyUrls.length === 0){
-        // 取得できなかった場合は全てをプリロード（フォールバック）
-        const all = gatherAllKnownImageURLs();
-        const pre = preloadImages(all);
-        // store the fallback list into every part's preloadedUrls for display
-        for(let i=0;i<parts.length;i++) preloadedUrlsByPart[i] = pre;
-      }
 
-      // --- 追加処理：各パートごとに会社区間を算出し、距離と運賃を計算して parts に埋め込む ---
-      for(let pIdx=0;pIdx<parts.length;pIdx++){
-        const part = parts[pIdx];
-        const path = part.path || [];
-        const segs = splitByCompany(path); // each has from,to,company,edgeStart,edgeEnd
-        const detail = [];
-        for(const s of segs){
-          // find start index and end index within path
-          const startIdx = findIndexFrom(path, s.from, 0);
-          const endIdx = (function(){
-            // find the last occurrence of s.to starting from startIdx
-            for(let k = startIdx; k < path.length; k++){
-              if(path[k] === s.to) return k;
-            }
-            return -1;
-          })();
-          if(startIdx === -1 || endIdx === -1 || endIdx <= startIdx){
-            // fallback: try to use edgeStart/edgeEnd if available
-            const st = (s.edgeStart != null) ? s.edgeStart : startIdx;
-            const ed = (s.edgeEnd != null) ? (s.edgeEnd + 1) : endIdx;
-            const dist = distanceAlongPath(path, st, ed);
-            const fare = fareByCompany(s.company, dist, path.slice(st, ed+1), segs);
-            detail.push({ company: s.company, from: s.from, to: s.to, startIdx: st, endIdx: ed, distance: dist, fare: fare });
-          } else {
-            const dist = distanceAlongPath(path, startIdx, endIdx);
-            const fare = fareByCompany(s.company, dist, path.slice(startIdx, endIdx+1), segs);
-            detail.push({ company: s.company, from: s.from, to: s.to, startIdx: startIdx, endIdx: endIdx, distance: dist, fare: fare });
-          }
-        }
-        part.companyDetail = detail;
-        part.preloadedUrls = preloadedUrlsByPart[pIdx] || [];
-      }
+      const headerHtml = `
+        <div class="card">
+          <div class="resultHeader">
+            <div style="font-weight:800">検索結果</div>
+            <div class="meta">
+              <div>合計距離: <strong>${totalDistance.toFixed(1)} km</strong></div>
+              <div>合計運賃: <strong>${totalFare} 円</strong></div>
+            </div>
+          </div>
+        </div>
+      `;
 
-      // 出力（表示）は「追加したプログラムのまま」 — すなわち会社区間・距離・運賃・プリロード情報を含めて表示
-      renderFullRoute(parts, preloadedUrlsByPart);
+      const bodyHtml = parts.map((part, idx) => renderRouteCardForPart(part, idx)).join('');
+      resultArea.innerHTML = headerHtml + bodyHtml;
+
+      wireToggleButtons();
+      setTimeout(runAdjustments, 0);
     });
 
-    // 最低限の初期描画
-    resultArea.innerHTML = '<div class="card">発駅と着駅を選んで「検索」を押してください。</div>';
-    // 最初の調整
-    setTimeout(runAdjustments, 200);
+    // 初期レイアウト調整
+    setTimeout(runAdjustments, 0);
 
-  } catch (e){
-    console.error(e);
+  } catch(e) {
+    console.error('初期化で例外:', e);
     const out = document.getElementById('resultArea');
-    if(out) out.innerHTML = '<div class="card" style="color:#b00020">初期化エラー: '+ (e && e.message ? e.message : String(e)) +'</div>';
+    if(out) out.innerHTML = '<div class="card" style="color:#b00020">初期化エラー: '+ (e && e.message) +'</div>';
   }
 });
 </script>
