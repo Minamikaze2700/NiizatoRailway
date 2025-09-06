@@ -2,9 +2,10 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>新里地方 乗換案内</title>
+<title>新里地方 乗換案内（修正版）</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
+/* （省略せず元のスタイルをそのまま保持） */
 :root{
   --bg:#f1f5f9;
   --card:#fff;
@@ -66,7 +67,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 </head>
 <body>
 <div class="wrap">
-<h1>新里地方 乗換案内</h1>
+<h1>新里地方 乗換案内（修正版）</h1>
 
 <div class="card">
   <div id="stationSelector">
@@ -104,7 +105,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 </div>
 
 <script>
-/* === グローバルなエラーハンドラ（画面に出す） === */
+/* ==== エラーハンドラ（省略せず表示） ==== */
 window.addEventListener('error', function(ev){
   const msg = ev && (ev.message || (ev.error && ev.error.message)) || String(ev);
   console.error('Window error:', ev);
@@ -117,22 +118,22 @@ window.addEventListener('unhandledrejection', function(ev){
   if(out) out.innerHTML = '<div class="card" style="color:#b00020">Promise Rejection: '+ (ev.reason && (ev.reason.message || JSON.stringify(ev.reason)) || String(ev.reason)) +'</div>';
 });
 
-/* === DOM が準備されてから全初期化を行う === */
 document.addEventListener('DOMContentLoaded', function(){
   try {
-    // ==== 駅・路線データ （横宿線は逆順） ====
+
+    /* ===== 駅・路線データ（前回の修正版をベース） ===== */
     const stationLines = {
      "新里鉄道湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
      "新里鉄道燠野線":["湯の浜","新里大学前","綾原","福来","燠野","湯川","温泉口","燠野温泉"],
      "新里鉄道鶴宮線":["鶴宮","南鶴宮","あずさ台","橘町","燠野山口","白枝","燠野","紅葉台","桐山","湊川","彩山親水公園","彩山","蓮華寺","星宮","田ノ原"],
      "新里鉄道新里線":["新里","南新里","田ノ原","北玖川","玖川","中野原"],
      "新里鉄道彩山線":["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"],
-    // 鈴浜電気鉄道：りんくう桜川の反対側（余田とは逆）に桜川国際空港を追加
-    "鈴浜電気鉄道鈴浜電鉄線":["桜川国際空港","りんくう桜川","余田","白砂","千種園","大三浜","外神","紅原台","恋野宮","南河都","河都","北河都","百合ヶ丘公園","猫崎海岸","籾井","白木稲荷","流沢温泉口","流沢温泉","京新峡","奥沢高原","原津","神道山口","新的場","虹川","片牧町","鬼越峠","北鶴宮"],
-    "桜川電気鉄道彩山線":["喜多瀬浜","喜多瀬","久我山","桜鉄彩山口"],
-    "桜川電気鉄道空港線":["桜川","公園東口","桜川公園北口","御厨","南深江","北深江","桜鉄浪原","東浪原","喜多瀬浜","葵台","汐見台","月野原","高瀬","結原","りんくう桜川","桜川国際空港"],
-    "桜川電気鉄道桜州環状線":["八軒町","川渡","西中野","中野","東中野","桜台","福原","桜鉄久我原","浪原","桜鉄浪原","彩山川","似島","中洲","糸島","南糸島","野瀬","新浜","海岸通り","桜町","東片野","東新地","新地"],
-    "桜川電気鉄道中野線":["中野","南中野","大里","栄町","北桜川","桜川","南桜川","東豊野","すすき野","永田","平川","片野","北新地","新地"],
+     // 鈴浜電気鉄道：りんくう桜川の反対側（余田とは逆）に桜川国際空港を追加したまま（ご要望どおり）
+     "鈴浜電気鉄道鈴浜電鉄線":["桜川国際空港","りんくう桜川","余田","白砂","千種園","大三浜","外神","紅原台","恋野宮","南河都","河都","北河都","百合ヶ丘公園","猫崎海岸","籾井","白木稲荷","流沢温泉口","流沢温泉","京新峡","奥沢高原","原津","神道山口","新的場","虹川","片牧町","鬼越峠","北鶴宮"],
+     "桜川電気鉄道彩山線":["喜多瀬浜","喜多瀬","久我山","桜鉄彩山口"],
+     "桜川電気鉄道空港線":["桜川","公園東口","桜川公園北口","御厨","南深江","北深江","桜鉄浪原","東浪原","喜多瀬浜","葵台","汐見台","月野原","高瀬","結原","りんくう桜川","桜川国際空港"],
+     "桜川電気鉄道桜州環状線":["八軒町","川渡","西中野","中野","東中野","桜台","福原","桜鉄久我原","浪原","桜鉄浪原","彩山川","似島","中洲","糸島","南糸島","野瀬","新浜","海岸通り","桜町","東片野","東新地","新地"],
+     "桜川電気鉄道中野線":["中野","南中野","大里","栄町","北桜川","桜川","南桜川","東豊野","すすき野","永田","平川","片野","北新地","新地"],
       "豊野鉄道豊野線":["糸島","西糸島","平田","文京町","東桜川","桜川","豊野月見台","豊野","西豊野","白州川","春田","桜峠","桑畑","常盤台","天津川","広野","追分","野川","幕生","羽草","清見台","東園木","園木"],
     "豊野鉄道新地線":["春田","南春田","日野原","加納","永楽町","室町","西新地","新地"],
     "豊野鉄道坂川線":["桑畑","北桑畑","坂川","天津温泉"],
@@ -146,7 +147,6 @@ document.addEventListener('DOMContentLoaded', function(){
         "葉賀ノ台","木森","理李ヶ丘","小査","寺尾","栗島","宮間","大木沢","園木","新東園木",
         "綾山","豊川大野","垂生崎","南豊川","幕ヶ原","咲田口"
       ],
-      // 横宿線を逆順にしました（ユーザ指定）
       "東橋鉄道横宿線":[
         "横宿","日森町","和泉原","朋田","小柴","新大崎","杜山","東黒田","新東橋"
       ]
@@ -175,7 +175,6 @@ document.addEventListener('DOMContentLoaded', function(){
       "東橋鉄道横宿線":"#0099cc"
     };
 
-    // ==== 路線アイコン定義（路線バッジ用） ====
     const defaultIcon = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"></svg>';
     const lineIcons = {
       "新里鉄道湯の浜線": "https://img.atwiki.jp/niizato-area/attach/15/105/Yunohama.png",
@@ -185,7 +184,6 @@ document.addEventListener('DOMContentLoaded', function(){
       "新里鉄道新里線": "https://img.atwiki.jp/niizato-area/attach/18/108/Niizato.png"
     };
 
-    // ==== 駅画像定義（駅ごとに路線別の画像を格納） ====
     const stationIcons = {
       "新里鉄道湯の浜線": {
         "豊町": "https://img.atwiki.jp/niizato-area/attach/15/38/Y01.png",
@@ -263,32 +261,17 @@ document.addEventListener('DOMContentLoaded', function(){
         "桜川": "https://img.atwiki.jp/niizato-area/attach/19/92/S10.png",
       }
     };
-    // 空文字や未定義の場合は lineIcons（路線アイコン）を代替として使います。
 
-    // ---- 画像のプリロード（重要アイコンだけ軽めにプリロード） ----
+    // ---- プリロード（省略） ----
     function preloadImages(urls){
       urls.forEach(u => {
         if(!u) return;
-        try {
-          const img = new Image();
-          img.src = u;
-        } catch(e){}
+        try { const img = new Image(); img.src = u; } catch(e){}
       });
     }
-    // 収集して少数プリロード
-    (function(){
-      const urls = [];
-      // lineIcons
-      Object.values(lineIcons).forEach(u => { if(u && u.trim()) urls.push(u); });
-      // stationIcons nested
-      Object.values(stationIcons).forEach(m=>{
-        Object.values(m).forEach(u => { if(u && u.trim()) urls.push(u); });
-      });
-      // 最大40個だけプリロード（やりすぎ回避）
-      if(urls.length) preloadImages(urls.slice(0,40));
-    })();
+    (function(){ const urls=[]; Object.values(lineIcons).forEach(u=>{ if(u) urls.push(u); }); Object.values(stationIcons).forEach(m=>{ Object.values(m).forEach(u=>{ if(u) urls.push(u); }); }); if(urls.length) preloadImages(urls.slice(0,40)); })();
 
-    // ==== 距離グラフ ====
+    /* ===== 距離グラフ（元データそのまま） ===== */
     const rawGraph={"豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},"安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},"栃原":{"宇城":2.2},"宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},"御浜":{"伊坂":2.5},"伊坂":{"垳下":2.6},"垳下":{"北浜":2.3},"北浜":{"西新里":1.4},"西新里":{"新里":1.7},"新里":{"河岸":0.9,"南新里":2.5},"河岸":{"新里海浜公園":1.7},"新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5},"湯の浜":{"七浦":2.5,"新里大学前":0.8},"七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},"伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.1,"南鶴宮":1.7},"新里大学前":{"綾原":0.7},"綾原":{"福来":1.2},"福来":{"燠野":1.4},"燠野":{"湯川":2.6,"紅葉台":1.1},"湯川":{"温泉口":1.6},"温泉口":{"燠野温泉":1.9},"南鶴宮":{"あずさ台":1.4},"あずさ台":{"橘町":1.8},"橘町":{"燠野山口":1.1},"燠野山口":{"白枝":1.2},"白枝":{"燠野":1.1},"紅葉台":{"桐山":0.8},"桐山":{"湊川":0.8},"湊川":{"彩山親水公園":1.1},"彩山親水公園":{"彩山":1.2},"彩山":{"蓮華寺":0.8,"彩山口":2.1},"蓮華寺":{"星宮":1.1},"星宮":{"田ノ原":1.1},"南新里":{"田ノ原":2.3},"田ノ原":{"北玖川":2.4},"北玖川":{"玖川":3.1},"玖川":{"中野原":3.1},"彩山口":{"新里国際スキー場":3.4},"新里国際スキー場":{"鷹見台":10.7},"鷹見台":{"久我原":2.7},"久我原":{"浪原":1.5},"浪原":{"深江":1.4,"桜鉄浪原": 1.2},"深江":{"三栗谷":1.3},"三栗谷":{"桜川公園":1.5},"桜川公園":{"桜川":2.2},"北鶴宮":{"鬼越峠":2.6},"鬼越峠":{"片牧町":3.1},"片牧町":{"虹川":2.2},"虹川":{"新的場":1.9},"新的場":{"神道山口":2.8},"神道山口":{"原津":2.6},"原津":{"奥沢高原":1.7},"奥沢高原":{"京新峡":2.0},"京新峡":{"流沢温泉":1.9},"流沢温泉":{"流沢温泉口":2.5},"流沢温泉口":{"白木稲荷":2.0},"白木稲荷":{"籾井":2.4},"籾井":{"猫崎海岸":2.3},"猫崎海岸":{"百合ヶ丘公園":2.1},"百合ヶ丘公園":{"北河都":2.7},"北河都":{"河都":2.1},"河都":{"南河都":1.7},"南河都":{"恋野宮":2.2},"恋野宮":{"紅原台":2.4},"紅原台":{"外神":2.4},"外神":{"大三浜":1.9},"大三浜":{"千種園":2.1},"千種園":{"白砂":2.3},"白砂":{"余田":2.2},"余田":{"りんくう桜川":2.3},"りんくう桜川":{"桜川国際空港":1.1},"富士町":{"艶華":1.1},"艶華":{"夕陽ヶ浜":0.7},"夕陽ヶ浜":{"甲部":1.0},"甲部":{"虹松":0.8},"虹松":{"豊海":0.9},"豊海":{"発樫":0.8},"発樫":{"徳橋":1.0},"徳橋":{"原葉":1.1},"原葉":{"北成津":1.2},"北成津":{"成津":1.1},"大道寺":{"津垣":1.2},"津垣":{"口松":0.9},"口松":{"高座":0.8},"高座":{"榎仏子":0.9},"榎仏子":{"南築田":0.9},"南築田":{"築田市":0.7},"築田市":{"高越":1.0},"高越":{"二番街":1.1},"二番街":{"弦川":1.0},"弦川":{"萱海":0.9},"萱海":{"陣中原":0.8},"陣中原":{"綿部":0.9},"綿部":{"合浜":0.9},"合浜":{"松橋":0.8},"松橋":{"牛ヶ瀬":1.1},"牛ヶ瀬":{"津塚":1.0},"津塚":{"東成津":0.8},"東成津":{"成津":1.2},"成津":{"大町":1.1},"大町":{"久末":1.3},"久末":{"今橋学園前":0.9},"今橋学園前":{"大弥又":0.8},"大弥又":{"小弥又":0.9},"小弥又":{"土川":0.9},"土川":{"新今橋":1.2},"新今橋":{"今橋":1.3},"糸島":{"西糸島":1.4},"西糸島":{"平田":1.7},"平田":{"文京町":1.2},"文京町":{"東桜川":1.8},"東桜川":{"桜川":1.5},"桜川":{"豊野月見台":1.3,"公園東口": 1.3,"南桜川": 1.0},"豊野月見台":{"豊野":1.9},"豊野":{"西豊野":1.6},"西豊野":{"白州川":1.2},"白州川":{"春田":1.8},"春田":{"桜峠":3.6,"南春田":1.5},"桜峠":{"桑畑":4.3},"桑畑":{"常盤台":1.5,"北桑畑":1.3},"常盤台":{"天津川":1.1},"天津川":{"広野":1.9},"広野":{"追分":1.6},"追分":{"野川":1.2},"野川":{"幕生":1.8},"幕生":{"羽草":1.3},"羽草":{"清見台":1.7},"清見台":{"東園木":1.4},"東園木":{"園木":1.5},"南春田":{"日野原":1.4},"日野原":{"加納":1.3},"加納":{"永楽町":1.2},"永楽町":{"室町":1.1},"室町":{"西新地":1.2},"西新地":{"新地":1.1},"北桑畑":{"坂川":1.6},"坂川":{"天津温泉":1.8},
       "東橋": { "河井町": 2.2 },
       "河井町": { "黒田": 2.1 },
@@ -462,7 +445,6 @@ document.addEventListener('DOMContentLoaded', function(){
   }
     };
 
-    // --- ユーティリティ ---
     function buildGraphBidirectional(raw){
       const g = {};
       for(const [a,edges] of Object.entries(raw)){
@@ -478,13 +460,9 @@ document.addEventListener('DOMContentLoaded', function(){
     const graph = buildGraphBidirectional(rawGraph);
     const allStations = Array.from(new Set([...Object.keys(graph), ...Object.values(graph).flatMap(x => Object.keys(x))])).sort();
 
-    // ============ 運賃ロジック（省略表示なし：ここを編集） ============
+    /* ===== 運賃関数（元の表をそのまま） ===== */
     function fareImabashi(km){ return 0; }
-
-    // --- 桜川電気鉄道（空港線含む）: 比較用に一通りの階層を入れておく（既存ファイルでは 0 だったため、
-    //     特例判定で比較するために鈴浜に合わせた階層を付けてあります。実際の運賃表がある場合はそちらに置き換えてください） ---
     function fareSakuragawa(km){
-      // km をそのまま（小数）で評価する（内部での丸め等は他処理に合わせる）
       if (km <= 4)  return 140;
       if (km <= 6)  return 160;
       if (km <= 9)  return 190;
@@ -499,11 +477,8 @@ document.addEventListener('DOMContentLoaded', function(){
       if (km <= 60) return 450;
       return 450;
     }
-
     function fareSakatsu(km){ return 0; }
     function fareSakatsuPortliner(km){ return 0; }
-
-    // 鈴浜電鉄（既存）
     function fareSuzuhama(km){
       if (km <= 4)  return 140;
       if (km <= 6)  return 160;
@@ -519,11 +494,6 @@ document.addEventListener('DOMContentLoaded', function(){
       if (km <= 60) return 450;
       return 450;
     }
-
-    // --- 豊野鉄道（指定の表で実装） ---
-    // スクリーンショットに合わせた階層：
-    // 0～2km:140、2～4km:150、4～6km:170、6～9km:200、9～12km:230、12～16km:270、
-    // 16～20km:310、20～25km:350、25～30km:400、30km～:450
     function fareToyono(km){
       if(km <= 2) return 140;
       if(km <= 4) return 150;
@@ -536,13 +506,7 @@ document.addEventListener('DOMContentLoaded', function(){
       if(km <= 30) return 400;
       return 450;
     }
-
-    // --- 新里鉄道（指定の表で実装） ---
-    // スクリーンショットに合わせた階層：
-    // 0～2km:130、2～5km:140、5～8km:160、8～12km:190、12～16km:220、16～20km:250、
-    // 20～25km:290、25～30km:340、30～35km:390、35～40km:450、40～50km:510、50km～:580
     function fareNiizato(km){
-      // 注意：距離は小数のままで評価（既存のコードの方針に合わせる）
       if(km <= 2) return 130;
       if(km <= 5) return 140;
       if(km <= 8) return 160;
@@ -556,8 +520,6 @@ document.addEventListener('DOMContentLoaded', function(){
       if(km <= 50) return 510;
       return 580;
     }
-
-    // 東橋（既存ロジックをそのまま）
     function fareTouhashi(km, segPath = [], companySegments = []){ 
       const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
       const tohashiEastLine = stationLines["東橋鉄道東橋本線"] || [];
@@ -580,7 +542,6 @@ document.addEventListener('DOMContentLoaded', function(){
       if(fullyInTO){
         return 250;
       }
-
       if(kmUsed <= 3) return 180;
       if(kmUsed <= 4) return 190;
       if(kmUsed <= 7) return 210;
@@ -647,6 +608,10 @@ document.addEventListener('DOMContentLoaded', function(){
       }
     }
 
+    /* ===== findLineOfSegment を改良 =====
+       複数路線が該当する場合、空港周辺などで
+       桜川電気鉄道（空港線）を優先して返すようにします（ユーザ要望対応）。
+    */
     function findLinesOfSegment(a,b){
       const candidates = [];
       for(const [line, stations] of Object.entries(stationLines)){
@@ -660,7 +625,11 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     function findLineOfSegment(a,b){
       const cs = findLinesOfSegment(a,b);
-      return cs.length ? cs[0] : null;
+      if(!cs || cs.length === 0) return null;
+      // 優先度ルール（高い順）: 桜川電気鉄道 > 鈴浜電気鉄道 > その他
+      for(const c of cs) if(c.startsWith("桜川電気鉄道")) return c;
+      for(const c of cs) if(c.startsWith("鈴浜電気鉄道")) return c;
+      return cs[0];
     }
 
     function shortestPath(start,goal){
@@ -708,7 +677,7 @@ document.addEventListener('DOMContentLoaded', function(){
       return {path, distance: dist[goal]};
     }
 
-    // ==== 途中駅扱いの「接続」定義 ====
+    /* ===== 接続定義・主要駅リスト（前回どおり：余田・桜川国際空港は specialMajorStations から除外済み） ===== */
     const connectingStations = [
       { station: "北鶴宮", endpoints: ["鶴宮","鬼越峠"] },
       { station: "鶴宮",   endpoints: ["鶴宮神社","南鶴宮"] },
@@ -717,20 +686,14 @@ document.addEventListener('DOMContentLoaded', function(){
       { station: "桜川",   endpoints: ["桜川公園","豊野月見台"] },
       { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
       { station: "豊町", endpoints: ["削野", "東豊町"] },
-
       { station: "園木", endpoints: ["東園木", "富士町"] },
       { station: "園木", endpoints: ["東園木", "大木沢"] },
-
       { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
-
       { station: "横宿", endpoints: ["日森町", "北横宿"] },
       { station: "成津", endpoints: ["北成津", "大町"] },
-
       { station: "新東橋", endpoints: ["浅見", "東黒田"] }
-      // ※ りんくう桜川/余田/桜川国際空港に関する接続エントリは削除済み
     ];
 
-    // ---- specialMajorStations: ご要望により「余田」と「桜川国際空港」は除外しました ----
     const specialMajorStations = [
       "新里", "湯の浜", "鶴宮",
       "坂電坂津", "港通", "東坂津",
@@ -738,25 +701,20 @@ document.addEventListener('DOMContentLoaded', function(){
       "東園木", "園木", "富士町", "大木沢",
       "北桑畑", "桑畑", "常盤台",
       "日森町", "横宿", "北横宿",
-      "北成津", "成津", "大町", "余田" === "余田" ? null : "余田" // placeholder removed below
-    ].filter(x=>x); // 最後の余田は意図的に除去済み
-
-    // 既に上で余田を除外したので specialMajorStations に余田/桜川国際空港は含まれません
-    // （上の配列は filter で null を取り除いています）
+      "北成津", "成津", "大町"
+      // 余田・桜川国際空港はここに含めていません（削除済）
+    ];
 
     function indexesOf(arr, value){
       const out=[]; for(let i=0;i<arr.length;i++) if(arr[i]===value) out.push(i); return out;
     }
     function betweenExclusive(idx, a, b){ return (a < idx && idx < b) || (b < idx && b < a); }
-
     function findIndexFrom(path, station, start){
-      for(let i=start;i<path.length;i++){
-        if(path[i] === station) return i;
-      }
+      for(let i=start;i<path.length;i++) if(path[i] === station) return i;
       return -1;
     }
 
-    // --- 主要駅抽出（追加した版のロジックを保持） ---
+    /* ===== majorStops（主要駅抽出） — 前回のロジックを踏襲 ===== */
     function majorStops(path){
       if(path.length <= 1) return {majors: path};
 
@@ -768,11 +726,8 @@ document.addEventListener('DOMContentLoaded', function(){
         const here = path[i];
         const ln = findLineOfSegment(prev, here);
 
-        // 区間境界は「ラインが変わる」かどうか
         let isBoundary = (ln !== curLine);
 
-        // specialMajorStations に含まれる駅は、単純に major としない
-        // ただし前後が同じ路線でつながっていれば skip（=主要駅として間引く）
         let isSpecialSkip = false;
         if(specialMajorStations.indexOf(here) !== -1 && i > 0 && i < path.length - 1){
           const before = path[i-1];
@@ -782,7 +737,6 @@ document.addEventListener('DOMContentLoaded', function(){
           }
         }
 
-        // connectingStations を見て、接続条件に一致する場合は主要駅判定を飛ばす
         let connectionSkipPrev = false;
         const connsPrev = connectingStations.filter(c => c.station === prev);
         if(connsPrev && connsPrev.length > 0){
@@ -849,7 +803,7 @@ document.addEventListener('DOMContentLoaded', function(){
       return list;
     }
 
-    // --- UI 初期化 ---
+    /* ===== UI 初期化（元のまま） ===== */
     const fromLineSel = document.getElementById('fromLine');
     const toLineSel = document.getElementById('toLine');
     const fromStationSel = document.getElementById('fromStation');
@@ -879,7 +833,6 @@ document.addEventListener('DOMContentLoaded', function(){
     fromLineSel.addEventListener('change', ()=> populateStationSelect(fromLineSel, fromStationSel));
     toLineSel.addEventListener('change', ()=> populateStationSelect(toLineSel, toStationSel));
 
-    // 初期値設定
     if(stationLines['新里鉄道湯の浜線'] && stationLines['新里鉄道湯の浜線'].indexOf('新里')!==-1){
       fromLineSel.value = '新里鉄道湯の浜線';
       populateStationSelect(fromLineSel, fromStationSel);
@@ -911,7 +864,7 @@ document.addEventListener('DOMContentLoaded', function(){
       viaListDiv.appendChild(viaRow);
     });
 
-    // ---- 駅アイコン判定（暫定：新里鉄道の5路線のみ対応） ----
+    /* ===== 駅アイコン関連（省略せず） ===== */
     const supportedNiizatoLines = [
       "新里鉄道湯の浜線",
       "新里鉄道燠野線",
@@ -941,7 +894,8 @@ document.addEventListener('DOMContentLoaded', function(){
       return ordered.map(l => ({ line: l, src: (stationIcons[l] && stationIcons[l][path[idx]] && stationIcons[l][path[idx]].trim()) ? stationIcons[l][path[idx]] : ((lineIcons[l] && lineIcons[l].trim()) ? lineIcons[l] : defaultIcon) }));
     }
 
-    // レイアウト補助（既存ロジック）
+    /* ===== 描画補助：applyStripedGradientForBigLine を保持しつつ、
+             betweenList の表示状態によって単色 or グラデーションに分岐するロジックを adjustMajorLines に用意 ===== */
     function applyStripedGradientForBigLine(lineElem, dotRect, nextDotRect, parentRect){
       if(!lineElem) return;
       const baseColor = lineElem.dataset.color || '#999';
@@ -1004,6 +958,12 @@ document.addEventListener('DOMContentLoaded', function(){
       lineElem.style.background = `linear-gradient(to bottom, ${stopsStr})`;
     }
 
+    /* adjustMajorLines を修正：
+       - 各主要ラインについて、そのすぐ次に "betweenList"（途中駅群の DOM）があるか確認する
+       - betweenList が存在して display === 'block' のときはグラデーション（applyStripedGradientForBigLine）
+       - betweenList が存在して display !== 'block'（非表示）のときは単色（上端の丸の色）にする
+       （この振る舞いで「途中駅表示時は今のまま、非表示時は上端の丸色単色」になります）
+    */
     function adjustMajorLines(){
       const rows = Array.from(document.querySelectorAll('.rowStation'));
       rows.forEach((row, idx) => {
@@ -1012,19 +972,40 @@ document.addEventListener('DOMContentLoaded', function(){
         const dot = railCol.querySelector('.railDot');
         const line = railCol.querySelector('.railLineMajor');
         if (!dot || !line) return;
-        if(line.dataset && line.dataset.shortened === 'true'){ return; }
+        // 次のドット行を見つける（次の rowStation の dot）
         const nextRow = rows.slice(idx + 1).find(r => r.querySelector('.railDot'));
         if (!nextRow) { line.style.height = '0px'; return; }
+
         const parentRect = railCol.getBoundingClientRect();
         const dotRect = dot.getBoundingClientRect();
         const nextDot = nextRow.querySelector('.railDot');
         const nextDotRect = nextDot.getBoundingClientRect();
+
+        // line のトップと高さは常に更新（描画整合のため）
         line.style.top = (dotRect.top - parentRect.top) + 'px';
         const h = Math.max(0, (nextDotRect.top - dotRect.top)) + 5;
         line.style.height = h + 'px';
-        applyStripedGradientForBigLine(line, dotRect, nextDotRect, parentRect);
+
+        // betweenList がこの row の直後にあるか確認
+        let betweenEl = row.nextElementSibling;
+        if(betweenEl && betweenEl.classList && betweenEl.classList.contains('betweenList')){
+          // betweenList が表示中ならグラデーション
+          const isShown = window.getComputedStyle(betweenEl).display !== 'none';
+          if(isShown){
+            // グラデーション適用（既存ロジック）
+            applyStripedGradientForBigLine(line, dotRect, nextDotRect, parentRect);
+          } else {
+            // 非表示なら上端の丸（dot）の色で単色表示
+            const topColor = dot.style.background || (line.dataset && line.dataset.color) || '#999';
+            line.style.background = topColor;
+          }
+        } else {
+          // betweenList が無ければ（通常の大区間）グラデーションを適用
+          applyStripedGradientForBigLine(line, dotRect, nextDotRect, parentRect);
+        }
       });
 
+      // 途中駅の小線はそのまま（既存）
       document.querySelectorAll('.rowBetween').forEach(r => {
         const railCol = r.querySelector('.railCol');
         if(!railCol) return;
@@ -1040,6 +1021,7 @@ document.addEventListener('DOMContentLoaded', function(){
     function runAdjustments(){ adjustMajorLines(); }
     window.addEventListener('resize', runAdjustments);
 
+    /* ===== buildRoutePartsAvoidingDuplicates（元のまま） ===== */
     function buildRoutePartsAvoidingDuplicates(from, viaStations, to){
       const waypoints = [from, ...viaStations, to];
       const parts = [];
@@ -1078,7 +1060,7 @@ document.addEventListener('DOMContentLoaded', function(){
       return parts;
     }
 
-    // 会社で分割（元ロジック）に、りんくう桜川⇄桜川国際空港特例を追加する
+    /* ===== splitByCompany（りんくう桜川 ⇄ 桜川国際空港 特例は維持） ===== */
     function splitByCompany(path){
       if(path.length < 2) return [];
       let segments = [];
@@ -1104,69 +1086,46 @@ document.addEventListener('DOMContentLoaded', function(){
       segments.push({ from:start, to:prev, company:curCompany });
       segments = segments.filter(s => !!s.company && s.from !== s.to);
 
-      // --- ここから「りんくう桜川 ⇄ 桜川国際空港」の特例処理 ---
-      // 1) 区間がちょうどりんくう桜川<->桜川国際空港のみ（segmentsが1つでそれがその区間）なら
-      //    鈴浜・桜川それぞれの運賃を計算して安い方の会社に割り当てる（運賃は最終計算で fareByCompany が使われるので、
-      //    seg.company を安い方に変えることで合計運賃も安い方に）。
-      // 2) 部分的に接続している場合は、接触側の会社へマージ（鈴浜側なら鈴浜に、空港線側なら桜川に統合）。
+      // 特例処理（りんくう桜川⇄桜川国際空港）
       for(let i = 0; i < segments.length; i++){
         const seg = segments[i];
-        // 区間の端点が (りんくう桜川, 桜川国際空港) の並び（順序はどちらでも）
         const isRinkuAirport = ( (seg.from === "りんくう桜川" && seg.to === "桜川国際空港") || (seg.from === "桜川国際空港" && seg.to === "りんくう桜川") );
         if(!isRinkuAirport) continue;
 
-        // 単独区間（経路全体がこの区間のみ）の場合
         if(segments.length === 1){
           const d = shortestPath(seg.from, seg.to).distance;
           const fareAsSuzuhama = fareSuzuhama(d);
           const fareAsSakuragawa = fareSakuragawa(d);
-          // 安い方の会社に案内
           seg.company = (fareAsSuzuhama <= fareAsSakuragawa) ? "鈴浜電気鉄道" : "桜川電気鉄道";
-          // 次へ
           continue;
         }
 
-        // 複数区間の一部の場合は接続側に吸収
         const prevSeg = (i - 1 >= 0) ? segments[i-1] : null;
         const nextSeg = (i + 1 < segments.length) ? segments[i+1] : null;
 
-        // 優先順：隣接する区間が鈴浜なら鈴浜側へ、なければ隣接が桜川なら桜川へ
         if(prevSeg && prevSeg.company === "鈴浜電気鉄道"){
-          // prevSeg を拡張してこの seg の終点までつなげる
           prevSeg.to = seg.to;
-          // remove current
-          segments.splice(i,1);
-          i--; // インデックス補正
-          continue;
+          segments.splice(i,1); i--; continue;
         } else if(nextSeg && nextSeg.company === "桜川電気鉄道"){
-          // nextSeg を拡張してこの seg の始点からつなげる
           nextSeg.from = seg.from;
-          segments.splice(i,1);
-          i--;
-          continue;
+          segments.splice(i,1); i--; continue;
         } else if(prevSeg && prevSeg.company === "桜川電気鉄道"){
-          // 隣接が桜川のみの場合は桜川側に
           prevSeg.to = seg.to;
-          segments.splice(i,1);
-          i--;
-          continue;
+          segments.splice(i,1); i--; continue;
         } else if(nextSeg && nextSeg.company === "鈴浜電気鉄道"){
-          // 隣接が鈴浜のみの場合は鈴浜側に
           nextSeg.from = seg.from;
-          segments.splice(i,1);
-          i--;
-          continue;
+          segments.splice(i,1); i--; continue;
         } else {
-          // どちらにも隣接していない特殊ケース：そのまま残す（既定）
+          // 特殊ケースはそのまま残す
         }
       }
 
       return segments;
     }
 
+    /* ===== renderRouteCardForPart（主に初期の big line を単色で出す） ===== */
     function renderRouteCardForPart(part, partIndex){
       const path = part.path;
-
       const { majors } = majorStops(path);
 
       const majorIndices = [];
@@ -1246,7 +1205,6 @@ document.addEventListener('DOMContentLoaded', function(){
         const color = majorsColors[idx];
         const nextColor = nextStation ? majorsColors[idx+1] : null;
 
-        // --- 駅アイコンの生成（主要駅） ---
         const iconsForThisMajor = (typeof iFrom === 'number' && iFrom >= 0) ? getStationIconsForIndex(path, iFrom) : [];
         const iconsHtmlMajor = iconsForThisMajor.map(ic => `<img class="stationIcon" src="${ic.src}" alt="${ic.line}" width="20" height="20" loading="eager" decoding="async">`).join('');
 
@@ -1275,32 +1233,8 @@ document.addEventListener('DOMContentLoaded', function(){
 
         const bigLineId = `part${partIndex}-bigline-${idx}`;
 
-        let initialStyle = '';
-        if(nextStation){
-          if(usedLinesForSegment.length > 0){
-            if(usedLinesForSegment.length === 1){
-              initialStyle = `background: ${lineColors[usedLinesForSegment[0]] || color};`;
-            } else {
-              const step = 100 / usedLinesForSegment.length;
-              const stops = usedLinesForSegment.map((ln, j) => {
-                const col = lineColors[ln] || '#999';
-                const start = (j * step).toFixed(4);
-                const end = ((j+1) * step).toFixed(4);
-                return `${col} ${start}%, ${col} ${end}%`;
-              }).join(', ');
-              initialStyle = `background: linear-gradient(to bottom, ${stops});`;
-            }
-          } else {
-            if(nextColor && nextColor !== color){
-              initialStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
-            } else {
-              initialStyle = `background: ${color};`;
-            }
-          }
-        } else {
-          initialStyle = `background: ${color};`;
-        }
-
+        // 初期は「途中駅非表示」を想定して上端の丸の色で単色表示（ユーザ指定どおり）
+        const initialStyle = `background: ${color};`;
         const usedLinesDataAttr = usedLinesForSegment.join('|');
 
         routeHtml += `
@@ -1320,6 +1254,7 @@ document.addEventListener('DOMContentLoaded', function(){
           </div>
         `;
 
+        // 途中駅群の HTML（デフォルト display:none）
         if(nextStation && iFrom !== -1 && iTo !== -1){
           if(iTo - iFrom > 1){
             const betweenStart = iFrom + 1;
@@ -1407,7 +1342,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
               }
 
-              // 途中駅（between）のアイコンを判定して左に出す
+              // 途中駅アイコン
               const iconsForBetween = getStationIconsForIndex(path, bj);
               const iconsHtmlBetween = iconsForBetween.map(ic => `<img class="stationIcon" src="${ic.src}" alt="${ic.line}" width="20" height="20" loading="eager" decoding="async">`).join('');
 
@@ -1435,26 +1370,10 @@ document.addEventListener('DOMContentLoaded', function(){
       return routeHtml;
     }
 
-    function shortenBigLineToFirstBetween(bigLine, betweenEl){
-      if(!bigLine || !betweenEl) return;
-      const railCol = bigLine.parentElement;
-      if(!railCol) return;
-      const parentRect = railCol.getBoundingClientRect();
-      const dot = railCol.querySelector('.railDot');
-      if(!dot) return;
-      const dotRect = dot.getBoundingClientRect();
-      const firstBetweenRow = betweenEl.querySelector('.rowBetween');
-      if(!firstBetweenRow) return;
-      const betweenDot = firstBetweenRow.querySelector('.railDot');
-      if(!betweenDot) return;
-      const betweenDotRect = betweenDot.getBoundingClientRect();
-      const newTop = dotRect.top - parentRect.top;
-      const newHeight = Math.max(0, (betweenDotRect.top - dotRect.top)) + 2;
-      bigLine.style.top = newTop + 'px';
-      bigLine.style.height = newHeight + 'px';
-      bigLine.dataset.shortened = 'true';
-    }
-
+    /* ===== toggle ボタンのワイヤリングを調整 =====
+       - 折りたたみ（非表示）時は bigLine を上端丸の色単色にする（直接上書き）
+       - 展開時は betweenList を表示して runAdjustments() を呼び、グラデーションが適用されるようにする
+    */
     function wireToggleButtons(){
       document.querySelectorAll('.toggleBtn').forEach(btn=>{
         btn.addEventListener('click', function(){
@@ -1463,24 +1382,38 @@ document.addEventListener('DOMContentLoaded', function(){
           const open = this.dataset.open === 'true';
           const between = document.getElementById(`part${part}-between-${seg}`);
           const bigLine = document.getElementById(`part${part}-bigline-${seg}`);
-          if(!between) return;
+          const rowStation = bigLine ? bigLine.closest('.rowStation') : null;
+          if(!between || !bigLine) return;
           if(open){
+            // 現在 open=true => 折りたたむ（非表示）
             between.style.display = 'none';
-            if(bigLine) { bigLine.dataset.shortened = 'false'; bigLine.style.height = ''; }
+            // bigLine を上端丸の色に単色化
+            const dot = rowStation ? rowStation.querySelector('.railDot') : null;
+            const topColor = dot ? (dot.style.background || '#999') : (bigLine.dataset.color || '#999');
+            bigLine.style.background = topColor;
+            bigLine.dataset.shortened = 'false';
             this.textContent = '停車駅を表示';
             this.dataset.open = 'false';
+            // 微妙な位置調整
+            setTimeout(runAdjustments, 10);
           } else {
+            // 展開する
             between.style.display = 'block';
-            if(bigLine) shortenBigLineToFirstBetween(bigLine, between);
+            // 短くする処理（見た目の調整）
+            if(bigLine) {
+              // 短縮は shortenBigLineToFirstBetween がやるが runAdjustments 内でも調整するのでまず display を切替
+              bigLine.dataset.shortened = 'true';
+            }
             this.textContent = '停車駅を隠す';
             this.dataset.open = 'true';
+            // runAdjustments を呼んでグラデーションを適用
+            setTimeout(runAdjustments, 20);
           }
-          setTimeout(runAdjustments, 10);
         });
       });
     }
 
-    // 検索ボタン
+    /* ===== 検索処理（元のまま） ===== */
     searchBtn.addEventListener('click', function(){
       const from = fromStationSel.value;
       const to = toStationSel.value;
@@ -1501,17 +1434,13 @@ document.addEventListener('DOMContentLoaded', function(){
         return;
       }
 
-      // 合計距離は小数（そのまま）で計算・表示
       const totalDistance = parts.reduce((acc,p)=>acc+p.distance, 0);
 
-      // 運賃計算 — 各会社区間ごとに、その区間の小数距離を使って算出
       let totalFare = 0;
       for(const part of parts){
         const companySegments = splitByCompany(part.path);
         for(const seg of companySegments){
-          // seg は { from, to, company }
           const spComp = shortestPathWithinCompany(seg.from, seg.to, seg.company);
-          // spComp.distance は小数距離
           totalFare += fareByCompany(seg.company, spComp.distance, spComp.path, companySegments);
         }
       }
@@ -1535,7 +1464,7 @@ document.addEventListener('DOMContentLoaded', function(){
       setTimeout(runAdjustments, 0);
     });
 
-    // 初期レイアウト調整
+    // 初期調整
     setTimeout(runAdjustments, 0);
 
   } catch(e) {
