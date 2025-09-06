@@ -1053,49 +1053,6 @@ document.addEventListener('DOMContentLoaded', function(){
       return parts;
     }
 
-    // splitByCompany: 各辺ごとに会社を判定して連続区間化、りんくう桜川-桜川国際空港の特例を組み込む
-    function splitByCompany(path){
-      if(path.length < 2) return [];
-      // edgeCompanies[i] corresponds to edge path[i] -> path[i+1]
-      const edgeCompanies = [];
-      for(let i=0;i<path.length-1;i++){
-        const a = path[i], b = path[i+1];
-        const ln = findLineOfSegment(a,b);
-        const comp = ln ? companyFromLineName(ln) : null;
-        edgeCompanies.push(comp);
-      }
-
-      // group contiguous edges with same company into segments
-      const segments = [];
-      let segStartIdx = 0;
-      let segCompany = edgeCompanies[0];
-      for(let i=1;i<edgeCompanies.length;i++){
-        if(edgeCompanies[i] !== segCompany){
-          segments.push({ from: path[segStartIdx], to: path[i], company: segCompany, edgeStart: segStartIdx, edgeEnd: i-1 });
-          segStartIdx = i;
-          segCompany = edgeCompanies[i];
-        }
-      }
-      // final
-      segments.push({ from: path[segStartIdx], to: path[path.length-1], company: segCompany, edgeStart: segStartIdx, edgeEnd: edgeCompanies.length-1 });
-
-      // filter out null companies (should not happen often)
-      let filtered = segments.filter(s => s.company !== null && s.from !== s.to);
-
-      // 特例処理（りんくう桜川⇄桜川国際空港）
-      for(let i = 0; i < filtered.length; i++){
-        const seg = filtered[i];
-        // if this segment covers the edge rinku->airport or airport->rinku
-        let coversRinku = false;
-        for(let e = seg.edgeStart; e <= seg.edgeEnd; e++){
-          const a = path[e], b = path[e+1];
-          if((a === "りんくう桜川" && b === "桜川国際空港") || (a === "桜川国際空港" && b === "りんくう桜川")){
-            coversRinku = true;
-            break;
-          }
-        }
-        if(!coversRinku) continue;
-
         if(filtered.length === 1){
           // 経路全体がこの区間のみ -> 運賃が安い方を採用
           const d = shortestPath(seg.from, seg.to).distance;
