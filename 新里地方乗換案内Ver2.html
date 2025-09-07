@@ -37,21 +37,21 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:51%;top:0;transform:translateX(-50%);z-index:2;}
 .railLineMajor {
   position:absolute;
-  left:50%;transform:translateX(-50%);
+  left:50%;
   transform:translateX(-50%);
   width:var(--lineWMajor);
   background:#cbd5e1;
   border-radius:6px;
-  top:calc(var(--dotMajor) / 2); /* ← 丸の半径だけ下に */
+  top:calc(var(--dotMajor) / 2*0); /* ← 丸の半径だけ下に */
 }
 .railLineMinor {
   position:absolute;
-  left:50%;transform:translateX(-50%);
+  left:50%;
   transform:translateX(-50%);
   width:var(--lineWMinor);
   background:#cbd5e1;
   border-radius:6px;
-  top:calc(var(--dotMinor) / 2); /* ← 丸の半径だけ下に */
+  top:calc(var(--dotMinor) / 2*-1); /* ← 丸の半径だけ下に */
 }
 .stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
 .stationName{font-weight:700;font-size:16px;line-height:1.25;margin:0}
