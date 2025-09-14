@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>新里鉄道 彩山線 - 乗換案内</title>
+<style>
+  body { font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Segoe UI", Roboto, "Yu Gothic UI", Arial; margin: 18px; color:#222; }
+  h1 { font-size:1.4rem; margin-bottom:6px; }
+  p.lead { margin-top:0; color:#555; font-size:0.95rem; }
+  .controls { margin:12px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .btn { padding:6px 10px; border-radius:6px; border:1px solid #ccc; background:#fff; cursor:pointer; }
+  .btn.active { background:#0078d4; color:#fff; border-color:#0063b1; }
+  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:0.95rem; }
+  th, td { padding:8px 6px; border-bottom:1px solid #e6e6e6; text-align:left; vertical-align:middle; }
+  th { background:#fafafa; font-weight:600; color:#333; }
+  td.center { text-align:center; width:82px; }
+  .symbol { font-weight:700; font-size:1.1rem; }
+  .stop { color:#111; }          /* ● 停車 */
+  .pass { color:#999; }          /* 縦線（通過） */
+  .muted { color:#666; font-size:0.9rem; }
+  .conn { font-size:0.9rem; color:#0a66c2; text-decoration:none; }
+  .legend { margin-top:12px; display:flex; gap:14px; flex-wrap:wrap; align-items:center; color:#444; }
+  .legend .item { display:flex; gap:6px; align-items:center; font-size:0.9rem; }
+  .line-pill { width:12px; height:12px; border-radius:3px; display:inline-block; }
+  /* color mapping from user: S…彩山線#7dca22 etc */
+  .line-s { background:#7dca22; }  /* 彩山線 */
+  .line-a { background:#fd5062; }  /* 燠野線（参照） */
+  .line-y { background:#07b5f7; }  /* 湯の浜線 */
+  .line-t { background:#feac2c; }  /* 鶴宮線 */
+  .line-n { background:#0cab5e; }  /* 新里線 */
+  /* small responsive tweaks */
+  @media (max-width:600px){
+    th, td { padding:8px 4px; font-size:0.92rem; }
+  }
+</style>
+</head>
+<body>
+  <h1>新里鉄道 — 彩山線（S系統）乗換案内</h1>
+  <p class="lead">直通運転区間：彩山駅から鶴宮線・湯の浜線経由 坂津電鉄岩川崎駅まで（各駅停車・急行・快速）／ 桜川駅から 豊野線 経由 東橋方面まで（各駅停車・急行・快速）</p>
+
+  <div class="controls" aria-hidden="false">
+    <button id="showAll" class="btn active">全て表示</button>
+    <button id="filterKyuko" class="btn">急行で停車する駅</button>
+    <button id="filterKaisoku" class="btn">快速で停車する駅</button>
+    <label style="margin-left:auto; font-size:0.9rem;" title="列幅を切替">
+      <input type="checkbox" id="compact" /> コンパクト表示
+    </label>
+  </div>
+
+  <table id="stationTable" role="table" aria-label="彩山線 停車駅一覧">
+    <thead>
+      <tr>
+        <th style="width:84px">駅番号</th>
+        <th>駅名</th>
+        <th class="center">駅間キロ</th>
+        <th class="center">累計キロ</th>
+        <th class="center">急行</th>
+        <th class="center">快速</th>
+        <th>接続路線 / 所在地</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- rows inserted by JS -->
+    </tbody>
+  </table>
+
+  <div class="legend" aria-hidden="true">
+    <div class="item"><span class="symbol stop">●</span> 停車</div>
+    <div class="item"><span class="symbol pass">｜</span> 通過（縦線）</div>
+    <div class="item"><span class="line-pill line-s"></span> 彩山線 (S)</div>
+    <div class="item"><span class="line-pill line-a"></span> 燠野線 (A)</div>
+    <div class="item"><span class="line-pill line-y"></span> 湯の浜線 (Y)</div>
+    <div class="item"><span class="line-pill line-t"></span> 鶴宮線 (T)</div>
+    <div class="item"><span class="line-pill line-n"></span> 新里線 (N)</div>
+  </div>
+
+<script>
+  // 駅データ（提供された表に基づく）
+  const stations = [
+    {
+      code: "S-01",
+      name: "彩山駅",
+      gap_km: "-",
+      cum_km: "0.0",
+      kyuko: "stop",   // 急行: ● 停車
+      kaisoku: "stop", // 快速: ● 停車
+      connection: "新里鉄道：鶴宮線（桜川方面から直通運転：上記参照）／所在地：新里県 彩山市"
+    },
+    {
+      code: "S-02",
+      name: "彩山口駅",
+      gap_km: "2.1",
+      cum_km: "2.1",
+      kyuko: "pass",   // ｜ 通過
+      kaisoku: "pass",
+      connection: ""
+    },
+    {
+      code: "S-03",
+      name: "新里国際スキー場駅",
+      gap_km: "3.4",
+      cum_km: "5.5",
+      kyuko: "stop",
+      kaisoku: "stop",
+      connection: ""
+    },
+    {
+      code: "S-04",
+      name: "鷹見台駅",
+      gap_km: "10.7",
+      cum_km: "16.2",
+      kyuko: "pass",
+      kaisoku: "pass",
+      connection: "所在地：桜川県 浪原市"
+    },
+    {
+      code: "S-05",
+      name: "久我原駅",
+      gap_km: "2.7",
+      cum_km: "18.9",
+      kyuko: "stop",
+      kaisoku: "stop",
+      connection: ""
+    },
+    {
+      code: "S-06",
+      name: "浪原駅",
+      gap_km: "1.5",
+      cum_km: "20.4",
+      kyuko: "stop",
+      kaisoku: "stop",
+      connection: "桜川電気鉄道：桜州環状線"
+    },
+    {
+      code: "S-07",
+      name: "深江駅",
+      gap_km: "1.4",
+      cum_km: "21.8",
+      kyuko: "pass",
+      kaisoku: "pass",
+      connection: ""
+    },
+    {
+      code: "S-08",
+      name: "三栗谷駅",
+      gap_km: "1.3",
+      cum_km: "23.1",
+      kyuko: "pass",
+      kaisoku: "pass",
+      connection: ""
+    },
+    {
+      code: "S-09",
+      name: "桜川公園駅",
+      gap_km: "1.5",
+      cum_km: "24.6",
+      kyuko: "stop",
+      kaisoku: "stop",
+      connection: ""
+    },
+    {
+      code: "S-10",
+      name: "桜川駅",
+      gap_km: "2.2",
+      cum_km: "26.8",
+      kyuko: "stop",
+      kaisoku: "stop",
+      connection: "豊野鉄道：豊野線（彩山方面から直通運転：上記参照）"
+    }
+  ];
+
+  const tbody = document.querySelector("#stationTable tbody");
+
+  function renderRows(filterFn = null) {
+    tbody.innerHTML = "";
+    stations.forEach(st => {
+      if (filterFn && !filterFn(st)) return;
+      const tr = document.createElement("tr");
+
+      const tdCode = document.createElement("td");
+      tdCode.textContent = st.code;
+      tr.appendChild(tdCode);
+
+      const tdName = document.createElement("td");
+      tdName.innerHTML = `<strong>${st.name}</strong><div class="muted" style="margin-top:4px">${st.name === "桜川駅" ? "終点（接続あり）" : ""}</div>`;
+      tr.appendChild(tdName);
+
+      const tdGap = document.createElement("td");
+      tdGap.className = "center";
+      tdGap.textContent = st.gap_km;
+      tr.appendChild(tdGap);
+
+      const tdCum = document.createElement("td");
+      tdCum.className = "center";
+      tdCum.textContent = st.cum_km;
+      tr.appendChild(tdCum);
+
+      const tdKyuko = document.createElement("td");
+      tdKyuko.className = "center";
+      tdKyuko.innerHTML = st.kyuko === "stop" ? '<span class="symbol stop">●</span>' : '<span class="symbol pass">｜</span>';
+      tr.appendChild(tdKyuko);
+
+      const tdKaisoku = document.createElement("td");
+      tdKaisoku.className = "center";
+      tdKaisoku.innerHTML = st.kaisoku === "stop" ? '<span class="symbol stop">●</span>' : '<span class="symbol pass">｜</span>';
+      tr.appendChild(tdKaisoku);
+
+      const tdConn = document.createElement("td");
+      tdConn.innerHTML = st.connection ? `<span class="conn">${st.connection}</span>` : '';
+      tr.appendChild(tdConn);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  // initial render
+  renderRows();
+
+  // controls
+  const btnAll = document.getElementById("showAll");
+  const btnKyuko = document.getElementById("filterKyuko");
+  const btnKaisoku = document.getElementById("filterKaisoku");
+  const compactChk = document.getElementById("compact");
+
+  function clearActive() {
+    [btnAll, btnKyuko, btnKaisoku].forEach(b => b.classList.remove("active"));
+  }
+  btnAll.addEventListener("click", () => {
+    clearActive(); btnAll.classList.add("active");
+    renderRows();
+  });
+  btnKyuko.addEventListener("click", () => {
+    clearActive(); btnKyuko.classList.add("active");
+    renderRows(st => st.kyuko === "stop");
+  });
+  btnKaisoku.addEventListener("click", () => {
+    clearActive(); btnKaisoku.classList.add("active");
+    renderRows(st => st.kaisoku === "stop");
+  });
+
+  compactChk.addEventListener("change", (e) => {
+    if (e.target.checked) {
+      document.querySelectorAll("th, td").forEach(cell => cell.style.padding = "6px 4px");
+      document.body.style.fontSize = "0.95rem";
+    } else {
+      document.querySelectorAll("th, td").forEach(cell => cell.style.padding = "");
+      document.body.style.fontSize = "";
+    }
+  });
+
+  // keyboard accessibility: toggle filters via keys 1/2/3
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "1") btnAll.click();
+    if (ev.key === "2") btnKyuko.click();
+    if (ev.key === "3") btnKaisoku.click();
+  });
+</script>
+
+</body>
+</html>
