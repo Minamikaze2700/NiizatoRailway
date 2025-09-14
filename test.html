@@ -1,286 +1,124 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>新里鉄道 — 5路線 全駅時刻表（テンプレ）</title>
-  <style>
-    :root{--accent:#c72b2b;--muted:#666}
-    body{font-family:system-ui,"Hiragino Kaku Gothic ProN",Meiryo,Arial;background:#f6f6f8;margin:0;color:#111}
-    header{background:linear-gradient(90deg,#fff,var(--accent));padding:14px 18px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
-    header h1{margin:0;font-size:18px}
-    .container{max-width:1100px;margin:18px auto;padding:0 16px}
-    .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0}
-    label{font-size:14px;color:var(--muted)}
-    select,button{padding:8px 10px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:14px}
-    .tabs{display:inline-flex;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-    .tab{padding:8px 12px;cursor:pointer;border-right:1px solid #eee}
-    .tab:last-child{border-right:none}
-    .tab.active{background:var(--accent);color:#fff;font-weight:700}
-    .timetable{background:#fff;border-radius:10px;padding:14px;margin-top:12px;box-shadow:0 6px 20px rgba(0,0,0,.04)}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:8px 6px;text-align:center;border-bottom:1px solid #f1f1f1}
-    th{background:#fafafa;color:var(--muted);font-weight:700}
-    .dir{font-weight:700;color:var(--accent)}
-    .note{font-size:13px;color:var(--muted);margin-top:10px}
-    @media (max-width:800px){.controls{flex-direction:column;align-items:flex-start}}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>五路線対応 時刻表</title>
+<style>
+  body{font-family:"Hiragino Kaku Gothic ProN",sans-serif;background:#f7fbfd;margin:16px;}
+  .controls{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+  select,button{padding:8px 10px;border-radius:8px;border:1px solid #ddd;background:#fff;}
+  .timetable{background:#fff;border-radius:12px;padding:12px;box-shadow:0 6px 24px rgba(0,0,0,0.06);}
+  .hour-row{display:flex;align-items:flex-start;padding:8px 6px;border-bottom:1px dashed #eee;}
+  .hour-col{width:56px;font-weight:700;font-size:18px;color:#666;text-align:center;padding-top:6px}
+  .services{display:flex;gap:8px;flex-wrap:wrap;flex:1}
+  .service{min-width:88px;border-radius:8px;padding:6px 8px;background:#fdfdfd;box-shadow:0 1px 4px rgba(0,0,0,0.05);display:flex;flex-direction:column;align-items:center}
+  .stype{font-size:12px;color:#444;margin-bottom:6px;}
+  .minute{font-size:22px;font-weight:800;line-height:1;color:#1ea7d7;}
+  .dest{font-size:12px;color:#222;margin-top:6px;text-align:center;}
+  .small{font-size:12px;color:#777}
+</style>
 </head>
 <body>
-  <header>
-    <h1>新里鉄道 — 5路線 全駅時刻表（テンプレ）</h1>
-  </header>
+<h2>五路線対応 時刻表（新里地方）</h2>
+<div class="controls">
+  <label>路線：
+    <select id="routeSelect"></select>
+  </label>
+  <label>駅：
+    <select id="stationSelect"></select>
+  </label>
+  <label>方面：
+    <select id="directionSelect"></select>
+  </label>
+  <label>平日/土休日：
+    <select id="dayType">
+      <option value="auto">自動</option>
+      <option value="weekday">平日</option>
+      <option value="holiday">土休日</option>
+    </select>
+  </label>
+  <button id="regen">更新</button>
+</div>
+<div class="timetable" id="timetableRoot"></div>
 
-  <main class="container">
-    <p class="note">駅名は atwiki「新里地方wiki」から取得。各路線ページの駅一覧をすべて埋め込み済みです。時刻はサンプル（置換用）です。:contentReference[oaicite:1]{index=1}</p>
+<script>
+// 五路線データ（駅名は wiki 記載の代表駅のみダミー配置。実際の全駅名は atwiki ページから差し替え可）
+const lines = {
+  "湯の浜線": ["豊町","新里","鶴宮","北鶴宮"],
+  "新里線": ["新里","彩山","田ノ原","中野原"],
+  "鶴宮線": ["鶴宮","北鶴宮","彩山"],
+  "彩山線": ["彩山","田ノ原"],
+  "田ノ原線": ["田ノ原","中野原"]
+};
+const types = ["各停","準急","区準","急行","区急","快速","区快"];
+const minutes = ["03","13","23","33","43","53"];
 
-    <div class="controls" role="region" aria-label="controls">
-      <div>
-        <label for="lineSelect">路線選択：</label><br/>
-        <select id="lineSelect" aria-label="路線選択">
-          <option value="y">湯の浜線（Y）</option>
-          <option value="a">燠野線（A）</option>
-          <option value="t">鶴宮線（T）</option>
-          <option value="n">新里線（N）</option>
-          <option value="s">彩山線（S）</option>
-        </select>
-      </div>
+const routeSelect = document.getElementById("routeSelect");
+const stationSelect = document.getElementById("stationSelect");
+const directionSelect = document.getElementById("directionSelect");
+const dayTypeSelect = document.getElementById("dayType");
+const timetableRoot = document.getElementById("timetableRoot");
 
-      <div>
-        <label for="stationSelect">駅選択：</label><br/>
-        <select id="stationSelect" aria-label="駅選択"></select>
-      </div>
-
-      <div class="tabs" role="tablist" aria-label="日付種別">
-        <div class="tab active" data-day="weekday" role="tab" aria-selected="true">平日</div>
-        <div class="tab" data-day="holiday" role="tab" aria-selected="false">土休日</div>
-      </div>
-
-      <button id="downloadCsv">CSVでダウンロード</button>
-    </div>
-
-    <section class="timetable" id="timetableArea" aria-live="polite">
-      <!-- JSで描画 -->
-    </section>
-
-    <p class="note">使い方：路線を選ぶと駅リストが切り替わります。平日／土休日は同じ形式（上り/下り）で表示します。時刻はサンプルですので、実データがある場合は下の <code>timetableData</code> を差し替えてください。</p>
-  </main>
-
-  <script>
-    // --- 駅データ（atwiki から取得した駅名一覧を埋め込み） ---
-    // 各路線の配列は {code: "Y", name:"湯の浜線", stations:[{id:"Y-01", name:"豊町駅"}, ...]} の形式
-    const lines = {
-      y: {
-        code: "Y",
-        name: "湯の浜線",
-        stations: [
-          {id:"Y-01", name:"豊町駅"},
-          {id:"Y-02", name:"東豊町駅"},
-          {id:"Y-03", name:"清水浜駅"},
-          {id:"Y-04", name:"安田町駅"},
-          {id:"Y-05", name:"南栃原駅"},
-          {id:"Y-06", name:"栃原駅"},
-          {id:"Y-07", name:"宇城駅"},
-          {id:"Y-08", name:"須川駅"},
-          {id:"Y-09", name:"御浜埼公園駅"},
-          {id:"Y-10", name:"御浜駅"},
-          {id:"Y-11", name:"伊坂駅"},
-          {id:"Y-12", name:"垳下駅"},
-          {id:"Y-13", name:"北浜駅"},
-          {id:"Y-14", name:"西新里駅"},
-          {id:"Y-15", name:"新里駅"},
-          {id:"Y-16", name:"河岸駅"},
-          {id:"Y-17", name:"新里海浜公園駅"},
-          {id:"Y-18", name:"湯の浜海岸駅"},
-          {id:"Y-19", name:"湯の浜駅"},
-          {id:"Y-20", name:"七浦駅"},
-          {id:"Y-21", name:"那珂町駅"},
-          {id:"Y-22", name:"宇多野駅"},
-          {id:"Y-23", name:"伊奈崎駅"},
-          {id:"Y-24", name:"鶴宮神社駅"},
-          {id:"Y-25", name:"鶴宮駅"},
-          {id:"Y-26", name:"北鶴宮駅"}
-        ]
-      },
-      a: {
-        code: "A",
-        name: "燠野線",
-        stations: [
-          {id:"A-01", name:"湯の浜駅"},
-          {id:"A-02", name:"新里大学前駅"},
-          {id:"A-03", name:"綾原駅"},
-          {id:"A-04", name:"福来駅"},
-          {id:"A-05", name:"燠野駅"},
-          {id:"A-06", name:"湯川駅"},
-          {id:"A-07", name:"温泉口駅"},
-          {id:"A-08", name:"燠野温泉駅"}
-        ]
-      },
-      t: {
-        code: "T",
-        name: "鶴宮線",
-        stations: [
-          {id:"T-01", name:"鶴宮駅"},
-          {id:"T-02", name:"南鶴宮駅"},
-          {id:"T-03", name:"あずさ台駅"},
-          {id:"T-04", name:"橘町駅"},
-          {id:"T-05", name:"燠野山口駅"},
-          {id:"T-06", name:"白枝駅"},
-          {id:"T-07", name:"燠野駅"},
-          {id:"T-08", name:"紅葉台駅"},
-          {id:"T-09", name:"桐山駅"},
-          {id:"T-10", name:"湊川駅"},
-          {id:"T-11", name:"彩山親水公園駅"},
-          {id:"T-12", name:"彩山駅"},
-          {id:"T-13", name:"蓮華寺駅"},
-          {id:"T-14", name:"星宮駅"},
-          {id:"T-15", name:"田ノ原駅"}
-        ]
-      },
-      n: {
-        code: "N",
-        name: "新里線",
-        stations: [
-          {id:"N-01", name:"新里駅"},
-          {id:"N-02", name:"南新里駅"},
-          {id:"N-03", name:"田ノ原駅"},
-          {id:"N-04", name:"北玖川駅"},
-          {id:"N-05", name:"玖川駅"},
-          {id:"N-06", name:"中野原駅"}
-        ]
-      },
-      s: {
-        code: "S",
-        name: "彩山線",
-        stations: [
-          {id:"S-01", name:"彩山駅"},
-          {id:"S-02", name:"彩山口駅"},
-          {id:"S-03", name:"新里国際スキー場駅"},
-          {id:"S-04", name:"鷹見台駅"},
-          {id:"S-05", name:"久我原駅"},
-          {id:"S-06", name:"浪原駅"},
-          {id:"S-07", name:"深江駅"},
-          {id:"S-08", name:"三栗谷駅"},
-          {id:"S-09", name:"桜川公園駅"},
-          {id:"S-10", name:"桜川駅"}
-        ]
-      }
-    };
-
-    // --- サンプル時刻（全駅プレースホルダ） ---
-    // ユーザーの指定どおり、平日／土休日ともに同じ形式で時刻を用意。
-    // 実ダイヤがあれば各 station.id に対応する配列を置き換えてください。
-    const sampleTimes = {
-      up: ["06:12","07:15","08:30","09:45","11:00","12:20","14:05","16:40","18:10"],
-      down: ["06:45","07:50","09:05","10:20","12:00","13:30","15:10","17:25","19:00"]
-    };
-
-    // Build a timetableData object mapping every station id to {name, weekday:{up,down}, holiday:{up,down}}
-    const timetableData = {};
-    Object.values(lines).forEach(line=>{
-      line.stations.forEach(st=>{
-        // clone arrays so modifications per-station won't bleed
-        timetableData[st.id] = {
-          name: st.name,
-          weekday: { up: [...sampleTimes.up], down: [...sampleTimes.down] },
-          holiday: { up: [...sampleTimes.up], down: [...sampleTimes.down] }
-        };
-      });
+function initRoutes(){
+  for(const line in lines){
+    const opt=document.createElement("option");
+    opt.value=line;
+    opt.textContent=line;
+    routeSelect.appendChild(opt);
+  }
+  routeSelect.value="湯の浜線"; // デフォルト
+  updateStations();
+}
+function updateStations(){
+  stationSelect.innerHTML="";
+  const stations=lines[routeSelect.value];
+  stations.forEach(st=>{
+    const o=document.createElement("option");
+    o.value=st; o.textContent=st;
+    stationSelect.appendChild(o);
+  });
+  stationSelect.value="新里"; // デフォルト
+  updateDirections();
+}
+function updateDirections(){
+  directionSelect.innerHTML="";
+  const stations=lines[routeSelect.value];
+  stations.filter(s=>s!==stationSelect.value).forEach(st=>{
+    const o=document.createElement("option");
+    o.value=st; o.textContent=st+"方面";
+    directionSelect.appendChild(o);
+  });
+  if(stations.includes("北鶴宮")) directionSelect.value="北鶴宮";
+}
+function renderTimetable(){
+  timetableRoot.innerHTML="";
+  const start=5,end=23;
+  for(let h=start;h<=end;h++){
+    const row=document.createElement("div");
+    row.className="hour-row";
+    const hc=document.createElement("div");
+    hc.className="hour-col"; hc.textContent=h+"時";
+    row.appendChild(hc);
+    const svcs=document.createElement("div"); svcs.className="services";
+    minutes.forEach((m,i)=>{
+      const svc=document.createElement("div"); svc.className="service";
+      const st=document.createElement("div"); st.className="stype";
+      st.textContent=types[(h+i)%types.length];
+      const mn=document.createElement("div"); mn.className="minute"; mn.textContent=m;
+      const ds=document.createElement("div"); ds.className="dest"; ds.textContent=directionSelect.value;
+      svc.append(st,mn,ds); svcs.appendChild(svc);
     });
+    row.appendChild(svcs);
+    timetableRoot.appendChild(row);
+  }
+}
+routeSelect.addEventListener("change",updateStations);
+stationSelect.addEventListener("change",updateDirections);
+document.getElementById("regen").addEventListener("click",renderTimetable);
 
-    // --- UI logic ---
-    const lineSelect = document.getElementById("lineSelect");
-    const stationSelect = document.getElementById("stationSelect");
-    const timetableArea = document.getElementById("timetableArea");
-    const tabs = document.querySelectorAll(".tab");
-    const downloadCsvBtn = document.getElementById("downloadCsv");
-
-    let currentDay = "weekday";
-
-    function populateStations(lineKey){
-      stationSelect.innerHTML = "";
-      const stList = lines[lineKey].stations;
-      stList.forEach(s=>{
-        const opt = document.createElement("option");
-        opt.value = s.id;
-        opt.textContent = `${s.id} ${s.name}`;
-        stationSelect.appendChild(opt);
-      });
-      // render first station
-      renderTimetable(stationSelect.value);
-    }
-
-    function renderTimetable(stationId){
-      const d = timetableData[stationId];
-      if(!d){ timetableArea.innerHTML = "<p>データがありません。</p>"; return; }
-      const dayData = d[currentDay];
-      const up = dayData.up.slice().sort();
-      const down = dayData.down.slice().sort();
-
-      let html = `<h2>${d.name}（${stationId}） の時刻表</h2>`;
-      html += `<p class="note">方向：<span class="dir">上り（${lines[lineSelect.value].name} 起点→終点）</span> / 下り（終点→起点）</p>`;
-      html += `<table aria-label="${d.name} timetable"><thead><tr><th>時</th><th>上り</th><th>下り</th></tr></thead><tbody>`;
-
-      // collect hours from both lists
-      const all = [...up,...down];
-      const hours = Array.from(new Set(all.map(t=>t.split(":")[0]))).sort((a,b)=>Number(a)-Number(b));
-
-      if(hours.length === 0){
-        html += `<tr><td colspan="3">該当する列車はありません。</td></tr>`;
-      } else {
-        hours.forEach(h=>{
-          const upTimes = up.filter(t=>t.startsWith(h + ":")).map(t=>t.slice(3)).join(" ");
-          const downTimes = down.filter(t=>t.startsWith(h + ":")).map(t=>t.slice(3)).join(" ");
-          html += `<tr><td>${h}:00</td><td>${upTimes || "—"}</td><td>${downTimes || "—"}</td></tr>`;
-        });
-      }
-
-      html += `</tbody></table>`;
-      timetableArea.innerHTML = html;
-    }
-
-    // initial population
-    populateStations(lineSelect.value);
-
-    // handlers
-    lineSelect.addEventListener("change", ()=>{
-      populateStations(lineSelect.value);
-    });
-
-    stationSelect.addEventListener("change", ()=> renderTimetable(stationSelect.value));
-
-    tabs.forEach(tab=>{
-      tab.addEventListener("click", ()=>{
-        tabs.forEach(t=>{ t.classList.remove("active"); t.setAttribute("aria-selected","false"); });
-        tab.classList.add("active");
-        tab.setAttribute("aria-selected","true");
-        currentDay = tab.dataset.day === "holiday" ? "holiday" : "weekday";
-        renderTimetable(stationSelect.value);
-      });
-    });
-
-    // CSV export for the currently selected station/day
-    downloadCsvBtn.addEventListener("click", ()=>{
-      const id = stationSelect.value;
-      const d = timetableData[id];
-      if(!d) return alert("データがありません。");
-      const list = d[currentDay];
-      let csv = "direction,time\n";
-      list.up.forEach(t=> csv += `up,${t}\n`);
-      list.down.forEach(t=> csv += `down,${t}\n`);
-      const blob = new Blob([csv], {type: "text/csv;charset=utf-8;"});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${d.name.replace(/\s/g,"_")}_${id}_${currentDay}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    });
-
-    // initial render
-    renderTimetable(stationSelect.value);
-  </script>
+initRoutes();
+renderTimetable();
+</script>
 </body>
 </html>
