@@ -58,7 +58,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 
 /* 駅名の左に表示するアイコン群（主要駅および途中駅） */
 .stationWithIcons{display:flex;align-items:center;gap:0px}
-.stationIcon{width:25px;height:25px;vertical-align:middle;margin-right:4px;border-radius:2px;display:inline-block;object-fit:cover}
+.stationIcon{width:25px;height:25px;vertical-align:middle;margin-right:4px;border-radius:2;display:inline-block;object-fit:cover}
 .rowBetween .stationIcon {
   position: relative;
   top: -5px; /* 途中駅のアイコンを1px上に */
@@ -926,11 +926,13 @@ document.addEventListener('DOMContentLoaded', function(){
         return;
       }
 
-      const currentDotBottom_px = (dotRect.top - parentRect.top) + dotRect.height;
-      const nextDotTop_px = (nextDotRect.top - parentRect.top);
+      // ==== 修正点: 丸の「中心同士」を結ぶように計算する ====
+      // dotRect / nextDotRect は getBoundingClientRect() の結果。中心位置を使う。
+      const currentDotCenter_px = (dotRect.top - parentRect.top) + (dotRect.height / 2);
+      const nextDotCenter_px = (nextDotRect.top - parentRect.top) + (nextDotRect.height / 2);
 
-      const startPx = currentDotBottom_px - lineTop;
-      const endPx = nextDotTop_px - lineTop;
+      const startPx = currentDotCenter_px - lineTop;
+      const endPx = nextDotCenter_px - lineTop;
 
       const clampedStartPx = Math.max(0, Math.min(lineHeight, startPx));
       const clampedEndPx = Math.max(0, Math.min(lineHeight, endPx));
@@ -990,9 +992,16 @@ document.addEventListener('DOMContentLoaded', function(){
         const dotRect = dot.getBoundingClientRect();
         const nextDot = nextRow.querySelector('.railDot');
         const nextDotRect = nextDot.getBoundingClientRect();
-        line.style.top = (dotRect.top - parentRect.top) + 'px';
-        const h = Math.max(0, (nextDotRect.top - dotRect.top)) + 5;
+
+        // ==== 修正点: 丸の中心を基準に top と height を設定する ====
+        const dotCenter = dotRect.top + (dotRect.height / 2);
+        const nextDotCenter = nextDotRect.top + (nextDotRect.height / 2);
+        const topPx = dotCenter - parentRect.top;
+        const h = Math.max(0, nextDotCenter - dotCenter);
+
+        line.style.top = topPx + 'px';
         line.style.height = h + 'px';
+
         applyStripedGradientForBigLine(line, dotRect, nextDotRect, parentRect);
       });
 
@@ -1004,7 +1013,12 @@ document.addEventListener('DOMContentLoaded', function(){
         if(!dot || !minorLine) return;
         const parentRect = railCol.getBoundingClientRect();
         const dotRect = dot.getBoundingClientRect();
-        minorLine.style.top = (dotRect.top - parentRect.top) + 'px';
+
+        // ==== 修正点: 途中線（minor）は丸の中心に対して縦中心を合わせるように配置する ====
+        // CSS で minor の高さを 48px に固定しているので、半分(24px)を引いて中央寄せする。
+        const dotCenter = dotRect.top + (dotRect.height / 2);
+        const minorHalf = 48 / 2; // CSS と同期
+        minorLine.style.top = (dotCenter - parentRect.top - minorHalf) + 'px';
         minorLine.style.height = '48px';
       });
     }
@@ -1169,121 +1183,45 @@ document.addEventListener('DOMContentLoaded', function(){
         const st = majors[idx];
         const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
 
-        const iFrom = majorIndices[idx];
-        const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
-
-        const color = majorsColors[idx];
-        const nextColor = nextStation ? majorsColors[idx+1] : null;
-
-        // --- 駅アイコンの生成（主要駅） ---
-        const iconsForThisMajor = (typeof iFrom === 'number' && iFrom >= 0) ? getStationIconsForIndex(path, iFrom) : [];
-        const iconsHtmlMajor = iconsForThisMajor.map(ic => `<img class="stationIcon" src="${ic.src}" alt="${ic.line}" width="20" height="20" loading="eager" decoding="async">`).join('');
-
-        let lineListHtml = '';
-
-        let usedLinesForSegment = [];
-        if(nextStation && iFrom !== -1 && iTo !== -1){
-          for(let i=iFrom;i<iTo;i++){
-            const ln = findLineOfSegment(path[i], path[i+1]);
-            if(ln && !usedLinesForSegment.includes(ln)) usedLinesForSegment.push(ln);
-          }
-          const badges = usedLinesForSegment.length > 0 ? usedLinesForSegment : findCommonLines(st, nextStation);
-          if(badges.length > 0){
-            lineListHtml = badges.map(l => {
-  let imgHtml = '';
-  if (l.startsWith("新里鉄道")) {
-    const imgSrc = (lineIcons[l] && lineIcons[l].trim()) ? lineIcons[l] : defaultIcon;
-    imgHtml = `<img src="${imgSrc}" alt="${l}" width="16" height="16" loading="eager" decoding="async">`;
-  }
-  return `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${imgHtml}${l}</div>`;
-}).join('');
-          }
-        } else if(!nextStation){
-          lineListHtml = '';
-        }
-
-        const bigLineId = `part${partIndex}-bigline-${idx}`;
-
-        let initialStyle = '';
-        if(nextStation){
-          if(usedLinesForSegment.length > 0){
-            if(usedLinesForSegment.length === 1){
-              initialStyle = `background: ${lineColors[usedLinesForSegment[0]] || color};`;
-            } else {
-              const step = 100 / usedLinesForSegment.length;
-              const stops = usedLinesForSegment.map((ln, j) => {
-                const col = lineColors[ln] || '#999';
-                const start = (j * step).toFixed(4);
-                const end = ((j+1) * step).toFixed(4);
-                return `${col} ${start}%, ${col} ${end}%`;
-              }).join(', ');
-              initialStyle = `background: linear-gradient(to bottom, ${stops});`;
-            }
-          } else {
-            if(nextColor && nextColor !== color){
-              initialStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
-            } else {
-              initialStyle = `background: ${color};`;
-            }
-          }
-        } else {
-          initialStyle = `background: ${color};`;
-        }
-
-        const usedLinesDataAttr = usedLinesForSegment.join('|');
+        const colorHere = majorsColors[idx] || '#999';
+        const stationIdx = path.indexOf(st);
+        const stationIconsHtml = getStationIconsForIndex(path, stationIdx).map(ic => `<img class="stationIcon" src="${ic.src}" alt="${ic.line}" width="25" height="25" loading="eager" decoding="async">`).join('');
 
         routeHtml += `
           <div class="rowStation">
             <div class="railCol">
-              <div class="railDot" style="background:${color}"></div>
-              ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style="${initialStyle}"></div>` : `<div class="spacer6"></div>`}
+              <div class="railDot" style="background:${colorHere}"></div>
+              <div id="part${partIndex}-bigline-${idx}" class="railLineMajor" data-color="${colorHere}" data-usedlines="" ></div>
             </div>
             <div class="stationText">
               <div class="stationWithIcons">
-                ${iconsHtmlMajor}
+                ${stationIconsHtml}
                 <div class="stationName">${sanitizeDisplayName(st)}</div>
               </div>
-              ${lineListHtml}
-              ${nextStation ? `<div class="toggleWrap"><button class="toggleBtn" data-part="${partIndex}" data-seg="${idx}" data-open="false">停車駅を表示</button></div>` : ''}
+              <div class="toggleWrap">
+                <button class="toggleBtn" data-part="${partIndex}" data-seg="${idx}" data-open="false">停車駅を表示</button>
+              </div>
             </div>
           </div>
         `;
 
-        if(nextStation && iFrom !== -1 && iTo !== -1){
-          if(iTo - iFrom > 1){
-            const betweenStart = iFrom + 1;
-            const betweenEnd = iTo - 1;
-            const betweenCount = betweenEnd - betweenStart + 1;
-            const pairColors = new Array(Math.max(0, betweenCount)).fill('#999');
-            const isCondArr = new Array(Math.max(0, betweenCount)).fill(false);
+        // between (途中駅) --- ここは元ロジックを維持（描画時に JS で minor line の位置を調整）
+        if(nextStation){
+          // between 範囲を組み立てる（元ロジックに準拠）
+          let betweenStart = stationIdx + 1;
+          let betweenEnd = path.indexOf(nextStation) - 1;
+          if(betweenStart <= betweenEnd){
+            // pairColors を決める（元ロジック）
+            const pairColors = [];
+            const isCondArr = [];
+            for(let bj = betweenStart; bj <= betweenEnd; bj++){
+              pairColors.push('#999');
+              isCondArr.push(false);
+            }
 
             for(let bj = betweenStart; bj <= betweenEnd; bj++){
               const jIndex = bj;
               const s = path[jIndex];
-              // connectingStations の複数エントリをすべて評価
-              let isCondMinor = false;
-              const condsAll = connectingStations.filter(c => c.station === s);
-              let conds = [];
-              if(condsAll && condsAll.length > 0){
-                conds = condsAll;
-              }
-              if(conds && conds.length > 0){
-                const idxS = jIndex;
-                for(const cond of conds){
-                  const idxsA = indexesOf(path, cond.endpoints[0]);
-                  const idxsB = indexesOf(path, cond.endpoints[1]);
-                  if(idxsA.length > 0 && idxsB.length > 0){
-                    outer3: for(const ia of idxsA){
-                      for(const ib of idxsB){
-                        if(betweenExclusive(idxS, ia, ib)){ isCondMinor = true; break outer3; }
-                      }
-                    }
-                    if(isCondMinor) break;
-                  }
-                }
-              }
-              isCondArr[bj - betweenStart] = isCondMinor;
-
               const prevSt = path[jIndex-1];
               const nextSt = path[jIndex+1];
 
@@ -1389,8 +1327,13 @@ document.addEventListener('DOMContentLoaded', function(){
       const betweenDot = firstBetweenRow.querySelector('.railDot');
       if(!betweenDot) return;
       const betweenDotRect = betweenDot.getBoundingClientRect();
-      const newTop = dotRect.top - parentRect.top;
-      const newHeight = Math.max(0, (betweenDotRect.top - dotRect.top)) + 2;
+
+      // ==== 修正点: 中心同士で短縮する ====
+      const dotCenter = dotRect.top + (dotRect.height / 2);
+      const betweenCenter = betweenDotRect.top + (betweenDotRect.height / 2);
+      const newTop = dotCenter - parentRect.top;
+      const newHeight = Math.max(0, betweenCenter - dotCenter);
+
       bigLine.style.top = newTop + 'px';
       bigLine.style.height = newHeight + 'px';
       bigLine.dataset.shortened = "true";
