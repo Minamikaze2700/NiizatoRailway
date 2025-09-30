@@ -224,7 +224,7 @@ function fareToyono(km){
     // 表示用の駅名を簡易に整形（見かけ上の会社名表記を削る）
     function sanitizeDisplayName(name){
       if(!name) return name;
-      return name.replace(/\(桜川電鉄\)/g,'').replace(/\(東橋鉄道\)/g,'').replace(/\(東雲鉄道\)/g,'').replace(/\(鈴浜電鉄\)/g,'').trim();
+      return name.replace(/\(桜川電鉄\)/g,'').replace(/\(東橋鉄道\)/g,'').replace(/\(鈴浜電鉄\)/g,'').trim();
     }
 
     function fareTouhashi(km, segPath = [], companySegments = []){ 
