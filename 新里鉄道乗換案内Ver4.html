@@ -95,6 +95,12 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 </div>
 
 <script>
+// ---------- 表示用駅名処理 ----------
+function displayStationName(name){
+  // 表示から消したい文字列を削る
+  return (name || '').replace(/\(鈴浜電鉄\)|\(桜川電鉄\)|\(東橋鉄道\)|\(東雲鉄道\)/g, "");
+}
+
 // ==== 駅・路線データ （横宿線は逆順） ====
 const stationLines = {
  "新里鉄道湯の浜線":["豊町","東豊町","清水浜","安田町","南栃原","栃原","宇城","須川","御浜埼公園","御浜","伊坂","垳下","北浜","西新里","新里","河岸","新里海浜公園","湯の浜海岸","湯の浜","七浦","那珂町","宇多野","伊奈崎","鶴宮神社","鶴宮","北鶴宮"],
@@ -174,7 +180,6 @@ const graph = buildGraphBidirectional(rawGraph);
 const allStations = Array.from(new Set([...Object.keys(graph), ...Object.values(graph).flatMap(x => Object.keys(x))])).sort();
 
 // ============ 運賃ロジック（更新） ============
-
 function fareImabashi(km){ 
   if(km <= 3) return 160;
   if(km <= 6) return 180;
@@ -546,7 +551,7 @@ function populateStationSelect(lineSel, stationSel){
   stationSel.innerHTML = '';
   const line = lineSel.value;
   (stationLines[line] || []).forEach(st=>{
-    const o = document.createElement('option'); o.value = st; o.textContent = st; stationSel.appendChild(o);
+    const o = document.createElement('option'); o.value = st; o.textContent = displayStationName(st); stationSel.appendChild(o);
   });
 }
 [ fromLineSel, toLineSel ].forEach(sel => populateLineSelect(sel));
@@ -1000,7 +1005,7 @@ function renderRouteCardForPart(part, partIndex){
                 <div class="railDot" style="background:${displayColor}"></div>
                 <div class="railLineMinor" style="background:${displayColor}"></div>
               </div>
-              <div class="stationText"><div class="${minorClass}">${s}</div></div>
+              <div class="stationText"><div class="${minorClass}">${displayStationName(s)}</div></div>
             </div>
           `;
         }
