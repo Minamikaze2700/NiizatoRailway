@@ -894,7 +894,7 @@ function renderRouteCardForPart(part, partIndex){
           ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style="${initialStyle}"></div>` : `<div class="spacer6"></div>`}
         </div>
         <div class="stationText">
-          <div class="stationName">${st}</div>
+          <div class="stationName">${displayStationName(st)}</div>
           ${lineListHtml}
           ${nextStation ? `<div class="toggleWrap"><button class="toggleBtn" data-part="${partIndex}" data-seg="${idx}" data-open="false">停車駅を表示</button></div>` : ''}
         </div>
