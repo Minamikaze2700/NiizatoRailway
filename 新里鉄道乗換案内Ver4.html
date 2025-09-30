@@ -221,11 +221,6 @@ function fareToyono(km){
   if(km <= 30) return 400;
   return 450;
 }
-    // 表示用の駅名を簡易に整形（見かけ上の会社名表記を削る）
-    function sanitizeDisplayName(name){
-      if(!name) return name;
-      return name.replace(/\(東橋鉄道\)/g, '').trim();
-    }
 
     function fareTouhashi(km, segPath = [], companySegments = []){ 
       const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
