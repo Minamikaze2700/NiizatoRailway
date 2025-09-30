@@ -125,12 +125,6 @@ const stationLines = {
  "東雲鉄道東橋線":["作平","南望町","陣内","砂郷","前岡","東橋"],
 
 };
-function sanitizeDisplayName(name){
-  if(!name) return name;
-  // 半角カッコの中身が次のいずれかなら削除：
-  // 鈴浜電鉄 | 桜川電鉄 | 東橋鉄道 | 東雲鉄道
-  return name.replace(/\(\s*(?:鈴浜電鉄|桜川電鉄|東橋鉄道|東雲鉄道)\s*\)/g, '').trim();
-}
 const lineColors = {
   "新里鉄道湯の浜線":"#07b5f7",
   "新里鉄道燠野線":"#fd5062",
