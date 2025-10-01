@@ -107,7 +107,7 @@ const stationLines = {
  "新里鉄道鶴宮線":["鶴宮","南鶴宮","あずさ台","橘町","燠野山口","白枝","燠野","紅葉台","桐山","湊川","彩山親水公園","彩山","蓮華寺","星宮","田ノ原"],
  "新里鉄道新里線":["新里","南新里","田ノ原","北玖川","玖川","中野原"],
  "新里鉄道彩山線":["彩山","彩山口","新里国際スキー場","鷹見台","久我原","浪原","深江","三栗谷","桜川公園","桜川"],
- "大桑鉄道本線":["桑畑","新桑畑","横山町","東天津","天津中原","北中原","大塚台","観音寺","大鉄岩田","六日市","南大崎","大崎","新大崎","北大崎","","南萩川","萩川"],
+ "大桑鉄道本線":["桑畑","新桑畑","横山町","東天津","天津中原","北中原","大塚台","観音寺","大鉄岩田","六日市","南大崎","大崎","新大崎","北大崎","滝原","南萩川","萩川"],
  "大桑鉄道豊川線":["天津中原","南中原","旭町","川端","追分","幕生台","南羽草","新綾山","豊川"],
  "鈴浜電気鉄道鈴浜電鉄線":["桜川国際空港(鈴浜電鉄)","りんくう桜川","余田","白砂","千種園","大三浜","外神","紅原台","恋野宮","南河都","河都","北河都","百合ヶ丘公園","猫崎海岸","籾井","白木稲荷","流沢温泉口","流沢温泉","京新峡","奥沢高原","原津","神道山口","新的場","虹川","片牧町","鬼越峠","北鶴宮"],
  "桜川電気鉄道彩山線":["喜多瀬浜","喜多瀬","久我山","桜鉄彩山口"],
@@ -779,92 +779,12 @@ function runAdjustments(){ adjustMajorLines(); }
 window.addEventListener('resize', runAdjustments);
 
 /* =========================
-   buildRoutePartsNoOverlap (更新版)
-   - 過去に通った駅を forbidden にして各区間を探索
-   - full を構築し totalDistMap に辺重みを保存
-   - full[i-1] === full[i+1] の箇所で分割
+   新実装: 一筆書き (ノード重複禁止) ロジック
+   要点:
+   - 各区間探索は「これまで通った駅」を forbidden として除外する
+   - 区間の出発駅は forbidden から除外する（必ず出発可能）
+   - 区間の終点は許可（goal が forbidden にいる場合は特別扱い）
    ========================= */
-
-function buildRoutePartsNoOverlap(from, viaStations, to){
-  const waypoints = [from, ...viaStations, to];
-  let full = [];
-  let totalDistMap = []; // full[k] -> full[k+1] の重みを保存する配列（length = full.length-1）
-  const used = new Set();
-
-  function edgeWeight(a,b){
-    return (graph[a] && graph[a][b]) ? graph[a][b] : 0;
-  }
-
-  for(let i=0;i<waypoints.length-1;i++){
-    const a = waypoints[i], b = waypoints[i+1];
-
-    // forbidden はこれまで通ったノード。ただし出発駅と到達駅は許可する
-    const forbidden = new Set(used);
-    if(forbidden.has(a)) forbidden.delete(a);
-    if(forbidden.has(b)) forbidden.delete(b);
-
-    const sp = shortestPathAvoiding(a, b, forbidden);
-    let usedPath = sp;
-    if(!sp.path || sp.path.length === 0){
-      // 禁止解除で再探索（どうしても見つからない場合は最短を採用）
-      usedPath = shortestPath(a, b);
-      if(!usedPath.path || usedPath.path.length === 0) return null;
-    }
-
-    const seg = (i === 0) ? usedPath.path.slice() : usedPath.path.slice(1);
-
-    // append seg to full and record edge weights
-    for(let j=0;j<seg.length;j++){
-      if(full.length > 0){
-        const prev = full[full.length - 1];
-        const cur = seg[j];
-        full.push(cur);
-        totalDistMap.push(edgeWeight(prev, cur));
-      } else {
-        full.push(seg[j]);
-        // first node, no preceding edge yet
-      }
-    }
-
-    // used に追加（終点 b は次区間の出発になるため除外）
-    for(const st of usedPath.path){
-      if(st !== b) used.add(st);
-    }
-  }
-
-  if(full.length === 0) return [];
-
-  // helper: compute distance for nodes indices [iStart .. iEnd] inclusive (iStart < iEnd)
-  function computeDistanceForSlice(iStartNodeIndex, iEndNodeIndex){
-    if(iStartNodeIndex === iEndNodeIndex) return 0;
-    let s = 0;
-    for(let k = iStartNodeIndex; k < iEndNodeIndex; k++){
-      s += (totalDistMap[k] || 0);
-    }
-    return s;
-  }
-
-  // scan full and split when full[i-1] === full[i+1]
-  const parts = [];
-  let partStart = 0;
-  for(let i=1;i<full.length-1;i++){
-    if(full[i-1] === full[i+1]){
-      // split boundary between (i-1) and i
-      const slice = full.slice(partStart, i); // up to i-1
-      const dist = computeDistanceForSlice(partStart, i-1);
-      if(slice.length) parts.push({ path: slice, distance: dist });
-      partStart = i; // next part starts at i
-    }
-  }
-  // push final part
-  if(partStart <= full.length - 1){
-    const slice = full.slice(partStart);
-    const dist = computeDistanceForSlice(partStart, full.length - 1);
-    if(slice.length) parts.push({ path: slice, distance: dist });
-  }
-
-  return parts;
-}
 
 // start->goal を forbidden を避けて最短経路を求める Dijkstra
 function shortestPathAvoiding(start, goal, forbidden){
@@ -898,6 +818,57 @@ function shortestPathAvoiding(start, goal, forbidden){
   const path = []; for(let cur = goal; cur != null; cur = prev[cur]) path.unshift(cur);
   return {path, distance: dist[goal]};
 }
+
+// 全体を一筆書きにするルート作成関数
+function buildRoutePartsNoOverlap(from, viaStations, to){
+  const waypoints = [from, ...viaStations, to];
+  let full = [];
+  let totalDist = 0;
+  const used = new Set(); // これまで通ったノード（終点は追加しない）
+
+  for(let i=0;i<waypoints.length-1;i++){
+    const a = waypoints[i], b = waypoints[i+1];
+
+    // forbidden はこれまで通ったノード。出発駅は必ず許可する。
+    const forbidden = new Set(used);
+    if(forbidden.has(a)) forbidden.delete(a);
+    // allow goal even if in used (we'll prefer to allow goal) - but keep it removed to allow reaching it
+    if(forbidden.has(b)) forbidden.delete(b);
+
+    const sp = shortestPathAvoiding(a, b, forbidden);
+    if(!sp.path || sp.path.length === 0) {
+      // 探索失敗: 代替案として forbidden を緩和して再探索する（最小限の緩和）
+      // strategy: 試しにusedをそのまま許可して再探索（最短経路）
+      const sp2 = shortestPath(a, b);
+      if(!sp2.path || sp2.path.length === 0) return null;
+      // それでも見つかるなら採用（重複あり）
+      const seg2 = (i===0) ? sp2.path.slice() : sp2.path.slice(1);
+      full.push(...seg2);
+      totalDist += sp2.distance;
+      // add all nodes except endpoint to used
+      for(const st of sp2.path){
+        if(st !== b) used.add(st);
+      }
+      continue;
+    }
+
+    const seg = (i===0) ? sp.path.slice() : sp.path.slice(1);
+    full.push(...seg);
+    totalDist += sp.distance;
+
+    // この区間で通った駅を used に追加する。ただし終点 b は次区間の出発になるため追加しない
+    for(const st of sp.path){
+      if(st !== b) used.add(st);
+    }
+  }
+
+  if(full.length === 0) return [];
+
+  // parts を 1 パートとして返す（分割は既存のレンダリングに合わせて1つの要素）
+  return [{ path: full, distance: totalDist }];
+}
+
+// ---- 以下は既存の分割・描画・運賃計算ロジックを保持 ----
 
 function splitByCompany(path){
   if(path.length < 2) return [];
