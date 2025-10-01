@@ -778,42 +778,81 @@ function adjustMajorLines(){
 function runAdjustments(){ adjustMajorLines(); }
 window.addEventListener('resize', runAdjustments);
 
-function buildRoutePartsAvoidingDuplicates(from, viaStations, to){
+function buildRoutePartsGeometric(from, viaStations, to){
   const waypoints = [from, ...viaStations, to];
-  const parts = [];
-  let currentPath = [];
-  let currentDistance = 0;
-  let visited = new Set();
+  // concat full path (重複先頭を剥く)
+  let full = [];
+  let totalDistMap = []; // 各ノード間の辺重み（フル列の i->i+1 に対する重み）
+  function edgeWeight(a,b){
+    return (graph[a] && graph[a][b]) ? graph[a][b] : 0;
+  }
 
   for(let i=0;i<waypoints.length-1;i++){
     const a = waypoints[i], b = waypoints[i+1];
     const sp = shortestPath(a,b);
-    if(!sp.path.length) return null;
-
-    const segment = (i===0) ? sp.path : sp.path.slice(1);
-
-    let conflict = false;
-    for(const st of segment){
-      if(visited.has(st)){ conflict = true; break; }
-    }
-
-    if(conflict){
-      if(currentPath.length){
-        parts.push({ path: currentPath.slice(), distance: currentDistance });
+    if(!sp || !sp.path || sp.path.length===0) return null;
+    const seg = (i===0) ? sp.path.slice() : sp.path.slice(1);
+    // append seg to full and record weights
+    for(let j=0;j<seg.length;j++){
+      if(full.length>0){
+        // add edge weight between last full and this seg[j]
+        const prev = full[full.length-1];
+        const cur = seg[j];
+        full.push(cur);
+        totalDistMap.push(edgeWeight(prev, cur));
+      } else {
+        full.push(seg[j]);
+        // no edge weight stored for first node until there is a next
       }
-      currentPath = sp.path.slice();
-      currentDistance = sp.distance;
-      visited = new Set(sp.path);
-    } else {
-      currentPath = [...currentPath, ...segment];
-      currentDistance += sp.distance;
-      for(const st of segment) visited.add(st);
     }
   }
-  if(currentPath.length){
-    parts.push({ path: currentPath.slice(), distance: currentDistance });
+
+  // if full is empty (shouldn't happen) return
+  if(full.length===0) return [];
+
+  // scan full left->right, split when a node would repeat within current part
+  const parts = [];
+  let partStart = 0;
+  const seen = new Set();
+  // mark the start node
+  seen.add(full[0]);
+
+  for(let i=1;i<full.length;i++){
+    const node = full[i];
+    if(seen.has(node)){
+      // split BEFORE this node: push part [partStart .. i-1]
+      const pathSlice = full.slice(partStart, i);
+      const dist = computeDistanceForSlice(partStart, i-1, totalDistMap);
+      parts.push({ path: pathSlice, distance: dist });
+      // start new part at the repeated node
+      partStart = i;
+      // reset seen to contain only this starting node
+      seen.clear();
+      seen.add(node);
+    } else {
+      seen.add(node);
+    }
   }
+  // push final part
+  if(partStart <= full.length - 1){
+    const pathSlice = full.slice(partStart);
+    const dist = computeDistanceForSlice(partStart, full.length - 1, totalDistMap);
+    parts.push({ path: pathSlice, distance: dist });
+  }
+
   return parts;
+
+  // helper: compute distance for nodes indices [iStart .. iEnd] inclusive (iStart < iEnd)
+  function computeDistanceForSlice(iStartNodeIndex, iEndNodeIndex, edgeWeights){
+    // edgeWeights[k] is weight between full[k] -> full[k+1], length = full.length-1
+    if(iStartNodeIndex === iEndNodeIndex) return 0;
+    let s = 0;
+    for(let k = iStartNodeIndex; k < iEndNodeIndex; k++){
+      // edgeWeights index equals k for edge full[k] -> full[k+1]
+      s += (edgeWeights[k] || 0);
+    }
+    return s;
+  }
 }
 
 function splitByCompany(path){
@@ -1175,7 +1214,7 @@ searchBtn.addEventListener('click', ()=>{
   // 保存
   saveSelections();
 
-  const parts = buildRoutePartsAvoidingDuplicates(from, viaStations, to);
+  const parts = buildRoutePartsGeometric(from, viaStations, to);
   if(!parts || parts.length === 0){
     resultArea.innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
     return;
@@ -1221,19 +1260,24 @@ searchBtn.addEventListener('click', ()=>{
         <div style="font-weight:800">検索結果</div>
         <div class="meta">
           <div>合計距離: <strong>${totalDistance.toFixed(1)} km</strong></div>
-          <div>合計運賃: <strong>${totalFare} 円</strong></div>
+          <div>合計運賃: <strong>￥${totalFare}</strong></div>
         </div>
       </div>
     </div>
   `;
 
-  const bodyHtml = parts.map((part, idx) => renderRouteCardForPart(part, idx)).join('');
-  resultArea.innerHTML = headerHtml + bodyHtml;
+  // レンダリング
+  let html = headerHtml;
+  parts.forEach((p, idx)=>{
+    html += renderRouteCardForPart(p, idx);
+  });
 
+  resultArea.innerHTML = html;
   wireToggleButtons();
-  setTimeout(runAdjustments, 0);
+  runAdjustments();
 });
 
+/* EOF */
 </script>
 </body>
 </html>
