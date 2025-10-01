@@ -778,82 +778,97 @@ function adjustMajorLines(){
 function runAdjustments(){ adjustMajorLines(); }
 window.addEventListener('resize', runAdjustments);
 
-function buildRoutePartsGeometric(from, viaStations, to){
-  const waypoints = [from, ...viaStations, to];
-  // concat full path (重複先頭を剥く)
-  let full = [];
-  let totalDistMap = []; // 各ノード間の辺重み（フル列の i->i+1 に対する重み）
-  function edgeWeight(a,b){
-    return (graph[a] && graph[a][b]) ? graph[a][b] : 0;
+/* =========================
+   新実装: 一筆書き (ノード重複禁止) ロジック
+   要点:
+   - 各区間探索は「これまで通った駅」を forbidden として除外する
+   - 区間の出発駅は forbidden から除外する（必ず出発可能）
+   - 区間の終点は許可（goal が forbidden にいる場合は特別扱い）
+   ========================= */
+
+// start->goal を forbidden を避けて最短経路を求める Dijkstra
+function shortestPathAvoiding(start, goal, forbidden){
+  if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity};
+  const dist = {}, prev = {}, Q = new Set(allStations);
+  allStations.forEach(s=>{ dist[s] = Infinity; prev[s] = null; });
+  dist[start] = 0;
+
+  while(Q.size){
+    let u = null, best = Infinity;
+    for(const v of Q){
+      if(dist[v] < best){ u = v; best = dist[v]; }
+    }
+    if(u === null) break;
+    Q.delete(u);
+
+    // skip processing forbidden intermediate nodes (but allow start and goal)
+    if(forbidden.has(u) && u !== start && u !== goal) continue;
+
+    if(u === goal) break;
+
+    for(const [v,w] of Object.entries(graph[u]||{})){
+      // skip forbidden neighbor unless it's the goal
+      if(forbidden.has(v) && v !== goal) continue;
+      const alt = dist[u] + w;
+      if(alt < dist[v]){ dist[v] = alt; prev[v] = u; }
+    }
   }
+
+  if(!isFinite(dist[goal])) return {path:[],distance:Infinity};
+  const path = []; for(let cur = goal; cur != null; cur = prev[cur]) path.unshift(cur);
+  return {path, distance: dist[goal]};
+}
+
+// 全体を一筆書きにするルート作成関数
+function buildRoutePartsNoOverlap(from, viaStations, to){
+  const waypoints = [from, ...viaStations, to];
+  let full = [];
+  let totalDist = 0;
+  const used = new Set(); // これまで通ったノード（終点は追加しない）
 
   for(let i=0;i<waypoints.length-1;i++){
     const a = waypoints[i], b = waypoints[i+1];
-    const sp = shortestPath(a,b);
-    if(!sp || !sp.path || sp.path.length===0) return null;
-    const seg = (i===0) ? sp.path.slice() : sp.path.slice(1);
-    // append seg to full and record weights
-    for(let j=0;j<seg.length;j++){
-      if(full.length>0){
-        // add edge weight between last full and this seg[j]
-        const prev = full[full.length-1];
-        const cur = seg[j];
-        full.push(cur);
-        totalDistMap.push(edgeWeight(prev, cur));
-      } else {
-        full.push(seg[j]);
-        // no edge weight stored for first node until there is a next
+
+    // forbidden はこれまで通ったノード。出発駅は必ず許可する。
+    const forbidden = new Set(used);
+    if(forbidden.has(a)) forbidden.delete(a);
+    // allow goal even if in used (we'll prefer to allow goal) - but keep it removed to allow reaching it
+    if(forbidden.has(b)) forbidden.delete(b);
+
+    const sp = shortestPathAvoiding(a, b, forbidden);
+    if(!sp.path || sp.path.length === 0) {
+      // 探索失敗: 代替案として forbidden を緩和して再探索する（最小限の緩和）
+      // strategy: 試しにusedをそのまま許可して再探索（最短経路）
+      const sp2 = shortestPath(a, b);
+      if(!sp2.path || sp2.path.length === 0) return null;
+      // それでも見つかるなら採用（重複あり）
+      const seg2 = (i===0) ? sp2.path.slice() : sp2.path.slice(1);
+      full.push(...seg2);
+      totalDist += sp2.distance;
+      // add all nodes except endpoint to used
+      for(const st of sp2.path){
+        if(st !== b) used.add(st);
       }
+      continue;
+    }
+
+    const seg = (i===0) ? sp.path.slice() : sp.path.slice(1);
+    full.push(...seg);
+    totalDist += sp.distance;
+
+    // この区間で通った駅を used に追加する。ただし終点 b は次区間の出発になるため追加しない
+    for(const st of sp.path){
+      if(st !== b) used.add(st);
     }
   }
 
-  // if full is empty (shouldn't happen) return
-  if(full.length===0) return [];
+  if(full.length === 0) return [];
 
-  // scan full left->right, split when a node would repeat within current part
-  const parts = [];
-  let partStart = 0;
-  const seen = new Set();
-  // mark the start node
-  seen.add(full[0]);
-
-  for(let i=1;i<full.length;i++){
-    const node = full[i];
-    if(seen.has(node)){
-      // split BEFORE this node: push part [partStart .. i-1]
-      const pathSlice = full.slice(partStart, i);
-      const dist = computeDistanceForSlice(partStart, i-1, totalDistMap);
-      parts.push({ path: pathSlice, distance: dist });
-      // start new part at the repeated node
-      partStart = i;
-      // reset seen to contain only this starting node
-      seen.clear();
-      seen.add(node);
-    } else {
-      seen.add(node);
-    }
-  }
-  // push final part
-  if(partStart <= full.length - 1){
-    const pathSlice = full.slice(partStart);
-    const dist = computeDistanceForSlice(partStart, full.length - 1, totalDistMap);
-    parts.push({ path: pathSlice, distance: dist });
-  }
-
-  return parts;
-
-  // helper: compute distance for nodes indices [iStart .. iEnd] inclusive (iStart < iEnd)
-  function computeDistanceForSlice(iStartNodeIndex, iEndNodeIndex, edgeWeights){
-    // edgeWeights[k] is weight between full[k] -> full[k+1], length = full.length-1
-    if(iStartNodeIndex === iEndNodeIndex) return 0;
-    let s = 0;
-    for(let k = iStartNodeIndex; k < iEndNodeIndex; k++){
-      // edgeWeights index equals k for edge full[k] -> full[k+1]
-      s += (edgeWeights[k] || 0);
-    }
-    return s;
-  }
+  // parts を 1 パートとして返す（分割は既存のレンダリングに合わせて1つの要素）
+  return [{ path: full, distance: totalDist }];
 }
+
+// ---- 以下は既存の分割・描画・運賃計算ロジックを保持 ----
 
 function splitByCompany(path){
   if(path.length < 2) return [];
@@ -1214,7 +1229,7 @@ searchBtn.addEventListener('click', ()=>{
   // 保存
   saveSelections();
 
-  const parts = buildRoutePartsGeometric(from, viaStations, to);
+  const parts = buildRoutePartsNoOverlap(from, viaStations, to);
   if(!parts || parts.length === 0){
     resultArea.innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
     return;
