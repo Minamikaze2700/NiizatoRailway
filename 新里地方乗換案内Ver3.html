@@ -39,8 +39,6 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
 .railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:2;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;}
 .rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:2;}
-/* 追加: 小さいドットスタイルを任意要素で流用できるようにする */
-.minorDot{width:var(--dotMinor)!important;height:var(--dotMinor)!important;}
 .railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:100px;height:0;background:#999;}
 .railLineMinor{width:var(--lineWMinor);border-radius:1px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:100px;height:0;background:#999;}
 .stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
@@ -59,21 +57,6 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .viaList{display:flex;flex-direction:column;gap:6px;margin:6px 0;align-items:flex-start}
 .viaRow{display:flex;align-items:center;gap:6px;justify-content:flex-start}
 .viaRow button{font-size:12px;padding:4px 6px}
-
-/* 運賃内訳用 */
-.fareBreakBtn{display:block;margin:10px auto 0;padding:8px 12px;border-radius:8px;border:1px solid #ccd6ff;background:#eff6ff;cursor:pointer}
-.fareBreakCard{margin-top:10px;padding:12px;border-radius:10px;background:#fff;border:1px solid #eef2ff}
-.fareRow{display:flex;align-items:center;gap:12px;padding:8px 6px;border-bottom:1px dashed #eee}
-.fareRow:last-child{border-bottom:none}
-.fareDot{width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-sizing:content-box}
-.fareLabel{font-size:14px}
-.fareAmt{margin-left:auto;font-weight:700}
-.companyBadge{font-size:12px;background:#0b5fff;color:#fff;padding:4px 6px;border-radius:6px}
-/* スマホ調整 */
-@media(max-width:520px){
-  .row{gap:8px}
-  .card{padding:12px}
-}
 </style>
 </head>
 <body>
@@ -182,7 +165,7 @@ const lineColors = {
   "桜津開発鉄道線":"#0c46c0",
   "東雲鉄道東雲本線":"#008002",
   "東雲鉄道内原線":"#ffa40f",
-  "東雲鉄道東橋線":"#a51aff"
+  "東雲鉄道東橋線":"#a51aff",
 };
 
 // ==== 距離グラフ ====
@@ -377,7 +360,7 @@ const rawGraph={
 "川端":{"追分":3.1},
 "幕生台":{"南羽草":3.1},
 "南羽草":{"新綾山":3.3},
-"新綾山":{"豊川":3.5"}
+"新綾山":{"豊川":3.5}
 };
 
 // --- ユーティリティ ---
@@ -619,7 +602,7 @@ function findIndexFrom(path, station, start){
   return -1;
 }
 
-// --- 主要駅抽出（元の関数は保持が、運賃内訳用に会社境界ベースの主要駅を追加） ---
+// --- 主要駅抽出（元の関数は保持。表示上の主要駅判定はこの関数に従います） ---
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
 
@@ -698,23 +681,6 @@ function majorStops(path){
 
   majors.push(path[path.length-1]);
   return {majors};
-}
-
-// --- 新: 運賃内訳用の「主要駅」: 発着 + 会社境界（splitByCompany を流用） ---
-function fareMajorStops(path){
-  if(!Array.isArray(path) || path.length <= 1) return {majors: path.slice()};
-  const comps = splitByCompany(path);
-  if(!comps || comps.length === 0) return {majors: path.slice()};
-  const majors = [];
-  for(const c of comps){
-    majors.push(c.from);
-  }
-  // ensure last station is included
-  majors.push(path[path.length - 1]);
-  // dedupe while preserving order
-  const uniq = [];
-  for(const s of majors) if(uniq[uniq.length-1] !== s) uniq.push(s);
-  return {majors: uniq};
 }
 
 function findCommonLines(a,b){
@@ -1309,14 +1275,12 @@ function splitByCompany(path){
    - renderRouteCardForPart(part, partIndex, containerId)
    - IDs を containerId プレフィックス付きにして一意化
    - wireToggleButtons(containerId) を用いてコンテナ内のみバインド
-   - さらに「運賃内訳表示ボタン」を各結果コンテナの下部に追加
    ----------------------------- */
 
 function renderRouteCardForPart(part, partIndex, containerId){
   const path = part.path;
 
-  // 主要駅（運賃用）は会社境界ベース
-  const { majors } = fareMajorStops(path);
+  const { majors } = majorStops(path);
 
   const majorIndices = [];
   let scanStart = 0;
@@ -1380,138 +1344,243 @@ function renderRouteCardForPart(part, partIndex, containerId){
   // container-scoped IDs: prefix with containerId
   const cid = containerId;
 
-  // Build per-major-segment HTML. Differences from元表示:
-  // - 主要駅（ここでは発着＋会社境界）は小さいドット（途中駅のドット）と minorName ラベルを流用
-  // - 路線名表示や「途中駅表示ボタン」は表示しない
-  // - その代わり、その区間（major -> nextMajor）の運賃を表示する
   let routeHtml = `
-    <div class="card" id="${cid}-part-${partIndex}">
+    <div class="card">
       <div class="resultHeader">
         <div class="meta"></div>
       </div>
-      <div class="routeLine" id="${cid}-route-${partIndex}">
+      <div class="routeLine">
   `;
 
-  // For fare calculation of these major segments, we will compute company segments and fares inline
-  // splitByCompany(part.path) gives company-level segments
-  const compSegs = splitByCompany(path);
-
-  // Create a quick map for company fares for each comp segment
-  const compFareInfos = [];
-  // Build TO zone set (reuse the same rules as elsewhere)
-  function buildTOZoneSetGlobal(){
-    const set = new Set();
-    const mainLine = stationLines['東橋鉄道東橋本線'] || [];
-    const yokoLine = stationLines['東橋鉄道横宿線'] || [];
-
-    const idxFrom = mainLine.indexOf('東橋');
-    const idxTo = mainLine.indexOf('新東橋');
-    if(idxFrom !== -1 && idxTo !== -1){
-      const a = Math.min(idxFrom, idxTo), b = Math.max(idxFrom, idxTo);
-      for(let i=a;i<=b;i++) set.add(mainLine[i]);
-    }
-    // 横宿線は全区間を追加
-    for(const s of yokoLine) set.add(s);
-    return set;
-  }
-  const TO_ZONE_SET_GLOBAL = buildTOZoneSetGlobal();
-  function isInTOZoneGlobal(st){ return TO_ZONE_SET_GLOBAL.has(st); }
-
-  for(let i=0;i<compSegs.length;i++){
-    const seg = compSegs[i];
-    const spComp = shortestPathWithinCompany(seg.from, seg.to, seg.company);
-    let segFare = 0;
-    if(isInTOZoneGlobal(seg.from) && isInTOZoneGlobal(seg.to)){
-      segFare = 250;
-    } else {
-      segFare = fareByCompany(seg.company, spComp.distance);
-    }
-    if(seg.company === '東橋鉄道' && seg.to === '園木'){
-      const nextSeg = compSegs[i+1];
-      if(nextSeg && nextSeg.company && nextSeg.company !== '東橋鉄道'){
-        segFare = Math.max(0, segFare - 50);
-      }
-    }
-    compFareInfos.push({
-      from: seg.from,
-      to: seg.to,
-      company: seg.company,
-      distance: spComp.distance,
-      fare: segFare
-    });
-  }
-
-  // Now render majors; for each major to nextMajor, compute the company segment(s) that cover that interval and sum/display fare
   for(let idx = 0; idx < majors.length; idx++){
     const st = majors[idx];
     const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
 
-    // Render the station row (use minorDot and minorName to reuse 途中駅の見た目)
+    const iFrom = majorIndices[idx];
+    const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
+
+    const color = majorsColors[idx];
+    const nextColor = nextStation ? majorsColors[idx+1] : null;
+
+    let lineListHtml = '';
+
+    let usedLinesForSegment = [];
+    if(nextStation && iFrom !== -1 && iTo !== -1){
+      for(let i=iFrom;i<iTo;i++){
+        const ln = findLineOfSegment(path[i], path[i+1]);
+        if(ln && !usedLinesForSegment.includes(ln)) usedLinesForSegment.push(ln);
+      }
+      const badges = usedLinesForSegment.length > 0 ? usedLinesForSegment : findCommonLines(st, nextStation);
+      if(badges.length > 0){
+        lineListHtml = badges.map(l => `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${l}</div>`).join('');
+      }
+    } else if(!nextStation){
+      lineListHtml = '';
+    }
+
+    const bigLineId = `${cid}-part${partIndex}-bigline-${idx}`;
+    const betweenId = `${cid}-part${partIndex}-between-${idx}`;
+
+    let initialStyle = '';
+    if(nextStation){
+      if(usedLinesForSegment.length > 0){
+        if(usedLinesForSegment.length === 1){
+          initialStyle = `background: ${lineColors[usedLinesForSegment[0]] || color};`;
+        } else {
+          const step = 100 / usedLinesForSegment.length;
+          const stops = usedLinesForSegment.map((ln, j) => {
+            const col = lineColors[ln] || '#999';
+            const start = (j * step).toFixed(4);
+            const end = ((j+1) * step).toFixed(4);
+            return `${col} ${start}%, ${col} ${end}%`;
+          }).join(', ');
+          initialStyle = `background: linear-gradient(to bottom, ${stops});`;
+        }
+      } else {
+        if(nextColor && nextColor !== color){
+          initialStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
+        } else {
+          initialStyle = `background: ${color};`;
+        }
+      }
+    } else {
+      initialStyle = `background: ${color};`;
+    }
+
+    const usedLinesDataAttr = usedLinesForSegment.join('|');
+
     routeHtml += `
-      <div class="rowBetween" id="${cid}-major-row-${partIndex}-${idx}">
+      <div class="rowStation">
         <div class="railCol">
-          <div class="railLineMinor" aria-hidden="true" style="background:#ddd"></div>
-          <div class="railDot minorDot" title="${displayStationName(st)}" style="background:${majorsColors[idx] || '#999'}"></div>
+          <div class="railDot" style="background:${color}"></div>
+          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style="${initialStyle}"></div>` : `<div class="spacer6"></div>`}
         </div>
         <div class="stationText">
-          <p class="minorName">${displayStationName(st)}</p>
-          <div style="margin-top:6px" id="${cid}-major-meta-${partIndex}-${idx}"></div>
+          <div class="stationName">${displayStationName(st)}</div>
+          ${lineListHtml}
+          ${nextStation ? `<div class="toggleWrap"><button class="toggleBtn" data-container="${cid}" data-part="${partIndex}" data-seg="${idx}" data-open="false">停車駅を表示</button></div>` : ''}
         </div>
       </div>
     `;
 
-    // If there's a nextMajor, compute fare for this span and add a small info row
-    if(nextStation){
-      // Find compFareInfos that fall within [st .. nextStation] on part.path
-      // We'll sum fares for companies whose seg.from/seg.to are within this range.
-      // Determine path indices
-      const idxA = findIndexFrom(path, st, 0);
-      const idxB = findIndexFrom(path, nextStation, idxA + 1);
-      // collect companies that have any overlap
-      let spanFare = 0;
-      const spanComps = [];
-      for(const info of compFareInfos){
-        // if the company's seg overlaps this major interval
-        const ia = findIndexFrom(path, info.from, 0);
-        const ib = findIndexFrom(path, info.to, ia+1);
-        if(ia === -1 || ib === -1) continue;
-        // overlap condition: not completely outside
-        if(!(ib < idxA || ia > idxB)){
-          spanFare += info.fare;
-          spanComps.push(info);
-        }
-      }
+    if(nextStation && iFrom !== -1 && iTo !== -1){
+      if(iTo - iFrom > 1){
+        const betweenStart = iFrom + 1;
+        const betweenEnd = iTo - 1;
+        const betweenCount = betweenEnd - betweenStart + 1;
+        const pairColors = new Array(Math.max(0, betweenCount)).fill('#999');
+        const isCondArr = new Array(Math.max(0, betweenCount)).fill(false);
 
-      // Render the span info line (show per-company badges and the total fare)
-      let compsHtml = '';
-      for(const c of spanComps){
-        compsHtml += `<span class="companyBadge" style="background:${lineColors[findLineOfSegment(c.from,c.to)]||'#0b5fff'}">${c.company}</span> `;
+        for(let bj = betweenStart; bj <= betweenEnd; bj++){
+          const jIndex = bj;
+          const s = path[jIndex];
+          let isCondMinor = false;
+          const condsAll = connectingStations.filter(c => c.station === s);
+          let conds = [];
+          if(condsAll && condsAll.length > 0){
+            conds = condsAll;
+          }
+          if(conds && conds.length > 0){
+            const idxS = jIndex;
+            for(const cond of conds){
+              const idxsA = indexesOf(path, cond.endpoints[0]);
+              const idxsB = indexesOf(path, cond.endpoints[1]);
+              if(idxsA.length > 0 && idxsB.length > 0){
+                outer3: for(const ia of idxsA){
+                  for(const ib of idxsB){
+                    if(betweenExclusive(idxS, ia, ib)){ isCondMinor = true; break outer3; }
+                  }
+                }
+                if(isCondMinor) break;
+              }
+            }
+          }
+          isCondArr[bj - betweenStart] = isCondMinor;
+
+          const prevSt = path[jIndex-1];
+          const nextSt = path[jIndex+1];
+
+          const directCandidates = findLinesOfSegment(s, nextSt);
+          if(directCandidates.length > 0){
+            let chosen = null;
+            for(const ln of directCandidates){
+              if(lineColors[ln]){ chosen = ln; break; }
+            }
+            if(chosen){
+              pairColors[bj - betweenStart] = lineColors[chosen];
+              continue;
+            }
+          }
+
+          let threeLine = null;
+          for(const [ln, stations] of Object.entries(stationLines)){
+            if(stations.indexOf(prevSt) !== -1 && stations.indexOf(s) !== -1 && stations.indexOf(nextSt) !== -1){
+              threeLine = ln;
+              break;
+            }
+          }
+          if(threeLine && lineColors[threeLine]){
+            pairColors[bj - betweenStart] = lineColors[threeLine];
+            continue;
+          }
+
+          let bothLine = null;
+          for(const [ln, stations] of Object.entries(stationLines)){
+            if(stations.indexOf(prevSt) !== -1 && stations.indexOf(nextSt) !== -1){
+              bothLine = ln;
+              break;
+            }
+          }
+          if(bothLine && lineColors[bothLine]){
+            pairColors[bj - betweenStart] = lineColors[bothLine];
+            continue;
+          }
+
+          const adjPairs = [];
+          if(jIndex > 0) adjPairs.push([path[jIndex-1], path[jIndex]]);
+          if(jIndex < path.length - 1) adjPairs.push([path[jIndex], path[jIndex+1]]);
+          for(const p of adjPairs){
+            const ln = findLineOfSegment(p[0], p[1]);
+            if(ln && lineColors[ln]){ pairColors[bj - betweenStart] = lineColors[ln]; break; }
+          }
+        }
+
+        routeHtml += `<div id="${betweenId}" class="betweenList">`;
+        for(let bj = betweenStart; bj <= betweenEnd; bj++){
+          const s = path[bj];
+          const arrIdx = bj - betweenStart;
+          const isCondMinor = isCondArr[arrIdx];
+          const minorClass = isCondMinor ? 'condMinorName' : 'minorName';
+          let displayColor = pairColors[arrIdx];
+          if(isCondMinor){
+            const nextArrIdx = arrIdx + 1;
+            if(nextArrIdx < pairColors.length){
+              displayColor = pairColors[nextArrIdx];
+            } else {
+              displayColor = pairColors[arrIdx];
+            }
+          }
+
+          routeHtml += `
+            <div class="rowBetween">
+              <div class="railCol">
+                <div class="railDot" style="background:${displayColor}"></div>
+                <div class="railLineMinor" style="background:${displayColor}"></div>
+              </div>
+              <div class="stationText"><div class="${minorClass}">${displayStationName(s)}</div></div>
+            </div>
+          `;
+        }
+        routeHtml += `</div>`;
       }
-      routeHtml += `
-        <div style="padding-left:var(--gutter);padding-right:8px;margin-top:6px;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div style="font-size:13px;color:#444">区間運賃</div>
-            <div>${compsHtml}</div>
-            <div style="margin-left:auto;font-weight:800">${spanFare} 円</div>
-          </div>
-        </div>
-      `;
     }
   }
 
-  routeHtml += `</div></div>`; // close routeLine & card
-
+  routeHtml += `</div></div>`;
   return routeHtml;
 }
 
-// container 内のトグルボタンだけにリスナをバインド（ID 重複の影響を排除）
+// containerId を受け取って、そのコンテナ内の .toggleBtn のみにリスナをバインドする
 function wireToggleButtons(containerId){
-  // (既存の実装がある場合はそれを流用するための placeholder)
-  // 現在は経路内でのトグルは使っていない（途中駅表示ボタン廃止）
-  return;
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  const btns = Array.from(container.querySelectorAll('.toggleBtn'));
+  btns.forEach(btn=>{
+    // remove previous listener if exists
+    if(btn._routeToggleListener) btn.removeEventListener('click', btn._routeToggleListener);
+
+    const listener = ()=>{
+      const part = btn.dataset.part;
+      const idx = btn.dataset.seg;
+      const cid = btn.dataset.container || containerId;
+      const listId = `${cid}-part${part}-between-${idx}`;
+      const bigLineId = `${cid}-part${part}-bigline-${idx}`;
+      const list = document.getElementById(listId);
+      const bigLine = document.getElementById(bigLineId);
+      if(!list) return;
+      const isOpen = getComputedStyle(list).display !== 'block';
+      list.style.display = isOpen ? 'block' : 'none';
+      btn.dataset.open = isOpen.toString();
+      btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
+
+      if(bigLine){
+        const baseColor = bigLine.dataset.color || '#999';
+
+        if(isOpen){
+          bigLine.style.background = baseColor;
+          shortenBigLineToFirstBetween(bigLine, list);
+        } else {
+          delete bigLine.dataset.shortened;
+          runAdjustments();
+        }
+      }
+      runAdjustments();
+    };
+    btn.addEventListener('click', listener);
+    btn._routeToggleListener = listener;
+  });
 }
 
-// shortenBigLineToFirstBetween は元を流用
 function shortenBigLineToFirstBetween(bigLine, betweenEl){
   if(!bigLine || !betweenEl) return;
   const railCol = bigLine.parentElement;
@@ -1648,94 +1717,9 @@ function renderRoutesIntoContainer(parts, containerId){
   parts.forEach((p, idx)=>{
     html += renderRouteCardForPart(p, idx, containerId);
   });
+attachFareBreakdownButton(part.path, containerElement);
 
-  // set innerHTML once
   container.innerHTML = html;
-
-  // --- 追加: 検索結果コンテナの一番下に「運賃の内訳表示ボタン」を追加 ---
-  // (複数タブ/コンテナがあるため containerId プレフィックスで固有化)
-  const btnId = containerId + '-fareToggleBtn';
-  const breakId = containerId + '-fareBreak';
-  // remove previous if present
-  const existingBtn = document.getElementById(btnId);
-  const existingBreak = document.getElementById(breakId);
-  if(existingBtn) existingBtn.parentElement.removeChild(existingBtn);
-  if(existingBreak) existingBreak.parentElement.removeChild(existingBreak);
-
-  const toggleBtn = document.createElement('button');
-  toggleBtn.id = btnId;
-  toggleBtn.className = 'fareBreakBtn';
-  toggleBtn.textContent = '運賃の内訳を表示';
-  toggleBtn.addEventListener('click', ()=>{
-    const el = document.getElementById(breakId);
-    if(!el) return;
-    if(el.style.display === 'none' || !el.style.display){
-      el.style.display = 'block';
-      toggleBtn.textContent = '運賃の内訳を非表示';
-    } else {
-      el.style.display = 'none';
-      toggleBtn.textContent = '運賃の内訳を表示';
-    }
-    runAdjustments();
-  });
-
-  const breakCard = document.createElement('div');
-  breakCard.id = breakId;
-  breakCard.className = 'fareBreakCard';
-  breakCard.style.display = 'none';
-
-  // Build fare breakdown detail: for each part, list company segments and fares (reuse earlier calculation)
-  // We'll compile comp segments for all parts
-  const allCompInfos = [];
-  for(const p of parts){
-    const comps = splitByCompany(p.path);
-    for(const seg of comps){
-      const spComp = shortestPathWithinCompany(seg.from, seg.to, seg.company);
-      let segFare = 0;
-      if(isInTOZone(seg.from) && isInTOZone(seg.to)){
-        segFare = 250;
-      } else {
-        segFare = fareByCompany(seg.company, spComp.distance);
-      }
-      if(seg.company === '東橋鉄道' && seg.to === '園木'){
-        const idx = allCompanySegments.findIndex(s=>s.from===seg.from && s.to===seg.to && s.company===seg.company);
-        // cannot rely on index here; just apply discount if next part is different - approximate: if next company differs in the list
-        // For breakdown accuracy we search within parts order
-        // (simple fallback: as we've already applied discounts for total fare above, here we keep raw segFare)
-      }
-      allCompInfos.push({
-        from: seg.from,
-        to: seg.to,
-        company: seg.company,
-        distance: spComp.distance,
-        fare: segFare
-      });
-    }
-  }
-
-  // Build rows
-  for(const info of allCompInfos){
-    const div = document.createElement('div');
-    div.className = 'fareRow';
-    const dot = document.createElement('div');
-    dot.className = 'fareDot';
-    // choose color based on first used line for the segment
-    const firstLine = findLineOfSegment(info.from, info.to);
-    dot.style.background = lineColors[firstLine] || '#999';
-    const label = document.createElement('div');
-    label.className = 'fareLabel';
-    label.textContent = `${displayStationName(info.from)} → ${displayStationName(info.to)} (${info.company})`;
-    const amt = document.createElement('div');
-    amt.className = 'fareAmt';
-    amt.textContent = info.fare + ' 円';
-    div.appendChild(dot);
-    div.appendChild(label);
-    div.appendChild(amt);
-    breakCard.appendChild(div);
-  }
-
-  container.appendChild(toggleBtn);
-  container.appendChild(breakCard);
 
   // container 内のトグルボタンだけにリスナをバインド（ID 重複の影響を排除）
   wireToggleButtons(containerId);
@@ -1826,6 +1810,7 @@ function wireTabButtons(){
         if(elS) elS.style.display = 'none';
         if(elF) elF.style.display = 'block';
       }
+      // 表示切替後に再調整（非表示時の計算を避ける）
       runAdjustments();
     };
     btn.addEventListener('click', listener);
@@ -1834,6 +1819,91 @@ function wireTabButtons(){
 }
 wireTabButtons();
 
+/* EOF */
+// ==== 運賃内訳表示 ====
+
+// 運賃内訳描画
+function renderFareBreakdown(path, container) {
+  const { majors } = majorStops(path);
+  if (majors.length < 2) return;
+
+  const breakdownDiv = document.createElement("div");
+  breakdownDiv.className = "card";
+  breakdownDiv.style.marginTop = "8px";
+
+  const lineWrap = document.createElement("div");
+  lineWrap.className = "routeLine";
+
+  for (let i = 0; i < majors.length - 1; i++) {
+    const a = majors[i], b = majors[i+1];
+    const segPath = shortestPath(a,b).path;
+    const dist = shortestPath(a,b).distance;
+
+    const ln = findLineOfSegment(a,b);
+    const comp = ln ? companyFromLineName(ln) : null;
+    const fare = comp ? fareByCompany(comp, dist) : 0;
+    const color = ln ? (lineColors[ln] || "#999") : "#999";
+
+    // rowStation 部分
+    const row = document.createElement("div");
+    row.className = "rowStation";
+
+    const railCol = document.createElement("div");
+    railCol.className = "railCol";
+    const dot = document.createElement("div");
+    dot.className = "railDot";
+    dot.style.background = color;
+    railCol.appendChild(dot);
+
+    const stationText = document.createElement("div");
+    stationText.className = "stationText";
+    const label = document.createElement("div");
+    label.className = "stationName";
+    label.textContent = displayStationName(a) + " → " + displayStationName(b);
+    const fareLabel = document.createElement("div");
+    fareLabel.style.fontSize = "14px";
+    fareLabel.style.color = "#333";
+    fareLabel.textContent = `運賃 ${fare}円`;
+
+    stationText.appendChild(label);
+    stationText.appendChild(fareLabel);
+
+    row.appendChild(railCol);
+    row.appendChild(stationText);
+    lineWrap.appendChild(row);
+  }
+
+  breakdownDiv.appendChild(lineWrap);
+  container.appendChild(breakdownDiv);
+}
+
+// ボタンをルートカードの末尾に追加
+function attachFareBreakdownButton(path, container) {
+  const btnWrap = document.createElement("div");
+  btnWrap.style.textAlign = "right";
+  btnWrap.style.marginTop = "8px";
+
+  const btn = document.createElement("button");
+  btn.textContent = "運賃の内訳を表示";
+  btn.className = "primary";
+
+  let shown = false;
+  btn.addEventListener("click", () => {
+    if (!shown) {
+      renderFareBreakdown(path, container);
+      btn.textContent = "内訳を隠す";
+      shown = true;
+    } else {
+      const cards = container.querySelectorAll(".card");
+      if (cards.length > 1) container.removeChild(cards[cards.length-1]); // 最後の内訳カード削除
+      btn.textContent = "運賃の内訳を表示";
+      shown = false;
+    }
+  });
+
+  btnWrap.appendChild(btn);
+  container.appendChild(btnWrap);
+}
 </script>
 </body>
 </html>
