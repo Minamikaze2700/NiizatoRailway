@@ -496,22 +496,7 @@ function fareByCompany(company, km){
     case "坂津ポートライナー": return fareSakatsuPortliner(km);
     case "鈴浜電気鉄道": return fareSuzuhama(km);
     case "豊野鉄道": return fareToyono(km);
-    case "東橋鉄道": {
-  // ★ segPath をそのまま渡すように修正 ★
-  let base = fareTouhashi(km);
-
-  let otherCompanyExists = false;
-  for(const s of companySegments){
-    if(s.company && s.company !== "東橋鉄道"){
-      otherCompanyExists = true;
-      break;
-    }
-  }
-  if(otherCompanyExists){
-    base = Math.max(0, base - 50);
-  }
-  return base;
-}
+    case "東橋鉄道": return fareTouhashi(km);
     case "新里鉄道": return fareNiizato(km);
     default: return 0;
   }
