@@ -731,12 +731,8 @@ function applyStripedGradientForBigLine(lineElem, dotRect, nextDotRect, parentRe
     }
   } else {
     gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
-    gradientStops.push(`${baseColor} ${endPercent.toFixed(4)}%`);
+    gradientStops.push(`${baseColor} 100%`);
   }
-
-  const nextColor = lineElem.dataset.nextcolor || baseColor;
-  gradientStops.push(`${nextColor} ${endPercent.toFixed(4)}%`);
-  gradientStops.push(`${nextColor} 100%`);
 
   const stopsStr = gradientStops.join(', ');
   lineElem.style.background = `linear-gradient(to bottom, ${stopsStr})`;
