@@ -428,32 +428,34 @@ function fareToyono(km){
 }
 
 function fareTouhashi(km, segPath, companySegments){
+  // デフォルト防御
+  segPath = segPath || [];
+  companySegments = companySegments || [];
+
   const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
 
-  // --- 浅見〜咲田口の駅リスト（東橋鉄道東橋本線） ---
+  // 浅見～咲田口の駅リスト
   const specialSection = [
     "浅見","柴若","六日市通","岩田城","内山","新荘","葉賀ノ台","木森","理李ヶ丘",
     "小査","寺尾","栗島","宮間","大木沢","園木","新東園木","綾山","豊川大野",
     "垂生崎","南豊川","幕ヶ原","咲田口"
   ];
 
-  // 経路に specialSection の駅が含まれるか判定
-  let inSpecial = false;
-  if(segPath && segPath.length > 0){
-    for(const s of segPath){
-      if(specialSection.includes(s)){
-        inSpecial = true;
-        break;
-      }
+  // 経路に specialSection の駅が含まれているか？
+  let passesSpecial = false;
+  for(const s of segPath){
+    if(specialSection.includes(s)){
+      passesSpecial = true;
+      break;
     }
   }
 
-  // --- 特別区間を通らなければ一律 250円 ---
-  if(!inSpecial){
+  // 浅見～咲田口を通らなければ一律250円
+  if(!passesSpecial){
     return 250;
   }
 
-  // --- 通った場合は距離運賃 ---
+  // --- 通った場合は距離別運賃 ---
   if(kmUsed <= 3) return 180;
   if(kmUsed <= 4) return 190;
   if(kmUsed <= 7) return 210;
@@ -523,19 +525,21 @@ function fareByCompany(company, km){
     case "鈴浜電気鉄道": return fareSuzuhama(km);
     case "豊野鉄道": return fareToyono(km);
     case "東橋鉄道": {
-      let base = fareTouhashi(km, segPath, companySegments);
-      let otherCompanyExists = false;
-      for(const s of companySegments){
-         if(s.company && s.company !== "東橋鉄道"){
-            otherCompanyExists = true;
-            break;
-         }
-      }
-      if(otherCompanyExists){
-        base = Math.max(0, base - 50);
-      }
-      return base;
+  // ★ segPath をそのまま渡すように修正 ★
+  let base = fareTouhashi(km, segPath, companySegments);
+
+  let otherCompanyExists = false;
+  for(const s of companySegments){
+    if(s.company && s.company !== "東橋鉄道"){
+      otherCompanyExists = true;
+      break;
     }
+  }
+  if(otherCompanyExists){
+    base = Math.max(0, base - 50);
+  }
+  return base;
+}
     case "新里鉄道": return fareNiizato(km);
     default: return 0;
   }
