@@ -736,7 +736,13 @@ const viaListDiv = document.getElementById('viaList');
 const searchBtn = document.getElementById('searchBtn');
 const resultArea = document.getElementById('resultArea');
 const resultTabs = document.getElementById('resultTabs');
-const tabButtons = resultTabs ? Array.from(resultTabs.querySelectorAll('.tabBtn')) : [];
+let tabButtons = resultTabs ? Array.from(resultTabs.querySelectorAll('.tabBtn')) : [];
+
+// helper to refresh tabButtons (in case we ever recreate tabs)
+function refreshTabButtons(){
+  tabButtons = resultTabs ? Array.from(resultTabs.querySelectorAll('.tabBtn')) : [];
+}
+refreshTabButtons();
 
 function populateLineSelect(sel){
   sel.innerHTML = '';
@@ -1650,8 +1656,18 @@ function renderResultHeader(totalDistance, totalFare){
 // 共通レンダラ（parts をそのまま描画）
 // containerId を指定して描画 -> 生成される要素 ID は containerId をプレフィックスとして一意化する
 function renderRoutesIntoContainer(parts, containerId){
+  // ensure container exists
+  let container = document.getElementById(containerId);
+  if(!container){
+    // create container inside resultArea to preserve structure
+    container = document.createElement('div');
+    container.id = containerId;
+    if(containerId === 'result-fewest') container.style.display = 'none';
+    resultArea.appendChild(container);
+  }
+
   if(!parts || parts.length === 0){
-    document.getElementById(containerId).innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
+    container.innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
     return;
   }
 
@@ -1695,7 +1711,6 @@ function renderRoutesIntoContainer(parts, containerId){
     html += renderRouteCardForPart(p, idx, containerId);
   });
 
-  const container = document.getElementById(containerId);
   container.innerHTML = html;
 
   // container 内のトグルボタンだけにリスナをバインド（ID 重複の影響を排除）
@@ -1713,12 +1728,23 @@ searchBtn.addEventListener('click', ()=>{
   const viaSelects = Array.from(viaListDiv.querySelectorAll('.stationSelect'));
   const viaStations = viaSelects.map(s=>s.value).filter(v=>v);
 
+  // ensure result containers exist to avoid accidentally wiping structure
+  if(!document.getElementById('result-shortest') || !document.getElementById('result-fewest')){
+    resultArea.innerHTML = '<div id="result-shortest"></div><div id="result-fewest" style="display:none"></div>';
+  }
+
   if(!from || !to){
-    resultArea.innerHTML = '<div class="card">駅を選択してください</div>';
+    document.getElementById('result-shortest').innerHTML = '<div class="card">駅を選択してください</div>';
+    document.getElementById('result-fewest').innerHTML = '';
+    resultTabs.style.display = 'none';
+    refreshTabButtons();
     return;
   }
   if(from === to && viaStations.length === 0){
-    resultArea.innerHTML = '<div class="card">発駅と着駅が同じです</div>';
+    document.getElementById('result-shortest').innerHTML = '<div class="card">発駅と着駅が同じです</div>';
+    document.getElementById('result-fewest').innerHTML = '';
+    resultTabs.style.display = 'none';
+    refreshTabButtons();
     return;
   }
 
@@ -1731,12 +1757,16 @@ searchBtn.addEventListener('click', ()=>{
   const partsFewest = buildRoutePartsNoOverlapMinMajors(from, viaStations, to);
 
   if((!partsShortest || partsShortest.length === 0) && (!partsFewest || partsFewest.length === 0)){
-    resultArea.innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
+    document.getElementById('result-shortest').innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
+    document.getElementById('result-fewest').innerHTML = '';
+    resultTabs.style.display = 'none';
+    refreshTabButtons();
     return;
   }
 
   // タブを表示
   resultTabs.style.display = 'flex';
+  refreshTabButtons();
 
   // 描画（それぞれ別コンテナに）
   renderRoutesIntoContainer(partsShortest || [], 'result-shortest');
@@ -1752,22 +1782,34 @@ searchBtn.addEventListener('click', ()=>{
 });
 
 // タブ押下で切り替え
-tabButtons.forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    const target = btn.dataset.target;
-    tabButtons.forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    if(target === 'shortest'){
-      document.getElementById('result-shortest').style.display = 'block';
-      document.getElementById('result-fewest').style.display = 'none';
-    } else {
-      document.getElementById('result-shortest').style.display = 'none';
-      document.getElementById('result-fewest').style.display = 'block';
-    }
-    // 表示切替後に再調整（非表示時の計算を避ける）
-    runAdjustments();
+function wireTabButtons(){
+  refreshTabButtons();
+  tabButtons.forEach(btn=>{
+    // remove previous to avoid double-binding
+    if(btn._tabListener) btn.removeEventListener('click', btn._tabListener);
+    const listener = ()=>{
+      const target = btn.dataset.target;
+      tabButtons.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      if(target === 'shortest'){
+        const elS = document.getElementById('result-shortest');
+        const elF = document.getElementById('result-fewest');
+        if(elS) elS.style.display = 'block';
+        if(elF) elF.style.display = 'none';
+      } else {
+        const elS = document.getElementById('result-shortest');
+        const elF = document.getElementById('result-fewest');
+        if(elS) elS.style.display = 'none';
+        if(elF) elF.style.display = 'block';
+      }
+      // 表示切替後に再調整（非表示時の計算を避ける）
+      runAdjustments();
+    };
+    btn.addEventListener('click', listener);
+    btn._tabListener = listener;
   });
-});
+}
+wireTabButtons();
 
 /* EOF */
 </script>
