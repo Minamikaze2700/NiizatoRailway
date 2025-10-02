@@ -427,35 +427,7 @@ function fareToyono(km){
   return 450;
 }
 
-function fareTouhashi(km, segPath, companySegments){
-  // デフォルト防御
-  segPath = segPath || [];
-  companySegments = companySegments || [];
-
-  const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
-
-  // 浅見～咲田口の駅リスト
-  const specialSection = [
-    "浅見","柴若","六日市通","岩田城","内山","新荘","葉賀ノ台","木森","理李ヶ丘",
-    "小査","寺尾","栗島","宮間","大木沢","園木","新東園木","綾山","豊川大野",
-    "垂生崎","南豊川","幕ヶ原","咲田口"
-  ];
-
-  // 経路に specialSection の駅が含まれているか？
-  let passesSpecial = false;
-  for(const s of segPath){
-    if(specialSection.includes(s)){
-      passesSpecial = true;
-      break;
-    }
-  }
-
-  // 浅見～咲田口を通らなければ一律250円
-  if(!passesSpecial){
-    return 250;
-  }
-
-  // --- 通った場合は距離別運賃 ---
+function fareTouhashi(km){
   if(kmUsed <= 3) return 180;
   if(kmUsed <= 4) return 190;
   if(kmUsed <= 7) return 210;
