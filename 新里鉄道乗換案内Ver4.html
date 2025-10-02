@@ -498,7 +498,7 @@ function fareByCompany(company, km){
     case "豊野鉄道": return fareToyono(km);
     case "東橋鉄道": {
   // ★ segPath をそのまま渡すように修正 ★
-  let base = fareTouhashi(km, segPath, companySegments);
+  let base = fareTouhashi(km);
 
   let otherCompanyExists = false;
   for(const s of companySegments){
