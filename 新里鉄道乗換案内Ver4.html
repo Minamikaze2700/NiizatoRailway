@@ -453,53 +453,6 @@ function fareTouhashi(km){
   if(km <= 145) return 1250;
   return 1250;
 }
-
-// --- 東橋鉄道 特例処理 ---
-function fareTouhashiSpecial(path, distance){
-  // 東橋〜新東橋のみ
-  const eastHashiToShinEast = ["東橋","河井町","黒田","新東橋"];
-  // 横宿線の駅リスト
-  const yokoyadoLine = (stationLines && stationLines["東橋鉄道横宿線"]) || [];
-
-  const isOnlyEastHashi = path.every(st => eastHashiToShinEast.includes(st));
-  const isOnlyYokoyado = path.every(st => yokoyadoLine.includes(st));
-
-  if(isOnlyEastHashi || isOnlyYokoyado){
-    return 250; // 均一
-  }
-
-  return fareTouhashi(distance);
-}
-
-// --- 運賃計算共通関数 ---
-function fareByCompany(company, km, path){
-  switch(company){
-    case "今橋鉄道": return fareImabashi(km);
-    case "豊野鉄道": return fareToyono(km);
-    case "東橋鉄道": return fareTouhashiSpecial(path, km);
-    default: return 0;
-  }
-}
-
-// --- 園木での乗換割引適用 ---
-function applyTransferDiscount(segments){
-  for(let i=0;i<segments.length-1;i++){
-    const seg = segments[i], next = segments[i+1];
-    if(seg.company==="東橋鉄道" && 
-       (seg.to==="園木" || seg.from==="園木") &&
-       (next.company==="豊野鉄道" || next.company==="今橋鉄道")){
-      seg.discount = 50; // 50円引き
-    }
-  }
-  return segments;
-}
-
-// --- 各区間の運賃計算 ---
-function calcFareForSegment(seg, distance, path){
-  let fare = fareByCompany(seg.company, distance, path);
-  if(seg.discount){ fare -= seg.discount; }
-  return fare;
-  }
 function fareNiizato(km){
   if(km<=2)return 130;
   if(km<=5)return 140;
