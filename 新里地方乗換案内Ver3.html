@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>新里地方 乗換案内（距離/乗換/運賃候補）</title>
+<title>新里地方 乗換案内</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{
@@ -61,7 +61,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 </head>
 <body>
 <div class="wrap">
-<h1>新里地方 乗換案内（距離/乗換/運賃候補）</h1>
+<h1>新里地方 乗換案内</h1>
 
 <div class="card">
   <div id="stationSelector">
@@ -98,12 +98,10 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 <div class="tabs" id="resultTabs" style="display:none">
   <button class="tabBtn active" data-target="shortest">距離が短いルート</button>
   <button class="tabBtn" data-target="fewest">乗換が少ないルート</button>
-  <button class="tabBtn" data-target="cheapest">運賃が安いルート</button>
 </div>
 <div id="resultArea">
   <div id="result-shortest"></div>
   <div id="result-fewest" style="display:none"></div>
-  <div id="result-cheapest" style="display:none"></div>
 </div>
 </div>
 
@@ -171,7 +169,199 @@ const lineColors = {
 };
 
 // ==== 距離グラフ ====
-const rawGraph={"豊町":{"東豊町":1.2},"東豊町":{"清水浜":1.4},"清水浜":{"安田町":1.9},"安田町":{"南栃原":2.2},"南栃原":{"栃原":0.9},"栃原":{"宇城":2.2},"宇城":{"須川":2.1},"須川":{"御浜埼公園":1.9},"御浜埼公園":{"御浜":0.6},"御浜":{"伊坂":2.5},"伊坂":{"垳下":2.6},"垳下":{"北浜":2.3},"北浜":{"西新里":1.4},"西新里":{"新里":1.7},"新里":{"河岸":0.9,"南新里":2.5},"河岸":{"新里海浜公園":1.7},"新里海浜公園":{"湯の浜海岸":2.3},"湯の浜海岸":{"湯の浜":1.5},"湯の浜":{"七浦":2.5,"新里大学前":0.8},"七浦":{"那珂町":1.6},"那珂町":{"宇多野":2.2},"宇多野":{"伊奈崎":1.8},"伊奈崎":{"鶴宮神社":1.5},"鶴宮神社":{"鶴宮":1.2},"鶴宮":{"北鶴宮":1.1,"南鶴宮":1.7},"新里大学前":{"綾原":0.7},"綾原":{"福来":1.2},"福来":{"燠野":1.4},"燠野":{"湯川":2.6,"紅葉台":1.1},"湯川":{"温泉口":1.6},"温泉口":{"燠野温泉":1.9},"南鶴宮":{"あずさ台":1.4},"あずさ台":{"橘町":1.8},"橘町":{"燠野山口":1.1},"燠野山口":{"白枝":1.2},"白枝":{"燠野":1.1},"紅葉台":{"桐山":0.8},"桐山":{"湊川":0.8},"湊川":{"彩山親水公園":1.1},"彩山親水公園":{"彩山":1.2},"彩山":{"蓮華寺":0.8,"彩山口":2.1},"蓮華寺":{"星宮":1.1},"星宮":{"田ノ原":1.1},"南新里":{"田ノ原":2.3},"田ノ原":{"北玖川":2.4},"北玖川":{"玖川":3.1},"玖川":{"中野原":3.1},"彩山口":{"新里国際スキー場":3.4},"新里国際スキー場":{"鷹見台":10.7},"鷹見台":{"久我原":2.7},"久我原":{"浪原":1.5},"浪原":{"深江":1.4},"深江":{"三栗谷":1.3},"三栗谷":{"桜川公園":1.5},"桜川公園":{"桜川":2.2},"北鶴宮":{"鬼越峠":2.6},"鬼越峠":{"片牧町":3.1},"片牧町":{"虹川":2.2},"虹川":{"新的場":1.9},"新的場":{"神道山口":2.8},"神道山口":{"原津":2.6},"原津":{"奥沢高原":1.7},"奥沢高原":{"京新峡":2.0},"京新峡":{"流沢温泉":1.9},"流沢温泉":{"流沢温泉口":2.5},"流沢温泉口":{"白木稲荷":2.0},"白木稲荷":{"籾井":2.4},"籾井":{"猫崎海岸":2.3},"猫崎海岸":{"百合ヶ丘公園":2.1},"百合ヶ丘公園":{"北河都":2.7},"北河都":{"河都":2.1},"河都":{"南河都":1.7},"南河都":{"恋野宮":2.2},"恋野宮":{"紅原台":2.4},"紅原台":{"外神":2.4},"外神":{"大三浜":1.9},"大三浜":{"千種園":2.1},"千種園":{"白砂":2.3},"白砂":{"余田":2.2},"余田":{"りんくう桜川":2.3},"りんくう桜川":{"桜川国際空港(鈴浜電鉄)":1.1},"富士町":{"艶華":1.1},"艶華":{"夕陽ヶ浜":0.7},"夕陽ヶ浜":{"甲部":1.0},"甲部":{"虹松":0.8},"虹松":{"豊海":0.9},"豊海":{"発樫":0.8},"発樫":{"徳橋":1.0},"徳橋":{"原葉":1.1},"原葉":{"北成津":1.2},"北成津":{"成津":1.1},"大道寺":{"津垣":1.2},"津垣":{"口松":0.9},"口松":{"高座":0.8},"高座":{"榎仏子":0.9},"榎仏子":{"南築田":0.9},"南築田":{"築田市":0.7},"築田市":{"高越":1.0},"高越":{"二番街":1.1},"二番街":{"弦川":1.0},"弦川":{"萱海":0.9},"萱海":{"陣中原":0.8},"陣中原":{"綿部":0.9},"綿部":{"合浜":0.9},"合浜":{"松橋":0.8},"松橋":{"牛ヶ瀬":1.1},"牛ヶ瀬":{"津塚":1.0},"津塚":{"東成津":0.8},"東成津":{"成津":1.2},"成津":{"大町":1.1},"大町":{"久末":1.3},"久末":{"今橋学園前":0.9},"今橋学園前":{"大弥又":0.8},"大弥又":{"小弥又":0.9},"小弥又":{"土川":0.9},"土川":{"新今橋":1.2},"新今橋":{"今橋":1.3},"糸島":{"西糸島":1.4},"西糸島":{"平田":1.5},"平田":{"文京町":1.7},"文京町":{"東桜川":1.7},"東桜川":{"桜川":1.5},"桜川":{"豊野月見台":1.7},"豊野月見台":{"豊野":1.6},"豊野":{"西豊野":1.9},"西豊野":{"白州川":1.5},"白州川":{"春田":2.3},"春田":{"桜峠":5.4},"桜峠":{"桑畑":6.3},"桑畑":{"常盤台":1.8,"新桑畑":2.4},"常盤台":{"天津川":1.9},"天津川":{"広野":1.7},"広野":{"追分":1.6},"追分":{"野川":1.5,"幕生台":3.0},"野川":{"幕生":0.8},"幕生":{"羽草":0.9},"羽草":{"清見台":1.5},"清見台":{"東園木":1.9},"東園木":{"園木":1.8},"東橋": { "河井町": 2.2 },"河井町": { "黒田": 2.1 },"黒田": { "新東橋": 4.0 } };
+// 元の rawGraph をそのまま記述（ダミーは無し）
+const rawGraph={
+"豊町":{"東豊町":1.2},
+"東豊町":{"清水浜":1.4},
+"清水浜":{"安田町":1.9},
+"安田町":{"南栃原":2.2},
+"南栃原":{"栃原":0.9},
+"栃原":{"宇城":2.2},
+"宇城":{"須川":2.1},
+"須川":{"御浜埼公園":1.9},
+"御浜埼公園":{"御浜":0.6},
+"御浜":{"伊坂":2.5},
+"伊坂":{"垳下":2.6},
+"垳下":{"北浜":2.3},
+"北浜":{"西新里":1.4},
+"西新里":{"新里":1.7},
+"新里":{"河岸":0.9,"南新里":2.5},
+"河岸":{"新里海浜公園":1.7},
+"新里海浜公園":{"湯の浜海岸":2.3},
+"湯の浜海岸":{"湯の浜":1.5},
+"湯の浜":{"七浦":2.5,"新里大学前":0.8},
+"七浦":{"那珂町":1.6},
+"那珂町":{"宇多野":2.2},
+"宇多野":{"伊奈崎":1.8},
+"伊奈崎":{"鶴宮神社":1.5},
+"鶴宮神社":{"鶴宮":1.2},
+"鶴宮":{"北鶴宮":1.1,"南鶴宮":1.7},
+"新里大学前":{"綾原":0.7},
+"綾原":{"福来":1.2},
+"福来":{"燠野":1.4},
+"燠野":{"湯川":2.6,"紅葉台":1.1},
+"湯川":{"温泉口":1.6},
+"温泉口":{"燠野温泉":1.9},
+"南鶴宮":{"あずさ台":1.4},
+"あずさ台":{"橘町":1.8},
+"橘町":{"燠野山口":1.1},
+"燠野山口":{"白枝":1.2},
+"白枝":{"燠野":1.1},
+"紅葉台":{"桐山":0.8},
+"桐山":{"湊川":0.8},
+"湊川":{"彩山親水公園":1.1},
+"彩山親水公園":{"彩山":1.2},
+"彩山":{"蓮華寺":0.8,"彩山口":2.1},
+"蓮華寺":{"星宮":1.1},
+"星宮":{"田ノ原":1.1},
+"南新里":{"田ノ原":2.3},
+"田ノ原":{"北玖川":2.4},
+"北玖川":{"玖川":3.1},
+"玖川":{"中野原":3.1},
+"彩山口":{"新里国際スキー場":3.4},
+"新里国際スキー場":{"鷹見台":10.7},
+"鷹見台":{"久我原":2.7},
+"久我原":{"浪原":1.5},
+"浪原":{"深江":1.4},
+"深江":{"三栗谷":1.3},
+"三栗谷":{"桜川公園":1.5},
+"桜川公園":{"桜川":2.2},
+"北鶴宮":{"鬼越峠":2.6},
+"鬼越峠":{"片牧町":3.1},
+"片牧町":{"虹川":2.2},
+"虹川":{"新的場":1.9},
+"新的場":{"神道山口":2.8},
+"神道山口":{"原津":2.6},
+"原津":{"奥沢高原":1.7},
+"奥沢高原":{"京新峡":2.0},
+"京新峡":{"流沢温泉":1.9},
+"流沢温泉":{"流沢温泉口":2.5},
+"流沢温泉口":{"白木稲荷":2.0},
+"白木稲荷":{"籾井":2.4},
+"籾井":{"猫崎海岸":2.3},
+"猫崎海岸":{"百合ヶ丘公園":2.1},
+"百合ヶ丘公園":{"北河都":2.7},
+"北河都":{"河都":2.1},
+"河都":{"南河都":1.7},
+"南河都":{"恋野宮":2.2},
+"恋野宮":{"紅原台":2.4},
+"紅原台":{"外神":2.4},
+"外神":{"大三浜":1.9},
+"大三浜":{"千種園":2.1},
+"千種園":{"白砂":2.3},
+"白砂":{"余田":2.2},
+"余田":{"りんくう桜川":2.3},
+"りんくう桜川":{"桜川国際空港(鈴浜電鉄)":1.1},
+"富士町":{"艶華":1.1},
+"艶華":{"夕陽ヶ浜":0.7},
+"夕陽ヶ浜":{"甲部":1.0},
+"甲部":{"虹松":0.8},
+"虹松":{"豊海":0.9},
+"豊海":{"発樫":0.8},
+"発樫":{"徳橋":1.0},
+"徳橋":{"原葉":1.1},
+"原葉":{"北成津":1.2},
+"北成津":{"成津":1.1},
+"大道寺":{"津垣":1.2},
+"津垣":{"口松":0.9},
+"口松":{"高座":0.8},
+"高座":{"榎仏子":0.9},
+"榎仏子":{"南築田":0.9},
+"南築田":{"築田市":0.7},
+"築田市":{"高越":1.0},
+"高越":{"二番街":1.1},
+"二番街":{"弦川":1.0},
+"弦川":{"萱海":0.9},
+"萱海":{"陣中原":0.8},
+"陣中原":{"綿部":0.9},
+"綿部":{"合浜":0.9},
+"合浜":{"松橋":0.8},
+"松橋":{"牛ヶ瀬":1.1},
+"牛ヶ瀬":{"津塚":1.0},
+"津塚":{"東成津":0.8},
+"東成津":{"成津":1.2},
+"成津":{"大町":1.1},
+"大町":{"久末":1.3},
+"久末":{"今橋学園前":0.9},
+"今橋学園前":{"大弥又":0.8},
+"大弥又":{"小弥又":0.9},
+"小弥又":{"土川":0.9},
+"土川":{"新今橋":1.2},
+"新今橋":{"今橋":1.3},
+"糸島":{"西糸島":1.4},
+"西糸島":{"平田":1.5},
+"平田":{"文京町":1.7},
+"文京町":{"東桜川":1.7},
+"東桜川":{"桜川":1.5},
+"桜川":{"豊野月見台":1.7},
+"豊野月見台":{"豊野":1.6},
+"豊野":{"西豊野":1.9},
+"西豊野":{"白州川":1.5},
+"白州川":{"春田":2.3},
+"春田":{"桜峠":5.4},
+"桜峠":{"桑畑":6.3},
+"桑畑":{"常盤台":1.8,"新桑畑":2.4},
+"常盤台":{"天津川":1.9},
+"天津川":{"広野":1.7},
+"広野":{"追分":1.6},
+"追分":{"野川":1.5,"幕生台":3.0},
+"野川":{"幕生":0.8},
+"幕生":{"羽草":0.9},
+"羽草":{"清見台":1.5},
+"清見台":{"東園木":1.9},
+"東園木":{"園木":1.8},
+"東橋": { "河井町": 2.2 },
+"河井町": { "黒田": 2.1 },
+"黒田": { "新東橋": 4.0 },
+"新東橋": { "浅見": 2.5 ,"東黒田": 2.2},
+"浅見": { "柴若": 2.2 },
+"柴若": { "六日市通": 1.9 },
+"六日市通": { "岩田城": 2.7 },
+"岩田城": { "内山": 3.7 },
+"内山": { "新荘": 2.5 },
+"新荘": { "葉賀ノ台": 2.0 },
+"葉賀ノ台": { "木森": 3.1 },
+"木森": { "理李ヶ丘": 2.7 },
+"理李ヶ丘": { "小査": 4.6 },
+"小査": { "寺尾": 4.0 },
+"寺尾": { "栗島": 3.8 },
+"栗島": { "宮間": 5.1 },
+"宮間": { "大木沢": 4.0 },
+"大木沢": { "園木": 3.4 },
+"園木": { "新東園木": 2.1 ,"富士町":1.4},
+"新東園木": { "綾山(東橋鉄道)": 5.1 },
+"綾山(東橋鉄道)": { "豊川大野": 4.2 },
+"豊川大野": { "垂生崎": 3.9 },
+"垂生崎": { "南豊川": 6.0 },
+"南豊川": { "幕ヶ原": 4.7 },
+"幕ヶ原": { "咲田口": 5.0 },
+"東黒田": { "杜山": 2.4 },
+"杜山": { "新大崎": 2.7 },
+"新大崎": { "小柴": 2.2 ,"北大崎":2.2},
+"小柴": { "朋田": 1.9 },
+"朋田": { "和泉原": 2.5 },
+"和泉原": { "日森町": 2.0 },
+"日森町": { "横宿": 3.9 },
+"新桑畑":{"横山町":2.4},
+"横山町":{"東天津":2.3},
+"東天津":{"天津中原":2.2},
+"天津中原":{"北中原":2.6,"南中原":3.1},
+"北中原":{"大塚台":2.5},
+"大塚台":{"観音寺":2.4},
+"観音寺":{"大鉄岩田":2.5},
+"大鉄岩田":{"六日市":2.5},
+"六日市":{"南大崎":2.4},
+"南大崎":{"大崎":2.6},
+"大崎":{"新大崎":2.5},
+"北大崎":{"滝原":2.3},
+"南萩川":{"萩川":2.4},
+"南中原":{"旭町":2.9},
+"旭町":{"川端":3.2},
+"川端":{"追分":3.1},
+"幕生台":{"南羽草":3.1},
+"南羽草":{"新綾山":3.3},
+"新綾山":{"豊川":3.5}
+};
 
 // --- ユーティリティ ---
 function buildGraphBidirectional(raw){
@@ -236,6 +426,7 @@ function fareToyono(km){
   if(km <= 30) return 400;
   return 450;
 }
+
 function fareTouhashi(km, segPath = [], companySegments = []){
   const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
   const tohashiMainLine = stationLines["東橋鉄道東橋本線"] || [];
@@ -299,6 +490,7 @@ function fareNiizato(km){
   return 580;
 }
 
+// --- 路線名から会社名を判定 ---
 function companyFromLineName(line){
   if(!line) return null;
   if(line.startsWith("今橋鉄道")) return "今橋鉄道";
@@ -314,6 +506,7 @@ function companyFromLineName(line){
   if(line.startsWith("新里鉄道")) return "新里鉄道";
   return null;
 }
+// --- 会社名と距離から運賃を取得 ---
 function fareByCompany(company, km){
   switch(company){
     case "今橋鉄道": return fareImabashi(km);
@@ -326,16 +519,24 @@ function fareByCompany(company, km){
     case "鈴浜電気鉄道": return fareSuzuhama(km);
     case "豊野鉄道": return fareToyono(km);
     case "東橋鉄道": {
-      // 元ロジックの互換性を保つため companySegments / segPath は省略できるが
-      // 本最適化では company の連続距離 km を渡すことで概算（ほぼ正確）で算出
-      return fareTouhashi(km);
+      let base = fareTouhashi(km, segPath = [], companySegments = []);
+      let otherCompanyExists = false;
+      for(const s of companySegments){
+         if(s.company && s.company !== "東橋鉄道"){
+            otherCompanyExists = true;
+            break;
+         }
+      }
+      if(otherCompanyExists){
+        base = Math.max(0, base - 50);
+      }
+      return base;
     }
     case "新里鉄道": return fareNiizato(km);
     default: return 0;
   }
 }
 
-// === find line helpers ===
 function findLinesOfSegment(a,b){
   const candidates = [];
   for(const [line, stations] of Object.entries(stationLines)){
@@ -352,7 +553,6 @@ function findLineOfSegment(a,b){
   return cs.length ? cs[0] : null;
 }
 
-// ==== 基本最短経路（ノードは重複可） ====
 function shortestPath(start,goal){
   if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity};
   const dist = {}, prev = {}, Q = new Set(allStations);
@@ -374,11 +574,31 @@ function shortestPath(start,goal){
   return {path, distance: dist[goal]};
 }
 
-/* ==========================
-   connectingStations / specialMajorStations / majorStops
-   - 注意: ユーザ要求で「主要駅の数は途中駅扱いの接続駅を除いた数」
-   - したがって探索の「主要判定」では connectingStations に含まれる station は主要カウントに含めない
-   ========================== */
+function shortestPathWithinCompany(start, goal, company){
+  if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity};
+  const dist = {}, prev = {}, Q = new Set(allStations);
+  allStations.forEach(s=>{ dist[s] = Infinity; prev[s] = null; });
+  dist[start] = 0;
+  while(Q.size){
+    let u = null, best = Infinity;
+    for(const v of Q){ if(dist[v] < best){ u = v; best = dist[v]; } }
+    if(u === null) break;
+    Q.delete(u);
+    if(u === goal) break;
+    for(const [v,w] of Object.entries(graph[u]||{})){
+      const ln = findLineOfSegment(u, v);
+      const comp = ln ? companyFromLineName(ln) : null;
+      if(comp !== company) continue;
+      const alt = dist[u] + w;
+      if(alt < dist[v]){ dist[v] = alt; prev[v] = u; }
+    }
+  }
+  if(!isFinite(dist[goal])) return {path:[],distance:Infinity};
+  const path = []; for(let cur = goal; cur != null; cur = prev[cur]) path.unshift(cur);
+  return {path, distance: dist[goal]};
+}
+
+// ==== 途中駅扱いの「接続」定義 ====
 const connectingStations = [
   { station: "北鶴宮", endpoints: ["鶴宮","鬼越峠"] },
   { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
@@ -387,15 +607,11 @@ const connectingStations = [
   { station: "桜川", endpoints: ["桜川公園","豊野月見台"] },
   { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
   { station: "豊町", endpoints: ["削野", "東豊町"] },
-
   { station: "園木", endpoints: ["東園木", "富士町"] },
   { station: "園木", endpoints: ["東園木", "大木沢"] },
-
   { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
-
   { station: "横宿", endpoints: ["日森町", "北横宿"] },
   { station: "成津", endpoints: ["北成津", "大町"] },
-
   { station: "新東橋", endpoints: ["浅見", "東黒田"] }
 ];
 
@@ -421,8 +637,7 @@ function findIndexFrom(path, station, start){
   return -1;
 }
 
-// 既存の majorStops を保持（表示用）
-// 表示で決める「主要駅」は元ロジックを保持。ただしユーザ指定で探索の際には connectingStations は主要計上しない。
+// --- 主要駅抽出（元の関数は保持。表示上の主要駅判定はこの関数に従います） ---
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
 
@@ -503,1006 +718,15 @@ function majorStops(path){
   return {majors};
 }
 
-/* =========================
-   レイアウト調整等（元ロジック保持）
-   ========================= */
-function applyStripedGradientForBigLine(lineElem, dotRect, nextDotRect, parentRect){
-  if(!lineElem) return;
-  const baseColor = lineElem.dataset.color || '#999';
-  const usedLinesRaw = lineElem.dataset.usedlines || '';
-  const usedLinesArr = usedLinesRaw ? usedLinesRaw.split('|').filter(x=>x) : [];
-
-  const lineTop = parseFloat(lineElem.style.top) || 0;
-  const lineHeight = parseFloat(lineElem.style.height) || 0;
-  if(lineHeight <= 0){
-    lineElem.style.background = baseColor;
-    return;
+function findCommonLines(a,b){
+  const list = [];
+  for(const [line,stations] of Object.entries(stationLines)){
+    if(stations.indexOf(a) !== -1 && stations.indexOf(b) !== -1) list.push(line);
   }
-
-  const currentDotBottom_px = (dotRect.top - parentRect.top) + dotRect.height;
-  const nextDotTop_px = (nextDotRect.top - parentRect.top);
-
-  const startPx = currentDotBottom_px - lineTop;
-  const endPx = nextDotTop_px - lineTop;
-
-  const clampedStartPx = Math.max(0, Math.min(lineHeight, startPx));
-  const clampedEndPx = Math.max(0, Math.min(lineHeight, endPx));
-
-  if(clampedEndPx <= clampedStartPx){
-    if(usedLinesArr.length === 1){
-      lineElem.style.background = lineColors[usedLinesArr[0]] || baseColor;
-    } else {
-      lineElem.style.background = baseColor;
-    }
-    return;
-  }
-
-  const startPercent = (clampedStartPx / lineHeight) * 100;
-  const endPercent = (clampedEndPx / lineHeight) * 100;
-
-  let gradientStops = [];
-  gradientStops.push(`${baseColor} 0%`);
-  gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
-
-  if(usedLinesArr.length > 0){
-    const segCount = usedLinesArr.length;
-    const segSize = (endPercent - startPercent) / segCount;
-    for(let j=0;j<segCount;j++){
-      const ln = usedLinesArr[j];
-      const col = lineColors[ln] || baseColor;
-      const segStart = startPercent + segSize * j;
-      const segEnd = startPercent + segSize * (j+1);
-      gradientStops.push(`${col} ${segStart.toFixed(4)}%`);
-      gradientStops.push(`${col} ${segEnd.toFixed(4)}%`);
-    }
-  } else {
-    gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
-    gradientStops.push(`${baseColor} 100%`);
-  }
-
-  const stopsStr = gradientStops.join(', ');
-  lineElem.style.background = `linear-gradient(to bottom, ${stopsStr})`;
+  return list;
 }
 
-// adjustMajorLines 修正：非表示要素はスキップ（これで再検索で線が消える問題を解消）
-function adjustMajorLines(){
-  const rows = Array.from(document.querySelectorAll('.rowStation'));
-  rows.forEach((row, idx) => {
-    // 非表示（display:none 等）はスキップ
-    if(!row.offsetParent) return;
-    const railCol = row.querySelector('.railCol');
-    if(!railCol) return;
-    const dot = railCol.querySelector('.railDot');
-    const line = railCol.querySelector('.railLineMajor');
-    if (!dot || !line) return;
-    if(line.dataset && line.dataset.shortened === 'true'){ return; }
-    const nextRow = rows.slice(idx + 1).find(r => r.querySelector('.railDot') && r.offsetParent);
-    if (!nextRow) { line.style.height = '0px'; return; }
-    const parentRect = railCol.getBoundingClientRect();
-    const dotRect = dot.getBoundingClientRect();
-    const nextDot = nextRow.querySelector('.railDot');
-    const nextDotRect = nextDot.getBoundingClientRect();
-    line.style.top = (dotRect.top - parentRect.top) + 'px';
-    const h = Math.max(0, (nextDotRect.top - dotRect.top)) + 5;
-    line.style.height = h + 'px';
-    applyStripedGradientForBigLine(line, dotRect, nextDotRect, parentRect);
-  });
-
-  document.querySelectorAll('.rowBetween').forEach(r => {
-    if(!r.offsetParent) return;
-    const railCol = r.querySelector('.railCol');
-    if(!railCol) return;
-    const dot = r.querySelector('.railDot');
-    const minorLine = r.querySelector('.railLineMinor');
-    if(!dot || !minorLine) return;
-    const parentRect = railCol.getBoundingClientRect();
-    const dotRect = dot.getBoundingClientRect();
-    minorLine.style.top = (dotRect.top - parentRect.top) + 'px';
-    minorLine.style.height = '48px';
-  });
-}
-function runAdjustments(){ adjustMajorLines(); }
-window.addEventListener('resize', runAdjustments);
-
-/* =========================
-   一筆書き制約つきの最短経路（既存）
-   - forbidden を保持してノード重複を避ける
-   ========================= */
-// start->goal を forbidden を避けて最短経路を求める Dijkstra
-function shortestPathAvoiding(start, goal, forbidden){
-  if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity};
-  const dist = {}, prev = {}, Q = new Set(allStations);
-  allStations.forEach(s=>{ dist[s] = Infinity; prev[s] = null; });
-  dist[start] = 0;
-
-  while(Q.size){
-    let u = null, best = Infinity;
-    for(const v of Q){
-      if(dist[v] < best){ u = v; best = dist[v]; }
-    }
-    if(u === null) break;
-    Q.delete(u);
-
-    // skip processing forbidden intermediate nodes (but allow start and goal)
-    if(forbidden.has(u) && u !== start && u !== goal) continue;
-
-    if(u === goal) break;
-
-    for(const [v,w] of Object.entries(graph[u]||{})){
-      // skip forbidden neighbor unless it's the goal
-      if(forbidden.has(v) && v !== goal) continue;
-      const alt = dist[u] + w;
-      if(alt < dist[v]){ dist[v] = alt; prev[v] = u; }
-    }
-  }
-
-  if(!isFinite(dist[goal])) return {path:[],distance:Infinity};
-  const path = []; for(let cur = goal; cur != null; cur = prev[cur]) path.unshift(cur);
-  return {path, distance: dist[goal]};
-}
-
-/* =========================
-   主要駅数最小化（距離は二次）
-   - 状態: (station, prevLine)
-   - cost: (majors, distance) の辞書順
-   - connectingStations に登録された station は「途中駅扱い」なので主要カウントに含めない
-   ========================= */
-function keyOfStateMaj(station, prevLine){ return station + '|||' + (prevLine || ''); }
-function parseStateKeyMaj(key){
-  const idx = key.indexOf('|||');
-  const station = key.slice(0, idx);
-  const prevLine = key.slice(idx+3) || null;
-  return {station, prevLine};
-}
-
-function shortestPathMinMajors(start, goal, forbidden){
-  if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity};
-  const distMap = new Map();
-  const prevState = new Map();
-  const Q = new Set();
-
-  const startKey = keyOfStateMaj(start, '');
-  distMap.set(startKey, {majors:0, dist:0});
-  Q.add(startKey);
-
-  // helper: set of connecting station names
-  const connectingNames = new Set(connectingStations.map(c => c.station));
-
-  while(Q.size){
-    // pick best by (majors, dist)
-    let bestKey = null; let bestMaj = Infinity; let bestDist = Infinity;
-    for(const k of Q){
-      const v = distMap.get(k);
-      if(!v) continue;
-      if(v.majors < bestMaj || (v.majors === bestMaj && v.dist < bestDist)){
-        bestKey = k; bestMaj = v.majors; bestDist = v.dist;
-      }
-    }
-    if(bestKey === null) break;
-    Q.delete(bestKey);
-    const {station: u, prevLine: prevLineOfU} = parseStateKeyMaj(bestKey);
-    const curCost = distMap.get(bestKey);
-
-    if(u === goal){
-      // reconstruct path
-      const pathStations = [];
-      let curKey = bestKey;
-      while(curKey){
-        const {station: st} = parseStateKeyMaj(curKey);
-        pathStations.push(st);
-        curKey = prevState.get(curKey) || null;
-      }
-      pathStations.reverse();
-      let trueDist = 0;
-      for(let i=0;i<pathStations.length-1;i++){
-        const a = pathStations[i], b = pathStations[i+1];
-        if(graph[a] && typeof graph[a][b] === 'number') trueDist += graph[a][b];
-        else if(graph[b] && typeof graph[b][a] === 'number') trueDist += graph[b][a];
-      }
-      return {path: pathStations, distance: trueDist, majors: curCost.majors};
-    }
-
-    for(const [v,w] of Object.entries(graph[u]||{})){
-      if(forbidden.has(v) && v !== goal) continue;
-      const ln = findLineOfSegment(u, v) || '';
-      let inc = 0;
-      if(prevLineOfU && prevLineOfU !== '' && ln !== prevLineOfU){
-        // line change occurs at u; but if u is connecting station (treated as intermediate), do not count
-        if(!connectingNames.has(u)) inc = 1;
-      }
-      const newMaj = curCost.majors + inc;
-      const newDist = curCost.dist + w;
-      const vKey = keyOfStateMaj(v, ln);
-      const existing = distMap.get(vKey);
-      const better = !existing || (newMaj < existing.majors) || (newMaj === existing.majors && newDist < existing.dist);
-      if(better){
-        distMap.set(vKey, {majors: newMaj, dist: newDist});
-        prevState.set(vKey, bestKey);
-        Q.add(vKey);
-      }
-    }
-  }
-
-  // fallback: if not found, pick best goal state among distMap
-  let bestGoalKey = null; let bestMaj = Infinity; let bestDist = Infinity;
-  for(const [k,v] of distMap.entries()){
-    const {station} = parseStateKeyMaj(k);
-    if(station === goal){
-      if(v.majors < bestMaj || (v.majors === bestMaj && v.dist < bestDist)){
-        bestGoalKey = k; bestMaj = v.majors; bestDist = v.dist;
-      }
-    }
-  }
-  if(!bestGoalKey) return {path:[],distance:Infinity};
-  const pathStations = [];
-  let curKey = bestGoalKey;
-  while(curKey){
-    const {station: st} = parseStateKeyMaj(curKey);
-    pathStations.push(st);
-    curKey = prevState.get(curKey) || null;
-  }
-  pathStations.reverse();
-  let trueDist = 0;
-  for(let i=0;i<pathStations.length-1;i++){
-    const a = pathStations[i], b = pathStations[i+1];
-    if(graph[a] && typeof graph[a][b] === 'number') trueDist += graph[a][b];
-    else if(graph[b] && typeof graph[b][a] === 'number') trueDist += graph[b][a];
-  }
-  return {path: pathStations, distance: trueDist, majors: bestMaj};
-}
-
-/* =========================
-   運賃最小化（会社単位の連続区間運賃を正確に計上）
-   - 状態: (station, currentCompany, currentCompanyKm)
-   - cost: farePaidSoFar (完成済みの company 区間の合計)
-   - 目標: goal に到達したとき farePaidSoFar + fare(currentCompany, currentCompanyKm) を最小化
-   - forbidden を考慮（他区間と重複しないように）
-   ========================= */
-function keyOfStateFare(station, currentCompany, currentKm){
-  // currentKm を小数点3桁で丸めてキーに含める（状態数制御）
-  return station + '|||' + (currentCompany || '') + '|||' + (currentKm !== null ? currentKm.toFixed(3) : '0.000');
-}
-function parseStateKeyFare(key){
-  const parts = key.split('|||');
-  return {station: parts[0], currentCompany: parts[1] || null, currentKm: parseFloat(parts[2] || '0')};
-}
-
-function shortestPathMinFareAvoiding(start, goal, forbidden){
-  if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity, fare: Infinity};
-  // Dijkstra-like: dist map stores minimal farePaidSoFar for a given state (not including unpaid currentCompany segment)
-  const dist = new Map();
-  const prev = new Map();
-  const seen = new Set();
-  // pq as array of {key, farePaidSoFar}
-  const pq = [];
-
-  function pushState(key, farePaid){
-    const old = dist.get(key);
-    if(old === undefined || farePaid < old){
-      dist.set(key, farePaid);
-      pq.push({key, farePaid});
-    }
-  }
-  function popMin(){
-    if(pq.length === 0) return null;
-    let idx = 0;
-    for(let i=1;i<pq.length;i++){
-      if(pq[i].farePaid < pq[idx].farePaid) idx = i;
-    }
-    const it = pq.splice(idx,1)[0];
-    return it;
-  }
-
-  const startKey = keyOfStateFare(start, '', 0);
-  pushState(startKey, 0);
-
-  let bestFinalFare = Infinity;
-  let bestFinalKey = null;
-
-  while(pq.length){
-    const item = popMin();
-    if(!item) break;
-    const {key, farePaid} = item;
-    if(dist.get(key) !== farePaid) continue; // outdated
-
-    const {station: u, currentCompany, currentKm} = parseStateKeyFare(key);
-
-    // prune: if current farePaid already >= bestFinalFare, skip
-    if(farePaid >= bestFinalFare) continue;
-
-    // if u == goal: compute final fare including currentCompany unpaid km
-    if(u === goal){
-      let finalFare = farePaid;
-      if(currentCompany && currentCompany !== ''){
-        finalFare += fareByCompany(currentCompany, currentKm);
-      }
-      // update best
-      if(finalFare < bestFinalFare){
-        bestFinalFare = finalFare;
-        bestFinalKey = key;
-      }
-      // Continue searching: there might be other states leading to even cheaper final fare
-      continue;
-    }
-
-    // expand neighbors
-    for(const [v,w] of Object.entries(graph[u]||{})){
-      if(forbidden.has(v) && v !== goal) continue;
-      const ln = findLineOfSegment(u, v);
-      const comp = ln ? companyFromLineName(ln) : null;
-      // compute transition
-      let newFarePaid = farePaid;
-      let newCurrentCompany = currentCompany && currentCompany !== '' ? currentCompany : null;
-      let newCurrentKm = currentKm || 0;
-      if(!newCurrentCompany || newCurrentCompany === ''){
-        // starting a new company segment
-        newCurrentCompany = comp;
-        newCurrentKm = w;
-      } else {
-        if(comp === newCurrentCompany){
-          // continue same company
-          newCurrentKm = newCurrentKm + w;
-        } else {
-          // finalize previous company fare, start new company
-          newFarePaid += fareByCompany(newCurrentCompany, newCurrentKm);
-          newCurrentCompany = comp;
-          newCurrentKm = w;
-        }
-      }
-      const newKey = keyOfStateFare(v, newCurrentCompany || '', newCurrentKm);
-      // pruning by current known best final fare: compute a lower bound for final fare from this state:
-      // lower bound = newFarePaid (since remaining unpaid segment might add >=0)
-      if(newFarePaid >= bestFinalFare) continue;
-
-      // push
-      if(dist.get(newKey) === undefined || newFarePaid < dist.get(newKey)){
-        dist.set(newKey, newFarePaid);
-        prev.set(newKey, key);
-        pq.push({key:newKey, farePaid:newFarePaid});
-      }
-    }
-  }
-
-  if(bestFinalKey === null) return {path:[],distance:Infinity, fare: Infinity};
-
-  // 再構築: bestFinalKey は形式 station|||company|||km (station==goal)
-  const pathStations = [];
-  let cur = bestFinalKey;
-  while(cur){
-    const {station} = parseStateKeyFare(cur);
-    pathStations.push(station);
-    const p = prev.get(cur);
-    cur = p || null;
-  }
-  pathStations.reverse();
-
-  // compute true distance
-  let trueDist = 0;
-  for(let i=0;i<pathStations.length-1;i++){
-    const a = pathStations[i], b = pathStations[i+1];
-    if(graph[a] && typeof graph[a][b] === 'number') trueDist += graph[a][b];
-    else if(graph[b] && typeof graph[b][a] === 'number') trueDist += graph[b][a];
-  }
-
-  return {path: pathStations, distance: trueDist, fare: bestFinalFare};
-}
-
-/* =========================
-   一筆書き（ノード重複回避）で各候補を作る関数群
-   - buildRoutePartsNoOverlap : 距離最短優先（既存）
-   - buildRoutePartsNoOverlapMinMajors : 主要駅数最小化（距離無視）
-   - buildRoutePartsNoOverlapMinFare : 合計運賃最小化（距離・乗換無視）
-   ========================= */
-
-// 距離優先（既存）
-function buildRoutePartsNoOverlap(from, viaStations, to){
-  const waypoints = [from, ...viaStations, to];
-  let full = [];
-  let totalDist = 0;
-  const used = new Set();
-
-  for(let i=0;i<waypoints.length-1;i++){
-    const a = waypoints[i], b = waypoints[i+1];
-    const forbidden = new Set(used);
-    if(forbidden.has(a)) forbidden.delete(a);
-    if(forbidden.has(b)) forbidden.delete(b);
-
-    const sp = shortestPathAvoiding(a, b, forbidden);
-    if(!sp.path || sp.path.length === 0) {
-      const sp2 = shortestPath(a, b);
-      if(!sp2.path || sp2.path.length === 0) return null;
-      const seg2 = (i===0) ? sp2.path.slice() : sp2.path.slice(1);
-      full.push(...seg2);
-      totalDist += sp2.distance;
-      for(const st of sp2.path){ if(st !== b) used.add(st); }
-      continue;
-    }
-
-    const seg = (i===0) ? sp.path.slice() : sp.path.slice(1);
-    full.push(...seg);
-    totalDist += sp.distance;
-    for(const st of sp.path){ if(st !== b) used.add(st); }
-  }
-
-  if(full.length === 0) return [];
-
-  function splitOnTripleRepeat(fullPath){
-    if(!Array.isArray(fullPath) || fullPath.length === 0) return [fullPath.slice()];
-    const parts = [];
-    let curStart = 0;
-    for(let i = 2; i < fullPath.length; i++){
-      if(fullPath[i-2] === fullPath[i]){
-        const firstPart = fullPath.slice(curStart, i);
-        if(firstPart.length > 1) parts.push(firstPart);
-        curStart = i - 1;
-      }
-    }
-    const last = fullPath.slice(curStart);
-    if(last.length > 1) parts.push(last);
-    return parts;
-  }
-
-  function distanceOfPath(p){
-    if(!p || p.length < 2) return 0;
-    let d = 0;
-    for(let i=0;i<p.length-1;i++){
-      const a = p[i], b = p[i+1];
-      if(typeof graph !== 'undefined' && graph && graph[a] && typeof graph[a][b] === 'number') d += graph[a][b];
-      else if(typeof graph !== 'undefined' && graph && graph[b] && typeof graph[b][a] === 'number') d += graph[b][a];
-      else d += 0;
-    }
-    return d;
-  }
-
-  const splitted = splitOnTripleRepeat(full);
-  const outParts = splitted.map(p => ({ path: p, distance: distanceOfPath(p) }));
-  return outParts;
-}
-
-// 主要駅数最小化版（距離は二次）: 各区間で shortestPathMinMajors を使用
-function buildRoutePartsNoOverlapMinMajors(from, viaStations, to){
-  const waypoints = [from, ...viaStations, to];
-  let full = [];
-  let totalDist = 0;
-  const used = new Set();
-
-  for(let i=0;i<waypoints.length-1;i++){
-    const a = waypoints[i], b = waypoints[i+1];
-    const forbidden = new Set(used);
-    if(forbidden.has(a)) forbidden.delete(a);
-    if(forbidden.has(b)) forbidden.delete(b);
-
-    const sp = shortestPathMinMajors(a, b, forbidden);
-    if(!sp.path || sp.path.length === 0){
-      const sp2 = shortestPathAvoiding(a, b, forbidden);
-      if(!sp2.path || sp2.path.length === 0){
-        const sp3 = shortestPath(a, b);
-        if(!sp3.path || sp3.path.length === 0) return null;
-        const seg3 = (i===0) ? sp3.path.slice() : sp3.path.slice(1);
-        full.push(...seg3);
-        totalDist += sp3.distance;
-        for(const st of sp3.path){ if(st !== b) used.add(st); }
-        continue;
-      } else {
-        const seg2 = (i===0) ? sp2.path.slice() : sp2.path.slice(1);
-        full.push(...seg2);
-        totalDist += sp2.distance;
-        for(const st of sp2.path){ if(st !== b) used.add(st); }
-        continue;
-      }
-    }
-
-    const seg = (i===0) ? sp.path.slice() : sp.path.slice(1);
-    full.push(...seg);
-    totalDist += sp.distance;
-    for(const st of sp.path){ if(st !== b) used.add(st); }
-  }
-
-  if(full.length === 0) return [];
-
-  function splitOnTripleRepeat(fullPath){
-    if(!Array.isArray(fullPath) || fullPath.length === 0) return [fullPath.slice()];
-    const parts = [];
-    let curStart = 0;
-    for(let i = 2; i < fullPath.length; i++){
-      if(fullPath[i-2] === fullPath[i]){
-        const firstPart = fullPath.slice(curStart, i);
-        if(firstPart.length > 1) parts.push(firstPart);
-        curStart = i - 1;
-      }
-    }
-    const last = fullPath.slice(curStart);
-    if(last.length > 1) parts.push(last);
-    return parts;
-  }
-
-  function distanceOfPath(p){
-    if(!p || p.length < 2) return 0;
-    let d = 0;
-    for(let i=0;i<p.length-1;i++){
-      const a = p[i], b = p[i+1];
-      if(typeof graph !== 'undefined' && graph && graph[a] && typeof graph[a][b] === 'number') d += graph[a][b];
-      else if(typeof graph !== 'undefined' && graph && graph[b] && typeof graph[b][a] === 'number') d += graph[b][a];
-      else d += 0;
-    }
-    return d;
-  }
-
-  const splitted = splitOnTripleRepeat(full);
-  const outParts = splitted.map(p => ({ path: p, distance: distanceOfPath(p) }));
-  return outParts;
-}
-
-// 運賃最小化版：各区間で shortestPathMinFareAvoiding を使用（正確な社別連続距離を反映）
-function buildRoutePartsNoOverlapMinFare(from, viaStations, to){
-  const waypoints = [from, ...viaStations, to];
-  let full = [];
-  let totalDist = 0;
-  const used = new Set();
-
-  for(let i=0;i<waypoints.length-1;i++){
-    const a = waypoints[i], b = waypoints[i+1];
-    const forbidden = new Set(used);
-    if(forbidden.has(a)) forbidden.delete(a);
-    if(forbidden.has(b)) forbidden.delete(b);
-
-    const sp = shortestPathMinFareAvoiding(a, b, forbidden);
-    if(!sp.path || sp.path.length === 0){
-      // fallback
-      const sp2 = shortestPathAvoiding(a, b, forbidden);
-      if(!sp2.path || sp2.path.length === 0){
-        const sp3 = shortestPath(a, b);
-        if(!sp3.path || sp3.path.length === 0) return null;
-        const seg3 = (i===0) ? sp3.path.slice() : sp3.path.slice(1);
-        full.push(...seg3);
-        totalDist += sp3.distance;
-        for(const st of sp3.path){ if(st !== b) used.add(st); }
-        continue;
-      } else {
-        const seg2 = (i===0) ? sp2.path.slice() : sp2.path.slice(1);
-        full.push(...seg2);
-        totalDist += sp2.distance;
-        for(const st of sp2.path){ if(st !== b) used.add(st); }
-        continue;
-      }
-    }
-
-    const seg = (i===0) ? sp.path.slice() : sp.path.slice(1);
-    full.push(...seg);
-    totalDist += sp.distance;
-    for(const st of sp.path){ if(st !== b) used.add(st); }
-  }
-
-  if(full.length === 0) return [];
-
-  function splitOnTripleRepeat(fullPath){
-    if(!Array.isArray(fullPath) || fullPath.length === 0) return [fullPath.slice()];
-    const parts = [];
-    let curStart = 0;
-    for(let i = 2; i < fullPath.length; i++){
-      if(fullPath[i-2] === fullPath[i]){
-        const firstPart = fullPath.slice(curStart, i);
-        if(firstPart.length > 1) parts.push(firstPart);
-        curStart = i - 1;
-      }
-    }
-    const last = fullPath.slice(curStart);
-    if(last.length > 1) parts.push(last);
-    return parts;
-  }
-
-  function distanceOfPath(p){
-    if(!p || p.length < 2) return 0;
-    let d = 0;
-    for(let i=0;i<p.length-1;i++){
-      const a = p[i], b = p[i+1];
-      if(typeof graph !== 'undefined' && graph && graph[a] && typeof graph[a][b] === 'number') d += graph[a][b];
-      else if(typeof graph !== 'undefined' && graph && graph[b] && typeof graph[b][a] === 'number') d += graph[b][a];
-      else d += 0;
-    }
-    return d;
-  }
-
-  const splitted = splitOnTripleRepeat(full);
-  const outParts = splitted.map(p => ({ path: p, distance: distanceOfPath(p) }));
-  return outParts;
-}
-
-/* ---- 以下は既存の分割・描画・運賃計算ロジックを保持 ---- */
-
-function splitByCompany(path){
-  if(path.length < 2) return [];
-  let segments = [];
-  let start = path[0];
-  let prev = path[0];
-  let curCompany = null;
-
-  const firstLine = findLineOfSegment(path[0], path[1]);
-  curCompany = firstLine ? companyFromLineName(firstLine) : null;
-
-  for(let i=1;i<path.length;i++){
-    const a = path[i-1], b = path[i];
-    const ln = findLineOfSegment(a,b);
-    const comp = ln ? companyFromLineName(ln) : null;
-
-    if(comp !== curCompany){
-      segments.push({ from:start, to:prev, company:curCompany });
-      start = a;
-      curCompany = comp;
-    }
-    prev = b;
-  }
-  segments.push({ from:start, to:prev, company:curCompany });
-  return segments.filter(s => !!s.company && s.from !== s.to);
-}
-
-function renderRouteCardForPart(part, partIndex){
-  const path = part.path;
-
-  const { majors } = majorStops(path);
-
-  const majorIndices = [];
-  let scanStart = 0;
-  for(let m = 0; m < majors.length; m++){
-    const mi = findIndexFrom(path, majors[m], scanStart);
-    if(mi === -1){
-      majorIndices.push(path.indexOf(majors[m]));
-      scanStart = (majorIndices[majorIndices.length-1] >= 0) ? majorIndices[majorIndices.length-1] + 1 : scanStart+1;
-    } else {
-      majorIndices.push(mi);
-      scanStart = mi + 1;
-    }
-  }
-
-  const majorsColors = new Array(majors.length).fill("#999");
-
-  for(let idx = 0; idx < majors.length; idx++){
-    const st = majors[idx];
-    const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
-
-    let color = "#999";
-
-    const iFrom = majorIndices[idx];
-    const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
-
-    if(nextStation && iFrom !== -1 && iTo !== -1){
-      const usedLines = [];
-      const usedPairs = [];
-      for(let i=iFrom;i<iTo;i++){
-        const ln = findLineOfSegment(path[i], path[i+1]);
-        usedPairs.push({pair:[path[i], path[i+1]], line:ln, idx:i});
-        if(ln && usedLines.indexOf(ln)===-1) usedLines.push(ln);
-      }
-
-      const topPair = usedPairs.find(p=>p.idx===iFrom && p.line);
-      if(topPair && topPair.line && lineColors[topPair.line]) color = lineColors[topPair.line];
-      else {
-        for(const ln of usedLines){
-          if(lineColors[ln]){ color = lineColors[ln]; break; }
-        }
-      }
-
-    } else if(!nextStation){
-      if(iFrom > 0){
-        const ln = findLineOfSegment(path[iFrom-1], path[iFrom]);
-        if(ln && lineColors[ln]) color = lineColors[ln];
-      } else if(path.length >= 2){
-        const ln0 = findLineOfSegment(path[0], path[1]);
-        if(ln0 && lineColors[ln0]) color = lineColors[ln0];
-      }
-    } else {
-      if(path.length >= 2){
-        const ln0 = findLineOfSegment(path[0], path[1]);
-        if(ln0 && lineColors[ln0]) color = lineColors[ln0];
-      }
-    }
-
-    majorsColors[idx] = color;
-  }
-
-  let routeHtml = `
-    <div class="card">
-      <div class="resultHeader">
-        <div class="meta"></div>
-      </div>
-      <div class="routeLine">
-  `;
-
-  for(let idx = 0; idx < majors.length; idx++){
-    const st = majors[idx];
-    const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
-
-    const iFrom = majorIndices[idx];
-    const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
-
-    const color = majorsColors[idx];
-    const nextColor = nextStation ? majorsColors[idx+1] : null;
-
-    let lineListHtml = '';
-
-    let usedLinesForSegment = [];
-    if(nextStation && iFrom !== -1 && iTo !== -1){
-      for(let i=iFrom;i<iTo;i++){
-        const ln = findLineOfSegment(path[i], path[i+1]);
-        if(ln && !usedLinesForSegment.includes(ln)) usedLinesForSegment.push(ln);
-      }
-      const badges = usedLinesForSegment.length > 0 ? usedLinesForSegment : findCommonLines(st, nextStation);
-      if(badges.length > 0){
-        lineListHtml = badges.map(l => `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${l}</div>`).join('');
-      }
-    } else if(!nextStation){
-      lineListHtml = '';
-    }
-
-    const bigLineId = `part${partIndex}-bigline-${idx}`;
-
-    let initialStyle = '';
-    if(nextStation){
-      if(usedLinesForSegment.length > 0){
-        if(usedLinesForSegment.length === 1){
-          initialStyle = `background: ${lineColors[usedLinesForSegment[0]] || color};`;
-        } else {
-          const step = 100 / usedLinesForSegment.length;
-          const stops = usedLinesForSegment.map((ln, j) => {
-            const col = lineColors[ln] || '#999';
-            const start = (j * step).toFixed(4);
-            const end = ((j+1) * step).toFixed(4);
-            return `${col} ${start}%, ${col} ${end}%`;
-          }).join(', ');
-          initialStyle = `background: linear-gradient(to bottom, ${stops});`;
-        }
-      } else {
-        if(nextColor && nextColor !== color){
-          initialStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
-        } else {
-          initialStyle = `background: ${color};`;
-        }
-      }
-    } else {
-      initialStyle = `background: ${color};`;
-    }
-
-    const usedLinesDataAttr = usedLinesForSegment.join('|');
-
-    routeHtml += `
-      <div class="rowStation">
-        <div class="railCol">
-          <div class="railDot" style="background:${color}"></div>
-          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style="${initialStyle}"></div>` : `<div class="spacer6"></div>`}
-        </div>
-        <div class="stationText">
-          <div class="stationName">${displayStationName(st)}</div>
-          ${lineListHtml}
-          ${nextStation ? `<div class="toggleWrap"><button class="toggleBtn" data-part="${partIndex}" data-seg="${idx}" data-open="false">停車駅を表示</button></div>` : ''}
-        </div>
-      </div>
-    `;
-
-    if(nextStation && iFrom !== -1 && iTo !== -1){
-      if(iTo - iFrom > 1){
-        const betweenStart = iFrom + 1;
-        const betweenEnd = iTo - 1;
-        const betweenCount = betweenEnd - betweenStart + 1;
-        const pairColors = new Array(Math.max(0, betweenCount)).fill('#999');
-        const isCondArr = new Array(Math.max(0, betweenCount)).fill(false);
-
-        for(let bj = betweenStart; bj <= betweenEnd; bj++){
-          const jIndex = bj;
-          const s = path[jIndex];
-          let isCondMinor = false;
-          const condsAll = connectingStations.filter(c => c.station === s);
-          let conds = [];
-          if(condsAll && condsAll.length > 0){
-            conds = condsAll;
-          }
-          if(conds && conds.length > 0){
-            const idxS = jIndex;
-            for(const cond of conds){
-              const idxsA = indexesOf(path, cond.endpoints[0]);
-              const idxsB = indexesOf(path, cond.endpoints[1]);
-              if(idxsA.length > 0 && idxsB.length > 0){
-                outer3: for(const ia of idxsA){
-                  for(const ib of idxsB){
-                    if(betweenExclusive(idxS, ia, ib)){ isCondMinor = true; break outer3; }
-                  }
-                }
-                if(isCondMinor) break;
-              }
-            }
-          }
-          isCondArr[bj - betweenStart] = isCondMinor;
-
-          const prevSt = path[jIndex-1];
-          const nextSt = path[jIndex+1];
-
-          const directCandidates = findLinesOfSegment(s, nextSt);
-          if(directCandidates.length > 0){
-            let chosen = null;
-            for(const ln of directCandidates){
-              if(lineColors[ln]){ chosen = ln; break; }
-            }
-            if(chosen){
-              pairColors[bj - betweenStart] = lineColors[chosen];
-              continue;
-            }
-          }
-
-          let threeLine = null;
-          for(const [ln, stations] of Object.entries(stationLines)){
-            if(stations.indexOf(prevSt) !== -1 && stations.indexOf(s) !== -1 && stations.indexOf(nextSt) !== -1){
-              threeLine = ln;
-              break;
-            }
-          }
-          if(threeLine && lineColors[threeLine]){
-            pairColors[bj - betweenStart] = lineColors[threeLine];
-            continue;
-          }
-
-          let bothLine = null;
-          for(const [ln, stations] of Object.entries(stationLines)){
-            if(stations.indexOf(prevSt) !== -1 && stations.indexOf(nextSt) !== -1){
-              bothLine = ln;
-              break;
-            }
-          }
-          if(bothLine && lineColors[bothLine]){
-            pairColors[bj - betweenStart] = lineColors[bothLine];
-            continue;
-          }
-
-          const adjPairs = [];
-          if(jIndex > 0) adjPairs.push([path[jIndex-1], path[jIndex]]);
-          if(jIndex < path.length - 1) adjPairs.push([path[jIndex], path[jIndex+1]]);
-          for(const p of adjPairs){
-            const ln = findLineOfSegment(p[0], p[1]);
-            if(ln && lineColors[ln]){ pairColors[bj - betweenStart] = lineColors[ln]; break; }
-          }
-        }
-
-        routeHtml += `<div id="part${partIndex}-between-${idx}" class="betweenList">`;
-        for(let bj = betweenStart; bj <= betweenEnd; bj++){
-          const s = path[bj];
-          const arrIdx = bj - betweenStart;
-          const isCondMinor = isCondArr[arrIdx];
-          const minorClass = isCondMinor ? 'condMinorName' : 'minorName';
-          let displayColor = pairColors[arrIdx];
-          if(isCondMinor){
-            const nextArrIdx = arrIdx + 1;
-            if(nextArrIdx < pairColors.length){
-              displayColor = pairColors[nextArrIdx];
-            } else {
-              displayColor = pairColors[arrIdx];
-            }
-          }
-
-          routeHtml += `
-            <div class="rowBetween">
-              <div class="railCol">
-                <div class="railDot" style="background:${displayColor}"></div>
-                <div class="railLineMinor" style="background:${displayColor}"></div>
-              </div>
-              <div class="stationText"><div class="${minorClass}">${displayStationName(s)}</div></div>
-            </div>
-          `;
-        }
-        routeHtml += `</div>`;
-      }
-    }
-  }
-
-  routeHtml += `</div></div>`;
-  return routeHtml;
-}
-
-function shortenBigLineToFirstBetween(bigLine, betweenEl){
-  if(!bigLine || !betweenEl) return;
-  const railCol = bigLine.parentElement;
-  if(!railCol) return;
-  const parentRect = railCol.getBoundingClientRect();
-  const dot = railCol.querySelector('.railDot');
-  if(!dot) return;
-  const dotRect = dot.getBoundingClientRect();
-  const firstBetweenRow = betweenEl.querySelector('.rowBetween');
-  if(!firstBetweenRow) return;
-  const betweenDot = firstBetweenRow.querySelector('.railDot');
-  if(!betweenDot) return;
-  const betweenDotRect = betweenDot.getBoundingClientRect();
-  const newTop = dotRect.top - parentRect.top;
-  const newHeight = Math.max(0, (betweenDotRect.top - dotRect.top)) + 2;
-  bigLine.style.top = newTop + 'px';
-  bigLine.style.height = newHeight + 'px';
-  bigLine.dataset.shortened = "true";
-}
-
-function wireToggleButtons(){
-  document.querySelectorAll('.toggleBtn').forEach(btn=>{
-    if(btn._routeToggleListener) btn.removeEventListener('click', btn._routeToggleListener);
-    const listener = ()=>{
-      const part = btn.dataset.part;
-      const idx = btn.dataset.seg;
-      const list = document.getElementById(`part${part}-between-${idx}`);
-      const bigLine = document.getElementById(`part${part}-bigline-${idx}`);
-      if(!list) return;
-      const isOpen = getComputedStyle(list).display !== 'block';
-      list.style.display = isOpen ? 'block' : 'none';
-      btn.dataset.open = isOpen.toString();
-      btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
-
-      if(bigLine){
-        const baseColor = bigLine.dataset.color || '#999';
-
-        if(isOpen){
-          bigLine.style.background = baseColor;
-          shortenBigLineToFirstBetween(bigLine, list);
-        } else {
-          delete bigLine.dataset.shortened;
-          runAdjustments();
-        }
-      }
-      runAdjustments();
-    };
-    btn.addEventListener('click', listener);
-    btn._routeToggleListener = listener;
-  });
-}
-
-/* ===========================
-   検索イベントと描画
-   =========================== */
-function renderResultHeader(totalDistance, totalFare){
-  return `
-    <div class="card">
-      <div class="resultHeader">
-        <div style="font-weight:800">検索結果</div>
-        <div class="meta">
-          <div>合計距離: <strong>${totalDistance.toFixed(1)} km</strong></div>
-          <div>合計運賃: <strong>${totalFare} 円</strong></div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderRoutesIntoContainer(parts, containerId, explicitFare){
-  if(!parts || parts.length === 0){
-    document.getElementById(containerId).innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
-    return;
-  }
-
-  const totalDistance = parts.reduce((acc,p)=>acc+p.distance, 0);
-
-  const allCompanySegments = [];
-  for(const part of parts){
-    const comps = splitByCompany(part.path);
-    for(const c of comps) allCompanySegments.push(c);
-  }
-
-  let totalFare = 0;
-  for(const seg of allCompanySegments){
-    const spComp = shortestPathWithinCompany(seg.from, seg.to, seg.company);
-    totalFare += fareByCompany(seg.company, spComp.distance, spComp.path, allCompanySegments);
-  }
-
-  // if explicitFare (for cheapest route we computed exact fare separately), prefer that value
-  if(typeof explicitFare === 'number'){
-    totalFare = explicitFare;
-  }
-
-  const headerHtml = renderResultHeader(totalDistance, totalFare);
-
-  let html = headerHtml;
-  parts.forEach((p, idx)=>{
-    html += renderRouteCardForPart(p, idx);
-  });
-
-  const container = document.getElementById(containerId);
-  container.innerHTML = html;
-  wireToggleButtons();
-  if(container.offsetParent) runAdjustments();
-}
-
-/* === UI 初期化（選択肢の作成 / 保存） === */
+// --- UI 初期化 ---
 const fromLineSel = document.getElementById('fromLine');
 const toLineSel = document.getElementById('toLine');
 const fromStationSel = document.getElementById('fromStation');
@@ -1655,26 +879,834 @@ addViaBtn.addEventListener('click', ()=>{
   saveSelections();
 });
 
-// --- タブ制御 ---
-tabButtons.forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    const target = btn.dataset.target;
-    tabButtons.forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('result-shortest').style.display = target === 'shortest' ? 'block' : 'none';
-    document.getElementById('result-fewest').style.display = target === 'fewest' ? 'block' : 'none';
-    document.getElementById('result-cheapest').style.display = target === 'cheapest' ? 'block' : 'none';
-    // 表示切替後に必ず補正を走らせる
-    runAdjustments();
+// レイアウト補助（元ロジックを保持）
+function applyStripedGradientForBigLine(lineElem, dotRect, nextDotRect, parentRect){
+  if(!lineElem) return;
+  const baseColor = lineElem.dataset.color || '#999';
+  const usedLinesRaw = lineElem.dataset.usedlines || '';
+  const usedLinesArr = usedLinesRaw ? usedLinesRaw.split('|').filter(x=>x) : [];
+
+  const lineTop = parseFloat(lineElem.style.top) || 0;
+  const lineHeight = parseFloat(lineElem.style.height) || 0;
+  if(lineHeight <= 0){
+    lineElem.style.background = baseColor;
+    return;
+  }
+
+  const currentDotBottom_px = (dotRect.top - parentRect.top) + dotRect.height;
+  const nextDotTop_px = (nextDotRect.top - parentRect.top);
+
+  const startPx = currentDotBottom_px - lineTop;
+  const endPx = nextDotTop_px - lineTop;
+
+  const clampedStartPx = Math.max(0, Math.min(lineHeight, startPx));
+  const clampedEndPx = Math.max(0, Math.min(lineHeight, endPx));
+
+  if(clampedEndPx <= clampedStartPx){
+    if(usedLinesArr.length === 1){
+      lineElem.style.background = lineColors[usedLinesArr[0]] || baseColor;
+    } else {
+      lineElem.style.background = baseColor;
+    }
+    return;
+  }
+
+  const startPercent = (clampedStartPx / lineHeight) * 100;
+  const endPercent = (clampedEndPx / lineHeight) * 100;
+
+  let gradientStops = [];
+  gradientStops.push(`${baseColor} 0%`);
+  gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
+
+  if(usedLinesArr.length > 0){
+    const segCount = usedLinesArr.length;
+    const segSize = (endPercent - startPercent) / segCount;
+    for(let j=0;j<segCount;j++){
+      const ln = usedLinesArr[j];
+      const col = lineColors[ln] || baseColor;
+      const segStart = startPercent + segSize * j;
+      const segEnd = startPercent + segSize * (j+1);
+      gradientStops.push(`${col} ${segStart.toFixed(4)}%`);
+      gradientStops.push(`${col} ${segEnd.toFixed(4)}%`);
+    }
+  } else {
+    gradientStops.push(`${baseColor} ${startPercent.toFixed(4)}%`);
+    gradientStops.push(`${baseColor} 100%`);
+  }
+
+  const stopsStr = gradientStops.join(', ');
+  lineElem.style.background = `linear-gradient(to bottom, ${stopsStr})`;
+}
+
+// *** adjustMajorLines を修正：非表示要素はスキップ（これで「再検索で線が消える」問題を解消） ***
+function adjustMajorLines(){
+  const rows = Array.from(document.querySelectorAll('.rowStation'));
+  rows.forEach((row, idx) => {
+    // 非表示（display:none 等）はスキップ
+    if(!row.offsetParent) return;
+    const railCol = row.querySelector('.railCol');
+    if(!railCol) return;
+    const dot = railCol.querySelector('.railDot');
+    const line = railCol.querySelector('.railLineMajor');
+    if (!dot || !line) return;
+    if(line.dataset && line.dataset.shortened === 'true'){ return; }
+    const nextRow = rows.slice(idx + 1).find(r => r.querySelector('.railDot') && r.offsetParent);
+    if (!nextRow) { line.style.height = '0px'; return; }
+    const parentRect = railCol.getBoundingClientRect();
+    const dotRect = dot.getBoundingClientRect();
+    const nextDot = nextRow.querySelector('.railDot');
+    const nextDotRect = nextDot.getBoundingClientRect();
+    line.style.top = (dotRect.top - parentRect.top) + 'px';
+    const h = Math.max(0, (nextDotRect.top - dotRect.top)) + 5;
+    line.style.height = h + 'px';
+    applyStripedGradientForBigLine(line, dotRect, nextDotRect, parentRect);
   });
-});
+
+  document.querySelectorAll('.rowBetween').forEach(r => {
+    if(!r.offsetParent) return;
+    const railCol = r.querySelector('.railCol');
+    if(!railCol) return;
+    const dot = r.querySelector('.railDot');
+    const minorLine = r.querySelector('.railLineMinor');
+    if(!dot || !minorLine) return;
+    const parentRect = railCol.getBoundingClientRect();
+    const dotRect = dot.getBoundingClientRect();
+    minorLine.style.top = (dotRect.top - parentRect.top) + 'px';
+    minorLine.style.height = '48px';
+  });
+}
+function runAdjustments(){ adjustMajorLines(); }
+window.addEventListener('resize', runAdjustments);
+
+/* =========================
+   新実装（変更）: 「主要駅数を最小化」する探索
+   - 状態を (node, prevLine) の組で扱い、線の切替が発生したとき主要カウントを +1
+   - ただし、切替が発生する駅（u）が connectingStations の station に含まれる場合はカウントしない（＝途中駅扱いを除外）
+   - コストは (majorCount, distance) の辞書順（majorCount を最小化、同数なら距離最小）
+   ========================= */
+
+function keyOfState(station, prevLine){ return station + '|||' + (prevLine || ''); }
+function parseStateKey(key){
+  const idx = key.indexOf('|||');
+  const station = key.slice(0, idx);
+  const prevLine = key.slice(idx+3) || null;
+  return {station, prevLine};
+}
+
+function isConnectingStationName(name){
+  return connectingStations.some(c => c.station === name);
+}
+
+function shortestPathMinMajors(start, goal, forbidden){
+  if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity};
+  // distMap: key => {majors, dist}
+  const distMap = new Map();
+  const prevState = new Map(); // key => prevKey
+  const Q = new Set();
+
+  const startKey = keyOfState(start, '');
+  distMap.set(startKey, {majors:0, dist:0});
+  Q.add(startKey);
+
+  while(Q.size){
+    // pick best by (majors, dist)
+    let bestKey = null; let bestMaj = Infinity; let bestDist = Infinity;
+    for(const k of Q){
+      const v = distMap.get(k);
+      if(!v) continue;
+      if(v.majors < bestMaj || (v.majors === bestMaj && v.dist < bestDist)){
+        bestKey = k; bestMaj = v.majors; bestDist = v.dist;
+      }
+    }
+    if(bestKey === null) break;
+    Q.delete(bestKey);
+    const {station: u, prevLine: prevLineOfU} = parseStateKey(bestKey);
+    const curCost = distMap.get(bestKey);
+
+    if(u === goal){
+      const pathStations = [];
+      let curKey = bestKey;
+      while(curKey){
+        const {station: st} = parseStateKey(curKey);
+        pathStations.push(st);
+        curKey = prevState.get(curKey) || null;
+      }
+      pathStations.reverse();
+      let trueDist = 0;
+      for(let i=0;i<pathStations.length-1;i++){
+        const a = pathStations[i], b = pathStations[i+1];
+        if(graph[a] && typeof graph[a][b] === 'number') trueDist += graph[a][b];
+        else if(graph[b] && typeof graph[b][a] === 'number') trueDist += graph[b][a];
+      }
+      return {path: pathStations, distance: trueDist, majors: curCost.majors};
+    }
+
+    for(const [v,w] of Object.entries(graph[u]||{})){
+      if(forbidden.has(v) && v !== goal) continue;
+      const ln = findLineOfSegment(u, v) || '';
+      let inc = 0;
+      if(prevLineOfU && prevLineOfU !== '' && ln !== prevLineOfU){
+        // line-change occurs at u; count it as major only if u is NOT a connectingStation
+        if(!isConnectingStationName(u)){
+          inc = 1;
+        } else {
+          inc = 0; // 接続駅は途中駅扱いなので増やさない
+        }
+      }
+      const newMaj = curCost.majors + inc;
+      const newDist = curCost.dist + w;
+      const vKey = keyOfState(v, ln);
+
+      const existing = distMap.get(vKey);
+      const better = !existing || (newMaj < existing.majors) || (newMaj === existing.majors && newDist < existing.dist);
+      if(better){
+        distMap.set(vKey, {majors: newMaj, dist: newDist});
+        prevState.set(vKey, bestKey);
+        Q.add(vKey);
+      }
+    }
+  }
+
+  // fallback: choose best among states at goal if present
+  let bestGoalKey = null; let bestMaj = Infinity; let bestDist = Infinity;
+  for(const [k, v] of distMap.entries()){
+    const {station} = parseStateKey(k);
+    if(station === goal){
+      if(v.majors < bestMaj || (v.majors === bestMaj && v.dist < bestDist)){
+        bestGoalKey = k; bestMaj = v.majors; bestDist = v.dist;
+      }
+    }
+  }
+  if(!bestGoalKey) return {path:[],distance:Infinity};
+
+  const pathStations = [];
+  let curKey = bestGoalKey;
+  while(curKey){
+    const {station: st} = parseStateKey(curKey);
+    pathStations.push(st);
+    curKey = prevState.get(curKey) || null;
+  }
+  pathStations.reverse();
+  let trueDist = 0;
+  for(let i=0;i<pathStations.length-1;i++){
+    const a = pathStations[i], b = pathStations[i+1];
+    if(graph[a] && typeof graph[a][b] === 'number') trueDist += graph[a][b];
+    else if(graph[b] && typeof graph[b][a] === 'number') trueDist += graph[b][a];
+  }
+  return {path: pathStations, distance: trueDist, majors: bestMaj};
+}
+
+/* =========================
+   既存の「一筆書き（重複禁止）ルート作成」ロジック（距離優先）
+   (元プログラムのロジックを保持)
+   ========================= */
+
+// start->goal を forbidden を避けて最短経路を求める Dijkstra（再利用）
+function shortestPathAvoiding(start, goal, forbidden){
+  if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity};
+  const dist = {}, prev = {}, Q = new Set(allStations);
+  allStations.forEach(s=>{ dist[s] = Infinity; prev[s] = null; });
+  dist[start] = 0;
+
+  while(Q.size){
+    let u = null, best = Infinity;
+    for(const v of Q){
+      if(dist[v] < best){ u = v; best = dist[v]; }
+    }
+    if(u === null) break;
+    Q.delete(u);
+
+    if(forbidden.has(u) && u !== start && u !== goal) continue;
+    if(u === goal) break;
+
+    for(const [v,w] of Object.entries(graph[u]||{})){
+      if(forbidden.has(v) && v !== goal) continue;
+      const alt = dist[u] + w;
+      if(alt < dist[v]){ dist[v] = alt; prev[v] = u; }
+    }
+  }
+
+  if(!isFinite(dist[goal])) return {path:[],distance:Infinity};
+  const path = []; for(let cur = goal; cur != null; cur = prev[cur]) path.unshift(cur);
+  return {path, distance: dist[goal]};
+}
+
+// buildRoutePartsNoOverlap（元の距離優先のまま）
+function buildRoutePartsNoOverlap(from, viaStations, to){
+  const waypoints = [from, ...viaStations, to];
+  let full = [];
+  let totalDist = 0;
+  const used = new Set();
+
+  for(let i=0;i<waypoints.length-1;i++){
+    const a = waypoints[i], b = waypoints[i+1];
+    const forbidden = new Set(used);
+    if(forbidden.has(a)) forbidden.delete(a);
+    if(forbidden.has(b)) forbidden.delete(b);
+
+    const sp = shortestPathAvoiding(a, b, forbidden);
+    if(!sp.path || sp.path.length === 0) {
+      const sp2 = shortestPath(a, b);
+      if(!sp2.path || sp2.path.length === 0) return null;
+      const seg2 = (i===0) ? sp2.path.slice() : sp2.path.slice(1);
+      full.push(...seg2);
+      totalDist += sp2.distance;
+      for(const st of sp2.path){ if(st !== b) used.add(st); }
+      continue;
+    }
+
+    const seg = (i===0) ? sp.path.slice() : sp.path.slice(1);
+    full.push(...seg);
+    totalDist += sp.distance;
+    for(const st of sp.path){ if(st !== b) used.add(st); }
+  }
+
+  if(full.length === 0) return [];
+
+  function splitOnTripleRepeat(fullPath){
+    if(!Array.isArray(fullPath) || fullPath.length === 0) return [fullPath.slice()];
+    const parts = [];
+    let curStart = 0;
+    for(let i = 2; i < fullPath.length; i++){
+      if(fullPath[i-2] === fullPath[i]){
+        const firstPart = fullPath.slice(curStart, i);
+        if(firstPart.length > 1) parts.push(firstPart);
+        curStart = i - 1;
+      }
+    }
+    const last = fullPath.slice(curStart);
+    if(last.length > 1) parts.push(last);
+    return parts;
+  }
+
+  function distanceOfPath(p){
+    if(!p || p.length < 2) return 0;
+    let d = 0;
+    for(let i=0;i<p.length-1;i++){
+      const a = p[i], b = p[i+1];
+      if(typeof graph !== 'undefined' && graph && graph[a] && typeof graph[a][b] === 'number') d += graph[a][b];
+      else if(typeof graph !== 'undefined' && graph && graph[b] && typeof graph[b][a] === 'number') d += graph[b][a];
+      else d += 0;
+    }
+    return d;
+  }
+
+  const splitted = splitOnTripleRepeat(full);
+  const outParts = splitted.map(p => ({ path: p, distance: distanceOfPath(p) }));
+  return outParts;
+}
+
+// buildRoutePartsNoOverlapMinMajors：主要駅数最小化版（距離は二次評価）
+// 各区間で shortestPathMinMajors を使用
+function buildRoutePartsNoOverlapMinMajors(from, viaStations, to){
+  const waypoints = [from, ...viaStations, to];
+  let full = [];
+  let totalDist = 0;
+  const used = new Set();
+
+  for(let i=0;i<waypoints.length-1;i++){
+    const a = waypoints[i], b = waypoints[i+1];
+    const forbidden = new Set(used);
+    if(forbidden.has(a)) forbidden.delete(a);
+    if(forbidden.has(b)) forbidden.delete(b);
+
+    const sp = shortestPathMinMajors(a, b, forbidden);
+    if(!sp.path || sp.path.length === 0){
+      const sp2 = shortestPathAvoiding(a, b, forbidden);
+      if(!sp2.path || sp2.path.length === 0){
+        const sp3 = shortestPath(a, b);
+        if(!sp3.path || sp3.path.length === 0) return null;
+        const seg3 = (i===0) ? sp3.path.slice() : sp3.path.slice(1);
+        full.push(...seg3);
+        totalDist += sp3.distance;
+        for(const st of sp3.path){ if(st !== b) used.add(st); }
+        continue;
+      } else {
+        const seg2 = (i===0) ? sp2.path.slice() : sp2.path.slice(1);
+        full.push(...seg2);
+        totalDist += sp2.distance;
+        for(const st of sp2.path){ if(st !== b) used.add(st); }
+        continue;
+      }
+    }
+
+    const seg = (i===0) ? sp.path.slice() : sp.path.slice(1);
+    full.push(...seg);
+    totalDist += sp.distance;
+    for(const st of sp.path){ if(st !== b) used.add(st); }
+  }
+
+  if(full.length === 0) return [];
+
+  function splitOnTripleRepeat(fullPath){
+    if(!Array.isArray(fullPath) || fullPath.length === 0) return [fullPath.slice()];
+    const parts = [];
+    let curStart = 0;
+    for(let i = 2; i < fullPath.length; i++){
+      if(fullPath[i-2] === fullPath[i]){
+        const firstPart = fullPath.slice(curStart, i);
+        if(firstPart.length > 1) parts.push(firstPart);
+        curStart = i - 1;
+      }
+    }
+    const last = fullPath.slice(curStart);
+    if(last.length > 1) parts.push(last);
+    return parts;
+  }
+
+  function distanceOfPath(p){
+    if(!p || p.length < 2) return 0;
+    let d = 0;
+    for(let i=0;i<p.length-1;i++){
+      const a = p[i], b = p[i+1];
+      if(typeof graph !== 'undefined' && graph && graph[a] && typeof graph[a][b] === 'number') d += graph[a][b];
+      else if(typeof graph !== 'undefined' && graph && graph[b] && typeof graph[b][a] === 'number') d += graph[b][a];
+      else d += 0;
+    }
+    return d;
+  }
+
+  const splitted = splitOnTripleRepeat(full);
+  const outParts = splitted.map(p => ({ path: p, distance: distanceOfPath(p) }));
+  return outParts;
+}
+
+/* ---- 以下は既存の分割・描画・運賃計算ロジックを保持 ---- */
+
+function splitByCompany(path){
+  if(path.length < 2) return [];
+  let segments = [];
+  let start = path[0];
+  let prev = path[0];
+  let curCompany = null;
+
+  const firstLine = findLineOfSegment(path[0], path[1]);
+  curCompany = firstLine ? companyFromLineName(firstLine) : null;
+
+  for(let i=1;i<path.length;i++){
+    const a = path[i-1], b = path[i];
+    const ln = findLineOfSegment(a,b);
+    const comp = ln ? companyFromLineName(ln) : null;
+
+    if(comp !== curCompany){
+      segments.push({ from:start, to:prev, company:curCompany });
+      start = a;
+      curCompany = comp;
+    }
+    prev = b;
+  }
+  segments.push({ from:start, to:prev, company:curCompany });
+  return segments.filter(s => !!s.company && s.from !== s.to);
+}
+
+/* -----------------------------
+   ここから描画周り（修正あり）
+   - renderRouteCardForPart(part, partIndex, containerId)
+   - IDs を containerId プレフィックス付きにして一意化
+   - wireToggleButtons(containerId) を用いてコンテナ内のみバインド
+   ----------------------------- */
+
+function renderRouteCardForPart(part, partIndex, containerId){
+  const path = part.path;
+
+  const { majors } = majorStops(path);
+
+  const majorIndices = [];
+  let scanStart = 0;
+  for(let m = 0; m < majors.length; m++){
+    const mi = findIndexFrom(path, majors[m], scanStart);
+    if(mi === -1){
+      majorIndices.push(path.indexOf(majors[m]));
+      scanStart = (majorIndices[majorIndices.length-1] >= 0) ? majorIndices[majorIndices.length-1] + 1 : scanStart+1;
+    } else {
+      majorIndices.push(mi);
+      scanStart = mi + 1;
+    }
+  }
+
+  const majorsColors = new Array(majors.length).fill("#999");
+
+  for(let idx = 0; idx < majors.length; idx++){
+    const st = majors[idx];
+    const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
+
+    let color = "#999";
+
+    const iFrom = majorIndices[idx];
+    const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
+
+    if(nextStation && iFrom !== -1 && iTo !== -1){
+      const usedLines = [];
+      const usedPairs = [];
+      for(let i=iFrom;i<iTo;i++){
+        const ln = findLineOfSegment(path[i], path[i+1]);
+        usedPairs.push({pair:[path[i], path[i+1]], line:ln, idx:i});
+        if(ln && usedLines.indexOf(ln)===-1) usedLines.push(ln);
+      }
+
+      const topPair = usedPairs.find(p=>p.idx===iFrom && p.line);
+      if(topPair && topPair.line && lineColors[topPair.line]) color = lineColors[topPair.line];
+      else {
+        for(const ln of usedLines){
+          if(lineColors[ln]){ color = lineColors[ln]; break; }
+        }
+      }
+
+    } else if(!nextStation){
+      if(iFrom > 0){
+        const ln = findLineOfSegment(path[iFrom-1], path[iFrom]);
+        if(ln && lineColors[ln]) color = lineColors[ln];
+      } else if(path.length >= 2){
+        const ln0 = findLineOfSegment(path[0], path[1]);
+        if(ln0 && lineColors[ln0]) color = lineColors[ln0];
+      }
+    } else {
+      if(path.length >= 2){
+        const ln0 = findLineOfSegment(path[0], path[1]);
+        if(ln0 && lineColors[ln0]) color = lineColors[ln0];
+      }
+    }
+
+    majorsColors[idx] = color;
+  }
+
+  // container-scoped IDs: prefix with containerId
+  const cid = containerId;
+
+  let routeHtml = `
+    <div class="card">
+      <div class="resultHeader">
+        <div class="meta"></div>
+      </div>
+      <div class="routeLine">
+  `;
+
+  for(let idx = 0; idx < majors.length; idx++){
+    const st = majors[idx];
+    const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
+
+    const iFrom = majorIndices[idx];
+    const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
+
+    const color = majorsColors[idx];
+    const nextColor = nextStation ? majorsColors[idx+1] : null;
+
+    let lineListHtml = '';
+
+    let usedLinesForSegment = [];
+    if(nextStation && iFrom !== -1 && iTo !== -1){
+      for(let i=iFrom;i<iTo;i++){
+        const ln = findLineOfSegment(path[i], path[i+1]);
+        if(ln && !usedLinesForSegment.includes(ln)) usedLinesForSegment.push(ln);
+      }
+      const badges = usedLinesForSegment.length > 0 ? usedLinesForSegment : findCommonLines(st, nextStation);
+      if(badges.length > 0){
+        lineListHtml = badges.map(l => `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${l}</div>`).join('');
+      }
+    } else if(!nextStation){
+      lineListHtml = '';
+    }
+
+    const bigLineId = `${cid}-part${partIndex}-bigline-${idx}`;
+    const betweenId = `${cid}-part${partIndex}-between-${idx}`;
+
+    let initialStyle = '';
+    if(nextStation){
+      if(usedLinesForSegment.length > 0){
+        if(usedLinesForSegment.length === 1){
+          initialStyle = `background: ${lineColors[usedLinesForSegment[0]] || color};`;
+        } else {
+          const step = 100 / usedLinesForSegment.length;
+          const stops = usedLinesForSegment.map((ln, j) => {
+            const col = lineColors[ln] || '#999';
+            const start = (j * step).toFixed(4);
+            const end = ((j+1) * step).toFixed(4);
+            return `${col} ${start}%, ${col} ${end}%`;
+          }).join(', ');
+          initialStyle = `background: linear-gradient(to bottom, ${stops});`;
+        }
+      } else {
+        if(nextColor && nextColor !== color){
+          initialStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
+        } else {
+          initialStyle = `background: ${color};`;
+        }
+      }
+    } else {
+      initialStyle = `background: ${color};`;
+    }
+
+    const usedLinesDataAttr = usedLinesForSegment.join('|');
+
+    routeHtml += `
+      <div class="rowStation">
+        <div class="railCol">
+          <div class="railDot" style="background:${color}"></div>
+          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style="${initialStyle}"></div>` : `<div class="spacer6"></div>`}
+        </div>
+        <div class="stationText">
+          <div class="stationName">${displayStationName(st)}</div>
+          ${lineListHtml}
+          ${nextStation ? `<div class="toggleWrap"><button class="toggleBtn" data-container="${cid}" data-part="${partIndex}" data-seg="${idx}" data-open="false">停車駅を表示</button></div>` : ''}
+        </div>
+      </div>
+    `;
+
+    if(nextStation && iFrom !== -1 && iTo !== -1){
+      if(iTo - iFrom > 1){
+        const betweenStart = iFrom + 1;
+        const betweenEnd = iTo - 1;
+        const betweenCount = betweenEnd - betweenStart + 1;
+        const pairColors = new Array(Math.max(0, betweenCount)).fill('#999');
+        const isCondArr = new Array(Math.max(0, betweenCount)).fill(false);
+
+        for(let bj = betweenStart; bj <= betweenEnd; bj++){
+          const jIndex = bj;
+          const s = path[jIndex];
+          let isCondMinor = false;
+          const condsAll = connectingStations.filter(c => c.station === s);
+          let conds = [];
+          if(condsAll && condsAll.length > 0){
+            conds = condsAll;
+          }
+          if(conds && conds.length > 0){
+            const idxS = jIndex;
+            for(const cond of conds){
+              const idxsA = indexesOf(path, cond.endpoints[0]);
+              const idxsB = indexesOf(path, cond.endpoints[1]);
+              if(idxsA.length > 0 && idxsB.length > 0){
+                outer3: for(const ia of idxsA){
+                  for(const ib of idxsB){
+                    if(betweenExclusive(idxS, ia, ib)){ isCondMinor = true; break outer3; }
+                  }
+                }
+                if(isCondMinor) break;
+              }
+            }
+          }
+          isCondArr[bj - betweenStart] = isCondMinor;
+
+          const prevSt = path[jIndex-1];
+          const nextSt = path[jIndex+1];
+
+          const directCandidates = findLinesOfSegment(s, nextSt);
+          if(directCandidates.length > 0){
+            let chosen = null;
+            for(const ln of directCandidates){
+              if(lineColors[ln]){ chosen = ln; break; }
+            }
+            if(chosen){
+              pairColors[bj - betweenStart] = lineColors[chosen];
+              continue;
+            }
+          }
+
+          let threeLine = null;
+          for(const [ln, stations] of Object.entries(stationLines)){
+            if(stations.indexOf(prevSt) !== -1 && stations.indexOf(s) !== -1 && stations.indexOf(nextSt) !== -1){
+              threeLine = ln;
+              break;
+            }
+          }
+          if(threeLine && lineColors[threeLine]){
+            pairColors[bj - betweenStart] = lineColors[threeLine];
+            continue;
+          }
+
+          let bothLine = null;
+          for(const [ln, stations] of Object.entries(stationLines)){
+            if(stations.indexOf(prevSt) !== -1 && stations.indexOf(nextSt) !== -1){
+              bothLine = ln;
+              break;
+            }
+          }
+          if(bothLine && lineColors[bothLine]){
+            pairColors[bj - betweenStart] = lineColors[bothLine];
+            continue;
+          }
+
+          const adjPairs = [];
+          if(jIndex > 0) adjPairs.push([path[jIndex-1], path[jIndex]]);
+          if(jIndex < path.length - 1) adjPairs.push([path[jIndex], path[jIndex+1]]);
+          for(const p of adjPairs){
+            const ln = findLineOfSegment(p[0], p[1]);
+            if(ln && lineColors[ln]){ pairColors[bj - betweenStart] = lineColors[ln]; break; }
+          }
+        }
+
+        routeHtml += `<div id="${betweenId}" class="betweenList">`;
+        for(let bj = betweenStart; bj <= betweenEnd; bj++){
+          const s = path[bj];
+          const arrIdx = bj - betweenStart;
+          const isCondMinor = isCondArr[arrIdx];
+          const minorClass = isCondMinor ? 'condMinorName' : 'minorName';
+          let displayColor = pairColors[arrIdx];
+          if(isCondMinor){
+            const nextArrIdx = arrIdx + 1;
+            if(nextArrIdx < pairColors.length){
+              displayColor = pairColors[nextArrIdx];
+            } else {
+              displayColor = pairColors[arrIdx];
+            }
+          }
+
+          routeHtml += `
+            <div class="rowBetween">
+              <div class="railCol">
+                <div class="railDot" style="background:${displayColor}"></div>
+                <div class="railLineMinor" style="background:${displayColor}"></div>
+              </div>
+              <div class="stationText"><div class="${minorClass}">${displayStationName(s)}</div></div>
+            </div>
+          `;
+        }
+        routeHtml += `</div>`;
+      }
+    }
+  }
+
+  routeHtml += `</div></div>`;
+  return routeHtml;
+}
+
+// containerId を受け取って、そのコンテナ内の .toggleBtn のみにリスナをバインドする
+function wireToggleButtons(containerId){
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  const btns = Array.from(container.querySelectorAll('.toggleBtn'));
+  btns.forEach(btn=>{
+    // remove previous listener if exists
+    if(btn._routeToggleListener) btn.removeEventListener('click', btn._routeToggleListener);
+
+    const listener = ()=>{
+      const part = btn.dataset.part;
+      const idx = btn.dataset.seg;
+      const cid = btn.dataset.container || containerId;
+      const listId = `${cid}-part${part}-between-${idx}`;
+      const bigLineId = `${cid}-part${part}-bigline-${idx}`;
+      const list = document.getElementById(listId);
+      const bigLine = document.getElementById(bigLineId);
+      if(!list) return;
+      const isOpen = getComputedStyle(list).display !== 'block';
+      list.style.display = isOpen ? 'block' : 'none';
+      btn.dataset.open = isOpen.toString();
+      btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
+
+      if(bigLine){
+        const baseColor = bigLine.dataset.color || '#999';
+
+        if(isOpen){
+          bigLine.style.background = baseColor;
+          shortenBigLineToFirstBetween(bigLine, list);
+        } else {
+          delete bigLine.dataset.shortened;
+          runAdjustments();
+        }
+      }
+      runAdjustments();
+    };
+    btn.addEventListener('click', listener);
+    btn._routeToggleListener = listener;
+  });
+}
+
+function shortenBigLineToFirstBetween(bigLine, betweenEl){
+  if(!bigLine || !betweenEl) return;
+  const railCol = bigLine.parentElement;
+  if(!railCol) return;
+  const parentRect = railCol.getBoundingClientRect();
+  const dot = railCol.querySelector('.railDot');
+  if(!dot) return;
+  const dotRect = dot.getBoundingClientRect();
+  const firstBetweenRow = betweenEl.querySelector('.rowBetween');
+  if(!firstBetweenRow) return;
+  const betweenDot = firstBetweenRow.querySelector('.railDot');
+  if(!betweenDot) return;
+  const betweenDotRect = betweenDot.getBoundingClientRect();
+  const newTop = dotRect.top - parentRect.top;
+  const newHeight = Math.max(0, (betweenDotRect.top - dotRect.top)) + 2;
+  bigLine.style.top = newTop + 'px';
+  bigLine.style.height = newHeight + 'px';
+  bigLine.dataset.shortened = "true";
+}
 
 /* ===========================
-   検索ボタン動作
-   - 距離優先 / 乗換少なめ / 運賃安め を同時に計算しそれぞれ描画
+   検索イベント、レンダリング
    =========================== */
+function renderResultHeader(totalDistance, totalFare){
+  return `
+    <div class="card">
+      <div class="resultHeader">
+        <div style="font-weight:800">検索結果</div>
+        <div class="meta">
+          <div>合計距離: <strong>${totalDistance.toFixed(1)} km</strong></div>
+          <div>合計運賃: <strong>${totalFare} 円</strong></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// 共通レンダラ（parts をそのまま描画）
+// containerId を指定して描画 -> 生成される要素 ID は containerId をプレフィックスとして一意化する
+function renderRoutesIntoContainer(parts, containerId){
+  if(!parts || parts.length === 0){
+    document.getElementById(containerId).innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
+    return;
+  }
+
+  const totalDistance = parts.reduce((acc,p)=>acc+p.distance, 0);
+
+  const allCompanySegments = [];
+  for(const part of parts){
+    const comps = splitByCompany(part.path);
+    for(const c of comps) allCompanySegments.push(c);
+  }
+
+  let totalFare = 0;
+  for(const seg of allCompanySegments){
+    const spComp = shortestPathWithinCompany(seg.from, seg.to, seg.company);
+    totalFare += fareByCompany(seg.company, spComp.distance, spComp.path, allCompanySegments);
+  }
+
+  const eligibleCompanies = new Set(["新里鉄道","豊野鉄道","桜川電気鉄道"]);
+  const usedCompaniesSet = new Set(allCompanySegments.map(s => s.company).filter(Boolean));
+  let applyDiscount = true;
+  if(usedCompaniesSet.size === 0) applyDiscount = false;
+  for(const c of usedCompaniesSet){
+    if(!eligibleCompanies.has(c)){ applyDiscount = false; break; }
+  }
+
+  if(applyDiscount){
+    let transferCount = 0;
+    for(let i=1;i<allCompanySegments.length;i++){
+      const prev = allCompanySegments[i-1].company;
+      const cur = allCompanySegments[i].company;
+      if(prev !== cur) transferCount++;
+    }
+    const discount = transferCount * 100;
+    totalFare = Math.max(0, totalFare - discount);
+  }
+
+  const headerHtml = renderResultHeader(totalDistance, totalFare);
+
+  let html = headerHtml;
+  parts.forEach((p, idx)=>{
+    html += renderRouteCardForPart(p, idx, containerId);
+  });
+
+  const container = document.getElementById(containerId);
+  container.innerHTML = html;
+
+  // container 内のトグルボタンだけにリスナをバインド（ID 重複の影響を排除）
+  wireToggleButtons(containerId);
+
+  // 可視なら runAdjustments（非表示なら skip。タブ切替で runAdjustments を呼ぶ）
+  if(container.offsetParent) runAdjustments();
+}
+
 searchBtn.addEventListener('click', ()=>{
-  // stationSelects: 発（最初） / via... / 着（最後）
+  // 発/着/経由の stationSelect をまとめて探す（DOM上の順に依存）
   const stationSelectsAll = Array.from(document.querySelectorAll('.stationSelect'));
   const from = stationSelectsAll[0] ? stationSelectsAll[0].value : '';
   const to = stationSelectsAll[stationSelectsAll.length - 1] ? stationSelectsAll[stationSelectsAll.length - 1].value : '';
@@ -1690,51 +1722,51 @@ searchBtn.addEventListener('click', ()=>{
     return;
   }
 
+  // 保存
   saveSelections();
 
-  // 距離優先（既存）
+  // 距離優先（既存のロジック）
   const partsShortest = buildRoutePartsNoOverlap(from, viaStations, to);
-
-  // 乗換少なめ（主要駅数を最小化）
+  // 乗換少なめ（主要駅数を最優先で最小化；接続駅は主要駅カウントから除外）
   const partsFewest = buildRoutePartsNoOverlapMinMajors(from, viaStations, to);
 
-  // 運賃最小化
-  const cheapestSegment = buildRoutePartsNoOverlapMinFare(from, viaStations, to);
-
-  // render
-  if((!partsShortest || partsShortest.length === 0) && (!partsFewest || partsFewest.length === 0) && (!cheapestSegment || cheapestSegment.length === 0)){
+  if((!partsShortest || partsShortest.length === 0) && (!partsFewest || partsFewest.length === 0)){
     resultArea.innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
     return;
   }
 
+  // タブを表示
   resultTabs.style.display = 'flex';
 
-  // For cheapest route we also compute explicit fare by aggregating company segments
-  let cheapestFare = undefined;
-  if(cheapestSegment && cheapestSegment.length > 0){
-    // compute company segments for the path (concatenate parts)
-    const fullPath = cheapestSegment.flatMap(p => p.path);
-    const comps = splitByCompany(fullPath);
-    let fareTotal = 0;
-    for(const seg of comps){
-      const spComp = shortestPathWithinCompany(seg.from, seg.to, seg.company);
-      fareTotal += fareByCompany(seg.company, spComp.distance);
-    }
-    cheapestFare = fareTotal;
-  }
-
+  // 描画（それぞれ別コンテナに）
   renderRoutesIntoContainer(partsShortest || [], 'result-shortest');
   renderRoutesIntoContainer(partsFewest || [], 'result-fewest');
-  renderRoutesIntoContainer(cheapestSegment || [], 'result-cheapest', typeof cheapestFare === 'number' ? cheapestFare : undefined);
 
-  // default active: 距離 shortest
-  tabButtons.forEach(b=>b.classList.remove('active'));
+  // タブ制御: 距離短いをデフォルトで表示
+  tabButtons.forEach(btn=> btn.classList.remove('active'));
   const shortestBtn = resultTabs.querySelector('[data-target="shortest"]');
   if(shortestBtn) shortestBtn.classList.add('active');
   document.getElementById('result-shortest').style.display = 'block';
   document.getElementById('result-fewest').style.display = 'none';
-  document.getElementById('result-cheapest').style.display = 'none';
   runAdjustments();
+});
+
+// タブ押下で切り替え
+tabButtons.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const target = btn.dataset.target;
+    tabButtons.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    if(target === 'shortest'){
+      document.getElementById('result-shortest').style.display = 'block';
+      document.getElementById('result-fewest').style.display = 'none';
+    } else {
+      document.getElementById('result-shortest').style.display = 'none';
+      document.getElementById('result-fewest').style.display = 'block';
+    }
+    // 表示切替後に再調整（非表示時の計算を避ける）
+    runAdjustments();
+  });
 });
 
 /* EOF */
