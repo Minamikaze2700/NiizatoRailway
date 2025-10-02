@@ -427,7 +427,7 @@ function fareToyono(km){
   return 450;
 }
 
-function fareTouhashi(km, segPath = [], companySegments = []){
+function fareTouhashi(km, segPath, companySegments){
   const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
 
   // --- 浅見〜咲田口の駅リスト（東橋鉄道東橋本線） ---
