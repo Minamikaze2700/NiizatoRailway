@@ -428,28 +428,32 @@ function fareToyono(km){
 }
 
 function fareTouhashi(km, segPath = [], companySegments = []){
-  const kmUsed = (typeof km === 'number' && km > 0) ? km : 1; // 小数のまま
+  const kmUsed = (typeof km === 'number' && km > 0) ? (km < 1 ? 1 : km) : 1;
 
-  const tohashiStations = [
-    "東橋","河井町","黒田","新東橋","横宿","日森町",
-    "和泉原","朋田","小柴","新大崎","杜山","東黒田"
+  // --- 浅見〜咲田口の駅リスト（東橋鉄道東橋本線） ---
+  const specialSection = [
+    "浅見","柴若","六日市通","岩田城","内山","新荘","葉賀ノ台","木森","理李ヶ丘",
+    "小査","寺尾","栗島","宮間","大木沢","園木","新東園木","綾山","豊川大野",
+    "垂生崎","南豊川","幕ヶ原","咲田口"
   ];
 
-  // segPath がすべて指定駅内か確認
-  let fullyInTO = true;
-  if(!Array.isArray(segPath) || segPath.length === 0){
-    fullyInTO = false;
-  } else {
+  // 経路に specialSection の駅が含まれるか判定
+  let inSpecial = false;
+  if(segPath && segPath.length > 0){
     for(const s of segPath){
-      if(!tohashiStations.includes(s)){ fullyInTO = false; break; }
+      if(specialSection.includes(s)){
+        inSpecial = true;
+        break;
+      }
     }
   }
 
-  if(fullyInTO){
-    return 250; // 均一料金
+  // --- 特別区間を通らなければ一律 250円 ---
+  if(!inSpecial){
+    return 250;
   }
 
-  // kmに応じた運賃表
+  // --- 通った場合は距離運賃 ---
   if(kmUsed <= 3) return 180;
   if(kmUsed <= 4) return 190;
   if(kmUsed <= 7) return 210;
@@ -475,22 +479,21 @@ function fareTouhashi(km, segPath = [], companySegments = []){
   if(kmUsed <= 145) return 1250;
   return 1250;
 }
-
 function fareNiizato(km){
-  const kmUsed = (typeof km === 'number' && km > 0) ? km : 1; // 小数のまま
-  if(kmUsed <= 2)return 130;
-  if(kmUsed <= 5)return 140;
-  if(kmUsed <= 8)return 160;
-  if(kmUsed <= 12)return 190;
-  if(kmUsed <= 16)return 220;
-  if(kmUsed <= 20)return 250;
-  if(kmUsed <= 25)return 290;
-  if(kmUsed <= 30)return 340;
-  if(kmUsed <= 35)return 390;
-  if(kmUsed <= 40)return 450;
-  if(kmUsed <= 50)return 510;
+  if(km<=2)return 130;
+  if(km<=5)return 140;
+  if(km<=8)return 160;
+  if(km<=12)return 190;
+  if(km<=16)return 220;
+  if(km<=20)return 250;
+  if(km<=25)return 290;
+  if(km<=30)return 340;
+  if(km<=35)return 390;
+  if(km<=40)return 450;
+  if(km<=50)return 510;
   return 580;
 }
+
 // --- 路線名から会社名を判定 ---
 function companyFromLineName(line){
   if(!line) return null;
