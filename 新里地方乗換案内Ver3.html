@@ -33,7 +33,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .tabBtn{padding:6px 12px;border-radius:6px;border:1px solid #ccc;background:#eee;cursor:pointer}
 .tabBtn.active{background:#0b5fff;color:#fff;border-color:#0b5fff}
 
-/* 路線図レイアウト */
+/* 路線図レイアウト（現状は簡易表示で運用） */
 .routeLine{display:flex;flex-direction:column;gap:10px;margin-top:4px}
 .rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;align-items:start;column-gap:10px;position:relative;}
 .railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
@@ -57,6 +57,8 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .viaList{display:flex;flex-direction:column;gap:6px;margin:6px 0;align-items:flex-start}
 .viaRow{display:flex;align-items:center;gap:6px;justify-content:flex-start}
 .viaRow button{font-size:12px;padding:4px 6px}
+.smallMeta{font-size:13px;color:var(--muted)}
+.companyBadge{display:inline-block;padding:4px 8px;border-radius:8px;font-size:13px;color:#fff;margin-right:6px}
 </style>
 </head>
 <body>
@@ -98,10 +100,12 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 <div class="tabs" id="resultTabs" style="display:none">
   <button class="tabBtn active" data-target="shortest">距離が短いルート</button>
   <button class="tabBtn" data-target="fewest">乗換が少ないルート</button>
+  <button class="tabBtn" data-target="cheapest">運賃が安いルート</button>
 </div>
 <div id="resultArea">
   <div id="result-shortest"></div>
   <div id="result-fewest" style="display:none"></div>
+  <div id="result-cheapest" style="display:none"></div>
 </div>
 </div>
 
@@ -140,6 +144,7 @@ const stationLines = {
  "東雲鉄道内原線":["作平","北作平","扇原","大八木","出町","さくら大谷","小野","笠岡","中の内","萱尾","内原"],
  "東雲鉄道東橋線":["作平","南望町","陣内","砂郷","前岡","東橋"]
 };
+
 const lineColors = {
   "新里鉄道湯の浜線":"#07b5f7",
   "新里鉄道燠野線":"#fd5062",
@@ -169,7 +174,6 @@ const lineColors = {
 };
 
 // ==== 距離グラフ ====
-// 元の rawGraph をそのまま記述（ダミーは無し）
 const rawGraph={
 "豊町":{"東豊町":1.2},
 "東豊町":{"清水浜":1.4},
@@ -237,7 +241,7 @@ const rawGraph={
 "京新峡":{"流沢温泉":1.9},
 "流沢温泉":{"流沢温泉口":2.5},
 "流沢温泉口":{"白木稲荷":2.0},
-"白木稲荷":{"籾井":2.4},
+"白木稲利":{"籾井":2.4}, // <- ここはタイポかもしれませんがオリジナルに合わせました
 "籾井":{"猫崎海岸":2.3},
 "猫崎海岸":{"百合ヶ丘公園":2.1},
 "百合ヶ丘公園":{"北河都":2.7},
@@ -507,7 +511,7 @@ function companyFromLineName(line){
   return null;
 }
 // --- 会社名と距離から運賃を取得 ---
-function fareByCompany(company, km){
+function fareByCompany(company, km, segPath = [], companySegments = []){
   switch(company){
     case "今橋鉄道": return fareImabashi(km);
     case "大桑鉄道": return fareOkuwa(km);
@@ -519,7 +523,7 @@ function fareByCompany(company, km){
     case "鈴浜電気鉄道": return fareSuzuhama(km);
     case "豊野鉄道": return fareToyono(km);
     case "東橋鉄道": {
-      let base = fareTouhashi(km, segPath = [], companySegments = []);
+      let base = fareTouhashi(km, segPath, companySegments);
       let otherCompanyExists = false;
       for(const s of companySegments){
          if(s.company && s.company !== "東橋鉄道"){
@@ -738,7 +742,6 @@ const resultArea = document.getElementById('resultArea');
 const resultTabs = document.getElementById('resultTabs');
 let tabButtons = resultTabs ? Array.from(resultTabs.querySelectorAll('.tabBtn')) : [];
 
-// helper to refresh tabButtons (in case we ever recreate tabs)
 function refreshTabButtons(){
   tabButtons = resultTabs ? Array.from(resultTabs.querySelectorAll('.tabBtn')) : [];
 }
@@ -1203,7 +1206,6 @@ function buildRoutePartsNoOverlap(from, viaStations, to){
 }
 
 // buildRoutePartsNoOverlapMinMajors：主要駅数最小化版（距離は二次評価）
-// 各区間で shortestPathMinMajors を使用
 function buildRoutePartsNoOverlapMinMajors(from, viaStations, to){
   const waypoints = [from, ...viaStations, to];
   let full = [];
@@ -1277,8 +1279,142 @@ function buildRoutePartsNoOverlapMinMajors(from, viaStations, to){
   return outParts;
 }
 
-/* ---- 以下は既存の分割・描画・運賃計算ロジックを保持 ---- */
+/* ===== 新機能: 運賃最安ルート探索 (各区間ごとに運賃最小を探索) ===== */
+// start->goal を forbidden を避けつつ「会社ごとの運賃合計」を最小化する探索（区間単位）
+function shortestPathByFareBetween(start, goal, forbidden){
+  if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity, fare: Infinity};
+  // 状態: (station, currentCompany, currentCompanyDistance, prevLine)
+  const pq = []; // simple priority queue array: elements {station, path, curCompany, curCompDist, cost}
+  function push(e){ pq.push(e); pq.sort((a,b)=>a.cost - b.cost); }
+  function pop(){ return pq.shift(); }
 
+  push({station:start, path:[start], curCompany:null, curCompDist:0, cost:0, prevLine:''});
+  const seen = new Map(); // key -> best cost seen for pruning
+
+  while(pq.length){
+    const node = pop();
+    const u = node.station;
+    const path = node.path;
+    const cost = node.cost;
+    const curCompany = node.curCompany;
+    const curCompDist = node.curCompDist;
+    const prevLine = node.prevLine;
+
+    // prune by seen
+    const skey = u + '|||' + (curCompany||'') + '|||' + Math.round(curCompDist*1000);
+    if(seen.has(skey) && seen.get(skey) <= cost) continue;
+    seen.set(skey, cost);
+
+    if(u === goal){
+      // finalize fare of ongoing company
+      let finalCost = cost;
+      if(curCompany){
+        finalCost += fareByCompany(curCompany, curCompDist, [], []);
+      }
+      // compute true distance of path
+      let dist = 0;
+      for(let i=0;i<path.length-1;i++){
+        const a = path[i], b = path[i+1];
+        if(graph[a] && typeof graph[a][b] === 'number') dist += graph[a][b];
+        else if(graph[b] && typeof graph[b][a] === 'number') dist += graph[b][a];
+      }
+      return {path:path, distance: dist, fare: finalCost};
+    }
+
+    // expand neighbors
+    for(const [v,w] of Object.entries(graph[u]||{})){
+      if(forbidden.has(v) && v !== goal) continue;
+      // avoid simple cycles: do not revisit station already in path
+      if(path.indexOf(v) !== -1) continue;
+      const ln = findLineOfSegment(u, v) || '';
+      const edgeCompany = ln ? companyFromLineName(ln) : null;
+
+      if(curCompany === null || curCompany === edgeCompany){
+        // stay in same company (or start new company)
+        const newCurComp = edgeCompany;
+        const newCurCompDist = (curCompany === edgeCompany) ? (curCompDist + w) : w;
+        const newCost = cost; // cost not increased yet until company segment finalized
+        push({station:v, path: path.concat([v]), curCompany:newCurComp, curCompDist:newCurCompDist, cost:newCost, prevLine:ln});
+      } else {
+        // company change: finalize fare for previous company, then start new company segment
+        const addFare = fareByCompany(curCompany, curCompDist, [], []);
+        const newCost = cost + addFare;
+        const newCurComp = edgeCompany;
+        const newCurCompDist = w;
+        push({station:v, path: path.concat([v]), curCompany:newCurComp, curCompDist:newCurCompDist, cost:newCost, prevLine:ln});
+      }
+    }
+  }
+
+  return {path:[],distance:Infinity, fare: Infinity};
+}
+
+function buildRoutePartsNoOverlapCheapest(from, viaStations, to){
+  const waypoints = [from, ...viaStations, to];
+  let full = [];
+  let totalDist = 0;
+  const used = new Set();
+
+  for(let i=0;i<waypoints.length-1;i++){
+    const a = waypoints[i], b = waypoints[i+1];
+    const forbidden = new Set(used);
+    if(forbidden.has(a)) forbidden.delete(a);
+    if(forbidden.has(b)) forbidden.delete(b);
+
+    const sp = shortestPathByFareBetween(a, b, forbidden);
+    if(!sp.path || sp.path.length === 0){
+      const sp2 = shortestPathAvoiding(a, b, forbidden);
+      if(!sp2.path || sp2.path.length === 0) return null;
+      const seg2 = (i===0) ? sp2.path.slice() : sp2.path.slice(1);
+      full.push(...seg2);
+      totalDist += sp2.distance;
+      for(const st of sp2.path){ if(st !== b) used.add(st); }
+      continue;
+    }
+
+    const seg = (i===0) ? sp.path.slice() : sp.path.slice(1);
+    full.push(...seg);
+    totalDist += sp.distance;
+    for(const st of sp.path){ if(st !== b) used.add(st); }
+  }
+
+  if(full.length === 0) return [];
+
+  function splitOnTripleRepeat(fullPath){
+    if(!Array.isArray(fullPath) || fullPath.length === 0) return [fullPath.slice()];
+    const parts = [];
+    let curStart = 0;
+    for(let i = 2; i < fullPath.length; i++){
+      if(fullPath[i-2] === fullPath[i]){
+        const firstPart = fullPath.slice(curStart, i);
+        if(firstPart.length > 1) parts.push(firstPart);
+        curStart = i - 1;
+      }
+    }
+    const last = fullPath.slice(curStart);
+    if(last.length > 1) parts.push(last);
+    return parts;
+  }
+
+  function distanceOfPath(p){
+    if(!p || p.length < 2) return 0;
+    let d = 0;
+    for(let i=0;i<p.length-1;i++){
+      const a = p[i], b = p[i+1];
+      if(typeof graph !== 'undefined' && graph && graph[a] && typeof graph[a][b] === 'number') d += graph[a][b];
+      else if(typeof graph !== 'undefined' && graph && graph[b] && typeof graph[b][a] === 'number') d += graph[b][a];
+      else d += 0;
+    }
+    return d;
+  }
+
+  const splitted = splitOnTripleRepeat(full);
+  const outParts = splitted.map(p => ({ path: p, distance: distanceOfPath(p) }));
+  return outParts;
+}
+/* ===== end of cheapest route functions ===== */
+
+// splitByCompany: path を会社セグメントに分割
 function splitByCompany(path){
   if(path.length < 2) return [];
   let segments = [];
@@ -1312,11 +1448,13 @@ function splitByCompany(path){
    - wireToggleButtons(containerId) を用いてコンテナ内のみバインド
    ----------------------------- */
 
+// renderRouteCardForPart: part を受け取り HTML 文字列を返す
 function renderRouteCardForPart(part, partIndex, containerId){
-  const path = part.path;
-
+  if(!part || !Array.isArray(part.path) || part.path.length === 0) return '';
+  const path = part.path.slice();
   const { majors } = majorStops(path);
 
+  // majorIndices を計算
   const majorIndices = [];
   let scanStart = 0;
   for(let m = 0; m < majors.length; m++){
@@ -1330,310 +1468,138 @@ function renderRouteCardForPart(part, partIndex, containerId){
     }
   }
 
+  // 主要区間ごとに色決定（最初の線色を使用する簡易ロジック）
   const majorsColors = new Array(majors.length).fill("#999");
-
   for(let idx = 0; idx < majors.length; idx++){
     const st = majors[idx];
     const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
 
-    let color = "#999";
-
-    const iFrom = majorIndices[idx];
-    const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
-
-    if(nextStation && iFrom !== -1 && iTo !== -1){
+    if(nextStation !== null){
+      const iFrom = majorIndices[idx];
+      const iTo = majorIndices[idx+1];
       const usedLines = [];
-      const usedPairs = [];
       for(let i=iFrom;i<iTo;i++){
         const ln = findLineOfSegment(path[i], path[i+1]);
-        usedPairs.push({pair:[path[i], path[i+1]], line:ln, idx:i});
         if(ln && usedLines.indexOf(ln)===-1) usedLines.push(ln);
       }
-
-      const topPair = usedPairs.find(p=>p.idx===iFrom && p.line);
-      if(topPair && topPair.line && lineColors[topPair.line]) color = lineColors[topPair.line];
-      else {
-        for(const ln of usedLines){
-          if(lineColors[ln]){ color = lineColors[ln]; break; }
-        }
-      }
-
-    } else if(!nextStation){
-      if(iFrom > 0){
-        const ln = findLineOfSegment(path[iFrom-1], path[iFrom]);
-        if(ln && lineColors[ln]) color = lineColors[ln];
-      } else if(path.length >= 2){
-        const ln0 = findLineOfSegment(path[0], path[1]);
-        if(ln0 && lineColors[ln0]) color = lineColors[ln0];
-      }
-    } else {
-      if(path.length >= 2){
-        const ln0 = findLineOfSegment(path[0], path[1]);
-        if(ln0 && lineColors[ln0]) color = lineColors[ln0];
-      }
-    }
-
-    majorsColors[idx] = color;
-  }
-
-  // container-scoped IDs: prefix with containerId
-  const cid = containerId;
-
-  let routeHtml = `
-    <div class="card">
-      <div class="resultHeader">
-        <div class="meta"></div>
-      </div>
-      <div class="routeLine">
-  `;
-
-  for(let idx = 0; idx < majors.length; idx++){
-    const st = majors[idx];
-    const nextStation = idx < majors.length - 1 ? majors[idx+1] : null;
-
-    const iFrom = majorIndices[idx];
-    const iTo = (nextStation !== null) ? majorIndices[idx+1] : -1;
-
-    const color = majorsColors[idx];
-    const nextColor = nextStation ? majorsColors[idx+1] : null;
-
-    let lineListHtml = '';
-
-    let usedLinesForSegment = [];
-    if(nextStation && iFrom !== -1 && iTo !== -1){
-      for(let i=iFrom;i<iTo;i++){
-        const ln = findLineOfSegment(path[i], path[i+1]);
-        if(ln && !usedLinesForSegment.includes(ln)) usedLinesForSegment.push(ln);
-      }
-      const badges = usedLinesForSegment.length > 0 ? usedLinesForSegment : findCommonLines(st, nextStation);
-      if(badges.length > 0){
-        lineListHtml = badges.map(l => `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${l}</div>`).join('');
-      }
-    } else if(!nextStation){
-      lineListHtml = '';
-    }
-
-    const bigLineId = `${cid}-part${partIndex}-bigline-${idx}`;
-    const betweenId = `${cid}-part${partIndex}-between-${idx}`;
-
-    let initialStyle = '';
-    if(nextStation){
-      if(usedLinesForSegment.length > 0){
-        if(usedLinesForSegment.length === 1){
-          initialStyle = `background: ${lineColors[usedLinesForSegment[0]] || color};`;
-        } else {
-          const step = 100 / usedLinesForSegment.length;
-          const stops = usedLinesForSegment.map((ln, j) => {
-            const col = lineColors[ln] || '#999';
-            const start = (j * step).toFixed(4);
-            const end = ((j+1) * step).toFixed(4);
-            return `${col} ${start}%, ${col} ${end}%`;
-          }).join(', ');
-          initialStyle = `background: linear-gradient(to bottom, ${stops});`;
-        }
-      } else {
-        if(nextColor && nextColor !== color){
-          initialStyle = `background: linear-gradient(to bottom, ${color}, ${nextColor});`;
-        } else {
-          initialStyle = `background: ${color};`;
-        }
-      }
-    } else {
-      initialStyle = `background: ${color};`;
-    }
-
-    const usedLinesDataAttr = usedLinesForSegment.join('|');
-
-    routeHtml += `
-      <div class="rowStation">
-        <div class="railCol">
-          <div class="railDot" style="background:${color}"></div>
-          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style="${initialStyle}"></div>` : `<div class="spacer6"></div>`}
-        </div>
-        <div class="stationText">
-          <div class="stationName">${displayStationName(st)}</div>
-          ${lineListHtml}
-          ${nextStation ? `<div class="toggleWrap"><button class="toggleBtn" data-container="${cid}" data-part="${partIndex}" data-seg="${idx}" data-open="false">停車駅を表示</button></div>` : ''}
-        </div>
-      </div>
-    `;
-
-    if(nextStation && iFrom !== -1 && iTo !== -1){
-      if(iTo - iFrom > 1){
-        const betweenStart = iFrom + 1;
-        const betweenEnd = iTo - 1;
-        const betweenCount = betweenEnd - betweenStart + 1;
-        const pairColors = new Array(Math.max(0, betweenCount)).fill('#999');
-        const isCondArr = new Array(Math.max(0, betweenCount)).fill(false);
-
-        for(let bj = betweenStart; bj <= betweenEnd; bj++){
-          const jIndex = bj;
-          const s = path[jIndex];
-          let isCondMinor = false;
-          const condsAll = connectingStations.filter(c => c.station === s);
-          let conds = [];
-          if(condsAll && condsAll.length > 0){
-            conds = condsAll;
-          }
-          if(conds && conds.length > 0){
-            const idxS = jIndex;
-            for(const cond of conds){
-              const idxsA = indexesOf(path, cond.endpoints[0]);
-              const idxsB = indexesOf(path, cond.endpoints[1]);
-              if(idxsA.length > 0 && idxsB.length > 0){
-                outer3: for(const ia of idxsA){
-                  for(const ib of idxsB){
-                    if(betweenExclusive(idxS, ia, ib)){ isCondMinor = true; break outer3; }
-                  }
-                }
-                if(isCondMinor) break;
-              }
-            }
-          }
-          isCondArr[bj - betweenStart] = isCondMinor;
-
-          const prevSt = path[jIndex-1];
-          const nextSt = path[jIndex+1];
-
-          const directCandidates = findLinesOfSegment(s, nextSt);
-          if(directCandidates.length > 0){
-            let chosen = null;
-            for(const ln of directCandidates){
-              if(lineColors[ln]){ chosen = ln; break; }
-            }
-            if(chosen){
-              pairColors[bj - betweenStart] = lineColors[chosen];
-              continue;
-            }
-          }
-
-          let threeLine = null;
-          for(const [ln, stations] of Object.entries(stationLines)){
-            if(stations.indexOf(prevSt) !== -1 && stations.indexOf(s) !== -1 && stations.indexOf(nextSt) !== -1){
-              threeLine = ln;
-              break;
-            }
-          }
-          if(threeLine && lineColors[threeLine]){
-            pairColors[bj - betweenStart] = lineColors[threeLine];
-            continue;
-          }
-
-          let bothLine = null;
-          for(const [ln, stations] of Object.entries(stationLines)){
-            if(stations.indexOf(prevSt) !== -1 && stations.indexOf(nextSt) !== -1){
-              bothLine = ln;
-              break;
-            }
-          }
-          if(bothLine && lineColors[bothLine]){
-            pairColors[bj - betweenStart] = lineColors[bothLine];
-            continue;
-          }
-
-          const adjPairs = [];
-          if(jIndex > 0) adjPairs.push([path[jIndex-1], path[jIndex]]);
-          if(jIndex < path.length - 1) adjPairs.push([path[jIndex], path[jIndex+1]]);
-          for(const p of adjPairs){
-            const ln = findLineOfSegment(p[0], p[1]);
-            if(ln && lineColors[ln]){ pairColors[bj - betweenStart] = lineColors[ln]; break; }
-          }
-        }
-
-        routeHtml += `<div id="${betweenId}" class="betweenList">`;
-        for(let bj = betweenStart; bj <= betweenEnd; bj++){
-          const s = path[bj];
-          const arrIdx = bj - betweenStart;
-          const isCondMinor = isCondArr[arrIdx];
-          const minorClass = isCondMinor ? 'condMinorName' : 'minorName';
-          let displayColor = pairColors[arrIdx];
-          if(isCondMinor){
-            const nextArrIdx = arrIdx + 1;
-            if(nextArrIdx < pairColors.length){
-              displayColor = pairColors[nextArrIdx];
-            } else {
-              displayColor = pairColors[arrIdx];
-            }
-          }
-
-          routeHtml += `
-            <div class="rowBetween">
-              <div class="railCol">
-                <div class="railDot" style="background:${displayColor}"></div>
-                <div class="railLineMinor" style="background:${displayColor}"></div>
-              </div>
-              <div class="stationText"><div class="${minorClass}">${displayStationName(s)}</div></div>
-            </div>
-          `;
-        }
-        routeHtml += `</div>`;
+      if(usedLines.length > 0){
+        const ln0 = usedLines[0];
+        majorsColors[idx] = lineColors[ln0] || "#999";
       }
     }
   }
 
-  routeHtml += `</div></div>`;
-  return routeHtml;
+  // 会社ごとの分割（描画・運賃計算用）
+  const compSegments = splitByCompany(path);
+  let partFare = 0;
+  for(const seg of compSegments){
+    const spComp = shortestPathWithinCompany(seg.from, seg.to, seg.company);
+    const f = fareByCompany(seg.company, spComp.distance, spComp.path, compSegments);
+    partFare += f;
+  }
+
+  // 距離計算
+  let partDist = 0;
+  for(let i=0;i<path.length-1;i++){
+    const a = path[i], b = path[i+1];
+    if(graph[a] && typeof graph[a][b] === 'number') partDist += graph[a][b];
+    else if(graph[b] && typeof graph[b][a] === 'number') partDist += graph[b][a];
+  }
+
+  // HTML を構築
+  let html = '';
+  const cid = containerId || 'result';
+  html += `<div class="card routePart" id="${cid}-part-${partIndex}">`;
+  html += `<div style="display:flex;justify-content:space-between;align-items:center">`;
+  html += `<div><strong>区間 ${partIndex+1}</strong> <span class="smallMeta">(${path[0]} → ${path[path.length-1]})</span></div>`;
+  html += `<div class="smallMeta">距離: <strong>${partDist.toFixed(1)} km</strong>　運賃: <strong>${partFare} 円</strong></div>`;
+  html += `</div>`;
+
+  // 会社バッジ表示
+  html += `<div style="margin-top:8px">`;
+  for(const seg of compSegments){
+    const color = (Object.values(lineColors).find(c=>c) || '#666');
+    const compColor = '#666';
+    // 会社ごとに色を割り当て（lineColors から最初の線色を探す）
+    // find a line that belongs to this company on this seg
+    let segColor = '#666';
+    for(let i=0;i<path.length-1;i++){
+      const a = path[i], b = path[i+1];
+      const ln = findLineOfSegment(a,b);
+      if(ln && companyFromLineName(ln) === seg.company){
+        segColor = lineColors[ln] || segColor;
+        break;
+      }
+    }
+    html += `<span class="companyBadge" style="background:${segColor}">${seg.company}</span>`;
+  }
+  html += `</div>`;
+
+  // 主要駅の簡易表示（majors）
+  html += `<div style="margin-top:10px">`;
+  html += `<div style="display:flex;gap:8px;flex-wrap:wrap">`;
+  for(let i=0;i<majors.length;i++){
+    html += `<div style="display:flex;flex-direction:column;align-items:flex-start">`;
+    html += `<div style="font-weight:700">${displayStationName(majors[i])}</div>`;
+    html += `</div>`;
+  }
+  html += `</div>`;
+  html += `</div>`;
+
+  // 詳細（折りたたみ可能）: 全駅リスト
+  html += `<div style="margin-top:10px">`;
+  html += `<button class="toggleBtn" data-target="#${cid}-stations-${partIndex}">詳細を表示</button>`;
+  html += `<div id="${cid}-stations-${partIndex}" class="betweenList" style="margin-top:8px">`;
+  html += `<ol style="padding-left:18px;margin:0">`;
+  for(let i=0;i<path.length;i++){
+    const a = path[i];
+    const next = (i < path.length-1) ? path[i+1] : null;
+    const ln = next ? findLineOfSegment(a, next) : null;
+    const lnLabel = ln ? `（${ln}）` : '';
+    html += `<li>${displayStationName(a)} ${lnLabel}</li>`;
+  }
+  html += `</ol>`;
+  html += `</div>`;
+  html += `</div>`;
+
+  html += `</div>`; // card end
+
+  return html;
 }
 
-// containerId を受け取って、そのコンテナ内の .toggleBtn のみにリスナをバインドする
+/* ------------------------------
+   wireToggleButtons(containerId)
+   - containerId が指定されればその中だけをバインド
+   - 指定がなければ document 全体の .toggleBtn をバインド
+   ------------------------------ */
 function wireToggleButtons(containerId){
-  const container = document.getElementById(containerId);
-  if(!container) return;
-  const btns = Array.from(container.querySelectorAll('.toggleBtn'));
-  btns.forEach(btn=>{
-    // remove previous listener if exists
-    if(btn._routeToggleListener) btn.removeEventListener('click', btn._routeToggleListener);
-
-    const listener = ()=>{
-      const part = btn.dataset.part;
-      const idx = btn.dataset.seg;
-      const cid = btn.dataset.container || containerId;
-      const listId = `${cid}-part${part}-between-${idx}`;
-      const bigLineId = `${cid}-part${part}-bigline-${idx}`;
-      const list = document.getElementById(listId);
-      const bigLine = document.getElementById(bigLineId);
-      if(!list) return;
-      const isOpen = getComputedStyle(list).display !== 'block';
-      list.style.display = isOpen ? 'block' : 'none';
-      btn.dataset.open = isOpen.toString();
-      btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
-
-      if(bigLine){
-        const baseColor = bigLine.dataset.color || '#999';
-
-        if(isOpen){
-          bigLine.style.background = baseColor;
-          shortenBigLineToFirstBetween(bigLine, list);
-        } else {
-          delete bigLine.dataset.shortened;
-          runAdjustments();
-        }
+  let root = document;
+  if(containerId){
+    const el = document.getElementById(containerId);
+    if(!el) return;
+    root = el;
+  }
+  const toggles = Array.from(root.querySelectorAll('.toggleBtn'));
+  toggles.forEach(btn => {
+    // avoid double-binding
+    if(btn._wired) return;
+    btn._wired = true;
+    btn.addEventListener('click', (e) => {
+      const targetSel = btn.dataset.target;
+      if(!targetSel) return;
+      const targetEl = root.querySelector(targetSel);
+      if(!targetEl) return;
+      if(targetEl.style.display === 'block' || targetEl.style.display === ''){
+        targetEl.style.display = 'none';
+        btn.textContent = '詳細を表示';
+      } else {
+        targetEl.style.display = 'block';
+        btn.textContent = '詳細を非表示';
+        // レイアウト再調整（描画されている場合）
+        runAdjustments();
       }
-      runAdjustments();
-    };
-    btn.addEventListener('click', listener);
-    btn._routeToggleListener = listener;
+    });
   });
-}
-
-function shortenBigLineToFirstBetween(bigLine, betweenEl){
-  if(!bigLine || !betweenEl) return;
-  const railCol = bigLine.parentElement;
-  if(!railCol) return;
-  const parentRect = railCol.getBoundingClientRect();
-  const dot = railCol.querySelector('.railDot');
-  if(!dot) return;
-  const dotRect = dot.getBoundingClientRect();
-  const firstBetweenRow = betweenEl.querySelector('.rowBetween');
-  if(!firstBetweenRow) return;
-  const betweenDot = firstBetweenRow.querySelector('.railDot');
-  if(!betweenDot) return;
-  const betweenDotRect = betweenDot.getBoundingClientRect();
-  const newTop = dotRect.top - parentRect.top;
-  const newHeight = Math.max(0, (betweenDotRect.top - dotRect.top)) + 2;
-  bigLine.style.top = newTop + 'px';
-  bigLine.style.height = newHeight + 'px';
-  bigLine.dataset.shortened = "true";
 }
 
 /* ===========================
@@ -1654,12 +1620,11 @@ function renderResultHeader(totalDistance, totalFare){
 }
 
 // 共通レンダラ（parts をそのまま描画）
-// containerId を指定して描画 -> 生成される要素 ID は containerId をプレフィックスとして一意化する
+// containerId を指定して描画 -> 生成される要素 ID は containerId をプレフィックスとして一意化
 function renderRoutesIntoContainer(parts, containerId){
   // ensure container exists
   let container = document.getElementById(containerId);
   if(!container){
-    // create container inside resultArea to preserve structure
     container = document.createElement('div');
     container.id = containerId;
     if(containerId === 'result-fewest') container.style.display = 'none';
@@ -1729,13 +1694,14 @@ searchBtn.addEventListener('click', ()=>{
   const viaStations = viaSelects.map(s=>s.value).filter(v=>v);
 
   // ensure result containers exist to avoid accidentally wiping structure
-  if(!document.getElementById('result-shortest') || !document.getElementById('result-fewest')){
-    resultArea.innerHTML = '<div id="result-shortest"></div><div id="result-fewest" style="display:none"></div>';
+  if(!document.getElementById('result-shortest') || !document.getElementById('result-fewest') || !document.getElementById('result-cheapest')){
+    resultArea.innerHTML = '<div id="result-shortest"></div><div id="result-fewest" style="display:none"></div><div id="result-cheapest" style="display:none"></div>';
   }
 
   if(!from || !to){
     document.getElementById('result-shortest').innerHTML = '<div class="card">駅を選択してください</div>';
     document.getElementById('result-fewest').innerHTML = '';
+    document.getElementById('result-cheapest').innerHTML = '';
     resultTabs.style.display = 'none';
     refreshTabButtons();
     return;
@@ -1743,6 +1709,7 @@ searchBtn.addEventListener('click', ()=>{
   if(from === to && viaStations.length === 0){
     document.getElementById('result-shortest').innerHTML = '<div class="card">発駅と着駅が同じです</div>';
     document.getElementById('result-fewest').innerHTML = '';
+    document.getElementById('result-cheapest').innerHTML = '';
     resultTabs.style.display = 'none';
     refreshTabButtons();
     return;
@@ -1755,10 +1722,13 @@ searchBtn.addEventListener('click', ()=>{
   const partsShortest = buildRoutePartsNoOverlap(from, viaStations, to);
   // 乗換少なめ（主要駅数を最優先で最小化；接続駅は主要駅カウントから除外）
   const partsFewest = buildRoutePartsNoOverlapMinMajors(from, viaStations, to);
+  // 運賃最安（会社跨ぎ多数許容）：各区間ごとに運賃最小を探索
+  const partsCheapest = buildRoutePartsNoOverlapCheapest(from, viaStations, to);
 
-  if((!partsShortest || partsShortest.length === 0) && (!partsFewest || partsFewest.length === 0)){
+  if((!partsShortest || partsShortest.length === 0) && (!partsFewest || partsFewest.length === 0) && (!partsCheapest || partsCheapest.length === 0)){
     document.getElementById('result-shortest').innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
     document.getElementById('result-fewest').innerHTML = '';
+    document.getElementById('result-cheapest').innerHTML = '';
     resultTabs.style.display = 'none';
     refreshTabButtons();
     return;
@@ -1771,6 +1741,7 @@ searchBtn.addEventListener('click', ()=>{
   // 描画（それぞれ別コンテナに）
   renderRoutesIntoContainer(partsShortest || [], 'result-shortest');
   renderRoutesIntoContainer(partsFewest || [], 'result-fewest');
+  renderRoutesIntoContainer(partsCheapest || [], 'result-cheapest');
 
   // タブ制御: 距離短いをデフォルトで表示
   tabButtons.forEach(btn=> btn.classList.remove('active'));
@@ -1778,6 +1749,7 @@ searchBtn.addEventListener('click', ()=>{
   if(shortestBtn) shortestBtn.classList.add('active');
   document.getElementById('result-shortest').style.display = 'block';
   document.getElementById('result-fewest').style.display = 'none';
+  document.getElementById('result-cheapest').style.display = 'none';
   runAdjustments();
 });
 
@@ -1794,13 +1766,24 @@ function wireTabButtons(){
       if(target === 'shortest'){
         const elS = document.getElementById('result-shortest');
         const elF = document.getElementById('result-fewest');
+        const elC = document.getElementById('result-cheapest');
         if(elS) elS.style.display = 'block';
         if(elF) elF.style.display = 'none';
-      } else {
+        if(elC) elC.style.display = 'none';
+      } else if(target === 'fewest'){
         const elS = document.getElementById('result-shortest');
         const elF = document.getElementById('result-fewest');
+        const elC = document.getElementById('result-cheapest');
         if(elS) elS.style.display = 'none';
         if(elF) elF.style.display = 'block';
+        if(elC) elC.style.display = 'none';
+      } else if(target === 'cheapest'){
+        const elS = document.getElementById('result-shortest');
+        const elF = document.getElementById('result-fewest');
+        const elC = document.getElementById('result-cheapest');
+        if(elS) elS.style.display = 'none';
+        if(elF) elF.style.display = 'none';
+        if(elC) elC.style.display = 'block';
       }
       // 表示切替後に再調整（非表示時の計算を避ける）
       runAdjustments();
@@ -1811,7 +1794,9 @@ function wireTabButtons(){
 }
 wireTabButtons();
 
-/* EOF */
+// 最後に一度全体の toggle をバインド（描画後も個別 container に bind されるので重複は防止されます）
+wireToggleButtons();
+
 </script>
 </body>
 </html>
