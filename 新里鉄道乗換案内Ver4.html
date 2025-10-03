@@ -570,7 +570,7 @@ function shortestPathWithinCompany(start, goal, company){
 // ==== 途中駅扱いの「接続」定義 ====
 const connectingStations = [
   { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
-  { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
+  { station: "湯の浜", endpoints: [["新里","河岸","新里海浜公園","湯の浜海岸"],"新里大学前"] },
   { station: "彩山", endpoints: ["彩山親水公園","彩山口"] },
   { station: "桜川", endpoints: ["桜川公園","豊野月見台"] },
   { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
