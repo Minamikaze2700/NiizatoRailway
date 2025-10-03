@@ -452,8 +452,41 @@ function fareImabashi(km){
 }
 function fareSakuragawa(km){ return 0; }
 function fareSakuratsu(km){ return 0; }
-function fareOkuwa(km){ return 0; }
-function fareShinonome(km){ return 0; }
+function fareOkuwa(km){
+  if(km <= 3) return 150;
+  if(km <= 5) return 170;
+  if(km <= 9) return 210;
+  if(km <= 13) return 250;
+  if(km <= 18) return 300;
+  if(km <= 23) return 350;
+  if(km <= 28) return 400;
+  if(km <= 34) return 460;
+  if(km <= 40) return 520;
+  return 590;
+}
+function fareShinonome(km){
+  if(km <= 3) return 140;
+  if(km <= 6) return 160;
+  if(km <= 9) return 180;
+  if(km <= 12) return 200;
+  if(km <= 15) return 220;
+  if(km <= 18) return 240;
+  if(km <= 21) return 260;
+  if(km <= 24) return 280;
+  if(km <= 27) return 300;
+  if(km <= 30) return 320;
+  if(km <= 33) return 340;
+  if(km <= 36) return 360;
+  if(km <= 39) return 380;
+  if(km <= 42) return 400;
+  if(km <= 45) return 420;
+  if(km <= 48) return 440;
+  if(km <= 51) return 460;
+  if(km <= 54) return 480;
+  if(km <= 57) return 500;
+  if(km <= 60) return 520;
+  return 540;
+}
 function fareSakatsu(km){ return 0; }
 function fareSakatsuPortliner(km){ return 0; }
 function fareSuzuhama(km){
