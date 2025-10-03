@@ -98,6 +98,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 <div class="tabs" id="resultTabs" style="display:none">
   <button class="tabBtn active" data-target="shortest">距離が短いルート</button>
   <button class="tabBtn" data-target="fewest">乗換が少ないルート</button>
+  <button class="tabBtn" data-target="cheapest">運賃が安いルート</button>
 </div>
 <div id="resultArea">
   <div id="result-shortest"></div>
@@ -1297,7 +1298,138 @@ function buildRoutePartsNoOverlapMinMajors(from, viaStations, to){
   }
 
   if(full.length === 0) return [];
+/* =========================
+   追加: 運賃優先ルート（各区間を「その区間の運賃合計」で評価する簡易法）
+   - 既存の運賃計算関数（fareByCompany 等）はそのまま利用します（表示時の正確な総運賃計算は既存ロジックを通します）。
+   - 経路探索は各辺 (隣接駅) の距離をその辺を運行する会社の運賃関数に通して重み化した Dijkstra を使用します。
+   - グローバル割引（TOゾーン均一・企業セット割引など）は最終表示側で既存ロジックが適用するため、
+     探索段階では辺ごとの運賃合算を近似コストとして扱います（既存運賃ロジックは変更していません）。
+   ========================= */
 
+function shortestPathAvoidingByFare(start, goal, forbidden){
+  if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity};
+  const dist = {}, prev = {}, Q = new Set(allStations);
+  allStations.forEach(s=>{ dist[s] = Infinity; prev[s] = null; });
+  dist[start] = 0;
+
+  while(Q.size){
+    let u = null, best = Infinity;
+    for(const v of Q){
+      if(dist[v] < best){ u = v; best = dist[v]; }
+    }
+    if(u === null) break;
+    Q.delete(u);
+
+    if(forbidden.has(u) && u !== start && u !== goal) continue;
+    if(u === goal) break;
+
+    for(const [v,w] of Object.entries(graph[u]||{})){
+      if(forbidden.has(v) && v !== goal) continue;
+      const ln = findLineOfSegment(u, v) || '';
+      const comp = ln ? companyFromLineName(ln) : null;
+      // 辺の運賃を会社の運賃表に委ねる（距離 w を引数に）
+      let edgeFare;
+      if(comp){
+        edgeFare = fareByCompany(comp, w);
+      } else {
+        // 線種が不明なら大きめのコストを割当（探索の際には避ける傾向にするため）
+        edgeFare = 100000;
+      }
+      const alt = dist[u] + edgeFare;
+      if(alt < dist[v]){ dist[v] = alt; prev[v] = u; }
+    }
+  }
+
+  if(!isFinite(dist[goal])) return {path:[],distance:Infinity};
+  const path = []; for(let cur = goal; cur != null; cur = prev[cur]) path.unshift(cur);
+  // distance はここでは合計「辺単位の運賃近似合計」を返す（表示は既存ロジックで正確に算出）
+  return {path, distance: dist[goal]};
+}
+
+function buildRoutePartsNoOverlapCheapest(from, viaStations, to){
+  const waypoints = [from, ...viaStations, to];
+  let full = [];
+  let totalDist = 0;
+  const used = new Set();
+
+  for(let i=0;i<waypoints.length-1;i++){
+    const a = waypoints[i], b = waypoints[i+1];
+    const forbidden = new Set(used);
+    if(forbidden.has(a)) forbidden.delete(a);
+    if(forbidden.has(b)) forbidden.delete(b);
+
+    // まずは運賃重みで最短（最小運賃）を試みる
+    const sp = shortestPathAvoidingByFare(a, b, forbidden);
+    if(!sp.path || sp.path.length === 0){
+      // フォールバックは既存の距離優先探索
+      const sp2 = shortestPathAvoiding(a, b, forbidden);
+      if(!sp2.path || sp2.path.length === 0) {
+        const sp3 = shortestPath(a, b);
+        if(!sp3.path || sp3.path.length === 0) return null;
+        const seg3 = (i===0) ? sp3.path.slice() : sp3.path.slice(1);
+        full.push(...seg3);
+        totalDist += sp3.distance;
+        for(const st of sp3.path){ if(st !== b) used.add(st); }
+        continue;
+      } else {
+        const seg2 = (i===0) ? sp2.path.slice() : sp2.path.slice(1);
+        full.push(...seg2);
+        totalDist += sp2.distance;
+        for(const st of sp2.path){ if(st !== b) used.add(st); }
+        continue;
+      }
+    }
+
+    const seg = (i===0) ? sp.path.slice() : sp.path.slice(1);
+    full.push(...seg);
+    // totalDist は表示用（距離）。sp.distance は「運賃近似合計」なのでここでは距離を足す
+    // 距離は各辺 graph を使って求める
+    let segDist = 0;
+    for(let j=0;j<sp.path.length-1;j++){
+      const aa = sp.path[j], bb = sp.path[j+1];
+      if(graph[aa] && typeof graph[aa][bb] === 'number') segDist += graph[aa][bb];
+      else if(graph[bb] && typeof graph[bb][aa] === 'number') segDist += graph[bb][aa];
+    }
+    totalDist += segDist;
+
+    for(const st of sp.path){ if(st !== b) used.add(st); }
+  }
+
+  if(full.length === 0) return [];
+
+  // 既存の splitOnTripleRepeat と distanceOfPath を使って parts 化（そのまま）
+  function splitOnTripleRepeat(fullPath){
+    if(!Array.isArray(fullPath) || fullPath.length === 0) return [fullPath.slice()];
+    const parts = [];
+    let curStart = 0;
+    for(let i = 2; i < fullPath.length; i++){
+      if(fullPath[i-2] === fullPath[i]){
+        const firstPart = fullPath.slice(curStart, i);
+        if(firstPart.length > 1) parts.push(firstPart);
+        curStart = i - 1;
+      }
+    }
+    const last = fullPath.slice(curStart);
+    if(last.length > 1) parts.push(last);
+    return parts;
+  }
+
+  function distanceOfPath(p){
+    if(!p || p.length < 2) return 0;
+    let d = 0;
+    for(let i=0;i<p.length-1;i++){
+      const a = p[i], b = p[i+1];
+      if(typeof graph !== 'undefined' && graph && graph[a] && typeof graph[a][b] === 'number') d += graph[a][b];
+      else if(typeof graph !== 'undefined' && graph && graph[b] && typeof graph[b][a] === 'number') d += graph[b][a];
+      else d += 0;
+    }
+    return d;
+  }
+
+  const splitted = splitOnTripleRepeat(full);
+  const outParts = splitted.map(p => ({ path: p, distance: distanceOfPath(p) }));
+  return outParts;
+}
   function splitOnTripleRepeat(fullPath){
     if(!Array.isArray(fullPath) || fullPath.length === 0) return [fullPath.slice()];
     const parts = [];
@@ -1825,8 +1957,8 @@ searchBtn.addEventListener('click', ()=>{
   const viaStations = viaSelects.map(s=>s.value).filter(v=>v);
 
   // ensure result containers exist to avoid accidentally wiping structure
-  if(!document.getElementById('result-shortest') || !document.getElementById('result-fewest')){
-    resultArea.innerHTML = '<div id="result-shortest"></div><div id="result-fewest" style="display:none"></div>';
+  if(!document.getElementById('result-shortest') || !document.getElementById('result-fewest') || !document.getElementById('result-cheapest')){
+    resultArea.innerHTML = '<div id="result-shortest"></div><div id="result-fewest" style="display:none"></div><div id="result-cheapest" style="display:none"></div>';
   }
 
   if(!from || !to){
@@ -1867,7 +1999,8 @@ searchBtn.addEventListener('click', ()=>{
   // 描画（それぞれ別コンテナに）
   renderRoutesIntoContainer(partsShortest || [], 'result-shortest');
   renderRoutesIntoContainer(partsFewest || [], 'result-fewest');
-
+  renderRoutesIntoContainer(partsCheapest || [], 'result-cheapest');
+  const partsCheapest = buildRoutePartsNoOverlapCheapest(from, viaStations, to);
   // タブ制御: 距離短いをデフォルトで表示
   tabButtons.forEach(btn=> btn.classList.remove('active'));
   const shortestBtn = resultTabs.querySelector('[data-target="shortest"]');
