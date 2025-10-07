@@ -621,7 +621,12 @@ function fareNiizato(km){
   if(km<=50)return 510;
   return 580;
 }
-
+function fareSugaya(km){
+  return 0;
+}
+function fareKawato(km){
+  return 0;
+}
 // --- 路線名から会社名を判定 ---
 function companyFromLineName(line){
   if(!line) return null;
@@ -636,6 +641,8 @@ function companyFromLineName(line){
   if(line.startsWith("豊野鉄道")) return "豊野鉄道";
   if(line.startsWith("東橋鉄道")) return "東橋鉄道";
   if(line.startsWith("新里鉄道")) return "新里鉄道";
+  if(line.startsWith("菅谷高速鉄道")) return "菅谷高速鉄道";
+  if(line.startsWith("河都電気鉄道")) return "河都電気鉄道";
   return null;
 }
 // --- 会社名と距離から運賃を取得 ---
@@ -652,6 +659,8 @@ function fareByCompany(company, km){
     case "豊野鉄道": return fareToyono(km);
     case "東橋鉄道": return fareTouhashi(km);
     case "新里鉄道": return fareNiizato(km);
+    case "菅谷高速鉄道": return fareSugaya(km);
+    case "河都電気鉄道": return fareKawato(km);
     default: return 0;
   }
 }
