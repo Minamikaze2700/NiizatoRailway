@@ -1845,7 +1845,7 @@ function renderRoutesIntoContainer(parts, containerId){
   }
 
 
-  const eligibleCompanies = new Set(["新里鉄道","豊野鉄道","桜川電気鉄道"]);
+  const eligibleCompanies = new Set(["新里鉄道","豊野鉄道","桜川電気鉄道","大桑鉄道"]);
   const usedCompaniesSet = new Set(allCompanySegments.map(s => s.company).filter(Boolean));
   let applyDiscount = true;
   if(usedCompaniesSet.size === 0) applyDiscount = false;
