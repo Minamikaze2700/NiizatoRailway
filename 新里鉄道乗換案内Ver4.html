@@ -565,20 +565,6 @@ function fareShinonome(km){
   }
 function fareSakatsu(km){ return 0; }
 function fareSakatsuPortliner(km){ return 0; }
-function fareSuzuhama(km){
-  if(km <= 4) return 140;
-  if(km <= 6) return 160;
-  if(km <= 9) return 190;
-  if(km <= 12) return 210;
-  if(km <= 15) return 230;
-  if(km <= 19) return 230;
-  if(km <= 24) return 320;
-  if(km <= 30) return 360;
-  if(km <= 37) return 390;
-  if(km <= 44) return 410;
-  if(km <= 52) return 430;
-  return 450;
-}
 function fareToyono(km){
   if(km <= 2) return 140;
   if(km <= 4) return 150;
@@ -591,7 +577,7 @@ function fareToyono(km){
   if(km <= 30) return 400;
   return 450;
 }
-
+function fareTokogawa(km){ return 0; }
 function fareTouhashi(km){
   if(km <= 3) return 180;
   if(km <= 4) return 190;
@@ -635,9 +621,6 @@ function fareNiizato(km){
 function fareSugaya(km){
   return 0;
 }
-function fareKawato(km){
-  return 0;
-}
 // --- 路線名から会社名を判定 ---
 function companyFromLineName(line){
   if(!line) return null;
@@ -648,12 +631,11 @@ function companyFromLineName(line){
   if(line.startsWith("桜津開発鉄道")) return "桜津開発鉄道";
   if(line.startsWith("坂津電鉄")) return "坂津電鉄";
   if(line.startsWith("坂津ポートライナー")) return "坂津ポートライナー";
-  if(line.startsWith("鈴浜電気鉄道")) return "鈴浜電気鉄道";
   if(line.startsWith("豊野鉄道")) return "豊野鉄道";
   if(line.startsWith("東橋鉄道")) return "東橋鉄道";
   if(line.startsWith("新里鉄道")) return "新里鉄道";
   if(line.startsWith("菅谷高速鉄道")) return "菅谷高速鉄道";
-  if(line.startsWith("河都電気鉄道")) return "河都電気鉄道";
+  if(line.startsWith("床川急行電鉄")) return "床川急行電鉄";
   return null;
 }
 // --- 会社名と距離から運賃を取得 ---
@@ -666,12 +648,11 @@ function fareByCompany(company, km){
     case "桜津開発鉄道": return fareSakuratsu(km);
     case "坂津電鉄": return fareSakatsu(km);
     case "坂津ポートライナー": return fareSakatsuPortliner(km);
-    case "鈴浜電気鉄道": return fareSuzuhama(km);
     case "豊野鉄道": return fareToyono(km);
     case "東橋鉄道": return fareTouhashi(km);
     case "新里鉄道": return fareNiizato(km);
     case "菅谷高速鉄道": return fareSugaya(km);
-    case "河都電気鉄道": return fareKawato(km);
+    case "床川急行電鉄": return fareTokogawa(km);
     default: return 0;
   }
 }
