@@ -544,7 +544,10 @@ function fareOkuwa(km){
   if(km <= 28) return 400;
   if(km <= 34) return 460;
   if(km <= 40) return 520;
-  return 590;
+  if(km <= 47) return 590;
+  if(km <= 54) return 660;
+  if(km <= 62) return 740;
+  return 820;
 }
 function fareShinonome(km){
   if(km <= 3) return 140;
