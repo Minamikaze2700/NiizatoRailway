@@ -500,7 +500,7 @@ const rawGraph={
 "結原":{"りんくう桜川":2.0}
 };
 
-const railway = ["千鳥鉄道","坂津電鉄","新里鉄道","桜川電気鉄道","床川急行電鉄","豊野鉄道","今橋鉄道","東橋鉄道","坂津ポートライナー","東雲鉄道","菅谷高速鉄道"];
+
 // --- ユーティリティ ---
 function buildGraphBidirectional(raw){
   const g = {};
@@ -1089,9 +1089,7 @@ function adjustMajorLines(){
     const railCol = row.querySelector('.railCol');
     if(!railCol) return;
     const dot = railCol.querySelector('.railDot');
-    if (railway.includes(data-usedlines)) {
     const line = railCol.querySelector('.railLineMajor');
-    }
     if (!dot || !line) return;
     if(line.dataset && line.dataset.shortened === 'true'){ return; }
     const nextRow = rows.slice(idx + 1).find(r => r.querySelector('.railDot') && r.offsetParent);
@@ -1111,9 +1109,7 @@ function adjustMajorLines(){
     const railCol = r.querySelector('.railCol');
     if(!railCol) return;
     const dot = r.querySelector('.railDot');
-    if (railway.includes(data-usedlines)) {
     const minorLine = r.querySelector('.railLineMinor');
-    }
     if(!dot || !minorLine) return;
     const parentRect = railCol.getBoundingClientRect();
     const dotRect = dot.getBoundingClientRect();
