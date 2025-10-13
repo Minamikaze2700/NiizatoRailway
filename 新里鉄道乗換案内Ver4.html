@@ -37,10 +37,22 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .routeLine{display:flex;flex-direction:column;gap:10px;margin-top:4px}
 .rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;align-items:start;column-gap:10px;position:relative;}
 .railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
-.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:2;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;}
+.railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:3;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;}
 .rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:2;}
 .railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:100px;height:0;background:#999;}
+
 .railLineMinor{width:var(--lineWMinor);border-radius:1px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:100px;height:0;background:#999;}
+/* バス用の白いオーバーレイ（線の中央に1pxの白線を乗せる。ドットの上は空けるため、JSで高さを調整します） */
+.busOverlay{
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  width:1px;
+  background:#fff;
+  z-index:2;
+  pointer-events:none;
+}
+
 .stationText{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
 .stationName{font-weight:700;font-size:16px;line-height:1.25;margin:0}
 .lineBadge{display:inline-block;color:#fff;font-size:13.5px;line-height:1;padding:2px 6px;border-radius:6px;margin-top:6px;white-space:nowrap;margin-right:6px}
@@ -145,7 +157,8 @@ const stationLines = {
  "桜津開発鉄道線":["岩川崎","南春原","元島","西萩","神庄","萩川","守辻","南風野","東橋"],
  "東雲鉄道東雲本線":["大道寺","松木","南綾山","桜陽台","出庭","小木橋","布井","井畔","北條","佐山","福寺","旭口","増林","田井島","飯野","鵜木","東雲","北東雲","大岡浜","上宿","下宿","驫木","朝治","尾野見","前芝","後芝","上代","東津村","古川大橋","下甲","谷山","秋郷","作平"],
  "東雲鉄道内原線":["作平","北作平","扇原","大八木","出町","さくら大谷","小野","笠岡","中の内","萱尾","内原"],
- "東雲鉄道東橋線":["作平","南望町","陣内","砂郷","前岡","南東橋","東橋"]
+ "東雲鉄道東橋線":["作平","南望町","陣内","砂郷","前岡","南東橋","東橋"],
+ "徒歩乗換": ["宮間","栃戸橋","園木","新園木","綾山","新綾山","豊川","豊川大野"],
 };
 const lineColors = {
   "新里鉄道湯の浜線":"#07b5f7",
@@ -182,8 +195,14 @@ const lineColors = {
   "新里鉄道津村線":"#faa400"
 };
 
-// ==== 距離グラフ ====
-// 元の rawGraph をそのまま記述（ダミーは無し）
+const railwayCompanyList = [
+  "新里鉄道","大桑鉄道","桜川電気鉄道","豊野鉄道","今橋鉄道","東雲鉄道",
+  "東橋鉄道","床川急行電鉄","坂津電鉄","桜津開発鉄道","菅谷高速鉄道","千鳥鉄道",
+  "坂津ポートライナー"
+];
+const busCompanyList = [""];
+
+
 const rawGraph={
 "豊町":{"東豊町":1.2},
 "東豊町":{"清水浜":1.4},
@@ -344,8 +363,8 @@ const rawGraph={
 "大木沢":{"園木":3.4},
 "園木":{"新東園木":2.1,"富士町":1.4},
 "新東園木":{"綾山":5.1},
-"綾山":{"豊川大野":4.2},
-"豊川大野":{"垂生崎":3.9},
+"綾山":{"豊川大野":4.2,"新綾山":0.4},
+"豊川大野":{"垂生崎":3.9,"豊川":0.35},
 "垂生崎":{"南豊川":6.0},
 "南豊川":{"幕ヶ原":4.7},
 "幕ヶ原":{"咲田口":5.0},
@@ -461,8 +480,8 @@ const rawGraph={
 "畠山":{"真沢":1.1},
 "真沢":{"みなと西町":1.3},
 "みなと西町":{"床川港":1.0},
-"栃戸橋":{"新園木":0.9},
-"新園木":{"西園木":1.1},
+"栃戸橋":{"新園木":0.9,"宮間":0.47},
+"新園木":{"西園木":1.1,"園木":0.225},
 "西園木":{"克己ヶ丘":1.6},
 "克己ヶ丘":{"柴岡":1.7},
 "柴岡":{"新柴岡":1.7},
@@ -751,14 +770,7 @@ const connectingStations = [
 ];
 
 const specialMajorStations = [
-  "湯の浜", "鶴宮",
-  "港通",
-  "豊町",
-  "園木",
-  "桑畑",
-  "横宿",
-  "成津",
-  "りんくう桜川",
+  "湯の浜","鶴宮","港通","豊町","園木","桑畑","横宿","成津","りんくう桜川"
 ];
 
 function indexesOf(arr, value){
@@ -880,9 +892,12 @@ function refreshTabButtons(){
 }
 refreshTabButtons();
 
+
 function populateLineSelect(sel){
   sel.innerHTML = '';
   Object.keys(stationLines).forEach(l=>{
+    // 発駅・着駅のプルダウン（id が fromLine / toLine）には「徒歩乗換」を含めない
+    if((sel.id === 'fromLine' || sel.id === 'toLine') && l === '徒歩乗換') return;
     const o = document.createElement('option'); o.value = l; o.textContent = l; sel.appendChild(o);
   });
 }
@@ -1024,6 +1039,19 @@ addViaBtn.addEventListener('click', ()=>{
 // レイアウト補助（元ロジックを保持）
 function applyStripedGradientForBigLine(lineElem, dotRect, nextDotRect, parentRect){
   if(!lineElem) return;
+  // 徒歩乗換専用ストライプ処理
+  const usedLinesRawCheck = lineElem.dataset.usedlines || '';
+  if (usedLinesRawCheck.includes('徒歩乗換')) {
+    lineElem.style.background = `repeating-linear-gradient(
+      to bottom,
+      #aaa 0px,
+      #aaa 12px,
+      #fff 12px,
+      #fff 24px
+    )`;
+    return;
+  }
+  if(!lineElem) return;
   const baseColor = lineElem.dataset.color || '#999';
   const usedLinesRaw = lineElem.dataset.usedlines || '';
   const usedLinesArr = usedLinesRaw ? usedLinesRaw.split('|').filter(x=>x) : [];
@@ -1092,6 +1120,7 @@ function adjustMajorLines(){
     const line = railCol.querySelector('.railLineMajor');
     if (!dot || !line) return;
     if(line.dataset && line.dataset.shortened === 'true'){ return; }
+colorWalkTransferStartDots();
     const nextRow = rows.slice(idx + 1).find(r => r.querySelector('.railDot') && r.offsetParent);
     if (!nextRow) { line.style.height = '0px'; return; }
     const parentRect = railCol.getBoundingClientRect();
@@ -1102,6 +1131,19 @@ function adjustMajorLines(){
     const h = Math.max(0, (nextDotRect.top - dotRect.top)) + 5;
     line.style.height = h + 'px';
     applyStripedGradientForBigLine(line, dotRect, nextDotRect, parentRect);
+
+    // bus overlay: if this big line has an overlay element (rendered for bus lines), position it so it avoids the dot area
+    try{
+      const overlay = document.getElementById(line.id + '-overlay');
+      if(overlay){
+        overlay.style.width = '1px';
+        const topPx = Math.max(0, dotRect.bottom - parentRect.top);
+        const overlayHeight = Math.max(0, nextDotRect.top - dotRect.bottom);
+        overlay.style.top = topPx + 'px';
+        overlay.style.height = overlayHeight + 'px';
+      }
+    }catch(e){}
+    
   });
 
   document.querySelectorAll('.rowBetween').forEach(r => {
@@ -1115,6 +1157,18 @@ function adjustMajorLines(){
     const dotRect = dot.getBoundingClientRect();
     minorLine.style.top = (dotRect.top - parentRect.top) + 'px';
     minorLine.style.height = '48px';
+    // bus overlay for minor lines (between-list)
+    try{
+      const overlay = r.querySelector('.busOverlay');
+      if(overlay){
+        const dotRect2 = dot.getBoundingClientRect();
+        const topPx2 = Math.max(0, dotRect2.bottom - parentRect.top);
+        const overlayH2 = Math.max(0, parseFloat(minorLine.style.height) - (dotRect2.bottom - dotRect2.top));
+        overlay.style.top = topPx2 + 'px';
+        overlay.style.height = overlayH2 + 'px';
+        overlay.style.width = '1px';
+      }
+    }catch(e){}
   });
 }
 function runAdjustments(){ adjustMajorLines(); }
@@ -1487,14 +1541,27 @@ function renderRouteCardForPart(part, partIndex, containerId){
       }
 
       const topPair = usedPairs.find(p=>p.idx===iFrom && p.line);
-      if(topPair && topPair.line && lineColors[topPair.line]) color = lineColors[topPair.line];
-      else {
+      if(topPair && topPair.line){
+        const comp = companyFromLineName(topPair.line);
+        // 鉄道会社リストに完全一致するなら既存の lineColors を優先
+        if(railwayCompanyList.includes(comp)){
+          if(lineColors[topPair.line]) color = lineColors[topPair.line];
+        } else if(busCompanyList.includes(comp)){
+          // バス会社として描画（グレーを使う）
+          color = '#aaaaaa';
+        } else if(lineColors[topPair.line]){
+          color = lineColors[topPair.line];
+        }
+      } else {
+        // フォールバック: usedLines を順に確認して鉄道会社/バス会社の順で振り分ける
         for(const ln of usedLines){
+          const comp = companyFromLineName(ln);
+          if(railwayCompanyList.includes(comp) && lineColors[ln]){ color = lineColors[ln]; break; }
+          if(busCompanyList.includes(comp)){ color = '#aaaaaa'; break; }
           if(lineColors[ln]){ color = lineColors[ln]; break; }
         }
       }
-
-    } else if(!nextStation){
+} else if(!nextStation){
       if(iFrom > 0){
         const ln = findLineOfSegment(path[iFrom-1], path[iFrom]);
         if(ln && lineColors[ln]) color = lineColors[ln];
@@ -1579,17 +1646,31 @@ function renderRouteCardForPart(part, partIndex, containerId){
     }
 
     const usedLinesDataAttr = usedLinesForSegment.join('|');
+    const isWalkSegment = usedLinesForSegment && usedLinesForSegment.some(l=>/徒歩/.test(l));
+    let walkMeters = 0, walkMinutes = 0;
+    if(isWalkSegment){
+      for(let ii=iFrom; ii<iTo; ii++){
+        const a = path[ii], b = path[ii+1];
+        let d = 0;
+        if(graph[a] && typeof graph[a][b] === 'number') d = graph[a][b];
+        else if(graph[b] && typeof graph[b][a] === 'number') d = graph[b][a];
+        walkMeters += d * 1000;
+      }
+      walkMeters = Math.round(walkMeters);
+      walkMinutes = Math.ceil(walkMeters / 80) || 1;
+    }
+
 
     routeHtml += `
       <div class="rowStation">
         <div class="railCol">
           <div class="railDot" style="background:${color}"></div>
-          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style="${initialStyle}"></div>` : `<div class="spacer6"></div>`}
+          ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style="${initialStyle}"></div>${ (usedLinesForSegment && usedLinesForSegment.some(l=>/バス/.test(l))) ? `<div id="${bigLineId}-overlay" class="busOverlay"></div>` : '' }` : `<div class="spacer6"></div>`}
         </div>
         <div class="stationText">
           <div class="stationName">${displayStationName(st)}</div>
-          ${lineListHtml}
-          ${nextStation ? `<div class="toggleWrap"><button class="toggleBtn" data-container="${cid}" data-part="${partIndex}" data-seg="${idx}" data-open="false">停車駅を表示</button></div>` : ''}
+          ${ isWalkSegment ? '' : lineListHtml }
+          ${nextStation ? `${nextStation ? '<div class="toggleWrap">' + (isWalkSegment ? ('徒歩乗換 ' + walkMeters + 'm（所要時間約' + walkMinutes + '分）') : ('<button class="toggleBtn" data-container="' + cid + '" data-part="' + partIndex + '" data-seg="' + idx + '" data-open="false" data-usedlines="' + usedLinesDataAttr + '">' + (usedLinesForSegment && usedLinesForSegment.some(l=>/バス/.test(l)) ? '経由地を表示' : '停車駅を表示') + '</button>')) + '</div>' : ''}` : ''}
         </div>
       </div>
     `;
@@ -1600,6 +1681,7 @@ function renderRouteCardForPart(part, partIndex, containerId){
         const betweenEnd = iTo - 1;
         const betweenCount = betweenEnd - betweenStart + 1;
         const pairColors = new Array(Math.max(0, betweenCount)).fill('#999');
+        const pairUsedLines = new Array(Math.max(0, betweenCount)).fill('');
         const isCondArr = new Array(Math.max(0, betweenCount)).fill(false);
 
         for(let bj = betweenStart; bj <= betweenEnd; bj++){
@@ -1638,7 +1720,7 @@ function renderRouteCardForPart(part, partIndex, containerId){
               if(lineColors[ln]){ chosen = ln; break; }
             }
             if(chosen){
-              pairColors[bj - betweenStart] = lineColors[chosen];
+              pairColors[bj - betweenStart] = lineColors[chosen]; pairUsedLines[bj - betweenStart] = chosen;
               continue;
             }
           }
@@ -1651,7 +1733,7 @@ function renderRouteCardForPart(part, partIndex, containerId){
             }
           }
           if(threeLine && lineColors[threeLine]){
-            pairColors[bj - betweenStart] = lineColors[threeLine];
+            pairColors[bj - betweenStart] = lineColors[threeLine]; pairUsedLines[bj - betweenStart] = threeLine;
             continue;
           }
 
@@ -1663,7 +1745,7 @@ function renderRouteCardForPart(part, partIndex, containerId){
             }
           }
           if(bothLine && lineColors[bothLine]){
-            pairColors[bj - betweenStart] = lineColors[bothLine];
+            pairColors[bj - betweenStart] = lineColors[bothLine]; pairUsedLines[bj - betweenStart] = bothLine;
             continue;
           }
 
@@ -1672,7 +1754,7 @@ function renderRouteCardForPart(part, partIndex, containerId){
           if(jIndex < path.length - 1) adjPairs.push([path[jIndex], path[jIndex+1]]);
           for(const p of adjPairs){
             const ln = findLineOfSegment(p[0], p[1]);
-            if(ln && lineColors[ln]){ pairColors[bj - betweenStart] = lineColors[ln]; break; }
+            if(ln && lineColors[ln]){ pairColors[bj - betweenStart] = lineColors[ln]; pairUsedLines[bj - betweenStart] = ln; break; }
           }
         }
 
@@ -1692,16 +1774,18 @@ function renderRouteCardForPart(part, partIndex, containerId){
             }
           }
 
+          
           routeHtml += `
             <div class="rowBetween">
               <div class="railCol">
                 <div class="railDot" style="background:${displayColor}"></div>
-                <div class="railLineMinor" style="background:${displayColor}"></div>
+                <div id="${betweenId}-minorLine-${arrIdx}" class="railLineMinor" data-usedlines="${pairUsedLines[arrIdx]||''}" style="${ (pairUsedLines[arrIdx] && /徒歩/.test(pairUsedLines[arrIdx])) ? 'background: repeating-linear-gradient(  to bottom,  #aaa 0px,  #aaa 8px, #fff 8px,  #fff 16px);' : 'background:'+displayColor+';' }"></div>
+                ${ (pairUsedLines[arrIdx] && /バス/.test(pairUsedLines[arrIdx])) ? `<div id="${betweenId}-overlay-${arrIdx}" class="busOverlay"></div>` : '' }
               </div>
               <div class="stationText"><div class="${minorClass}">${displayStationName(s)}</div></div>
             </div>
           `;
-        }
+}
         routeHtml += `</div>`;
       }
     }
@@ -1732,7 +1816,9 @@ function wireToggleButtons(containerId){
       const isOpen = getComputedStyle(list).display !== 'block';
       list.style.display = isOpen ? 'block' : 'none';
       btn.dataset.open = isOpen.toString();
-      btn.textContent = isOpen ? '停車駅を非表示' : '停車駅を表示';
+            const usedLinesRaw = btn.dataset.usedlines || '';
+      const isBus = /バス/.test(usedLinesRaw);
+      btn.textContent = isOpen ? (isBus ? '経由地を非表示' : '停車駅を非表示') : (isBus ? '経由地を表示' : '停車駅を表示');
 
       if(bigLine){
         const baseColor = bigLine.dataset.color || '#999';
@@ -1990,6 +2076,32 @@ function wireTabButtons(){
 wireTabButtons();
 
 /* EOF */
+
+// --- 徒歩乗換の開始駅の丸の色を前の駅と同じにする ---
+function colorWalkTransferStartDots() {
+  const rows = Array.from(document.querySelectorAll('.rowStation'));
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const railCol = row.querySelector('.railCol');
+    const dot = railCol ? railCol.querySelector('.railDot') : null;
+    const lineElem = railCol ? railCol.querySelector('.railLineMajor') : null;
+    if (!dot || !lineElem) continue;
+
+    if (lineElem.dataset.usedlines && lineElem.dataset.usedlines.includes('徒歩乗換')) {
+      const prevRow = rows[i - 1];
+      if (!prevRow) continue;
+      const prevLine = prevRow.querySelector('.railLineMajor');
+      if (prevLine && prevLine.dataset.usedlines) {
+        const prevLines = prevLine.dataset.usedlines.split('|').filter(x => x && x !== '徒歩乗換');
+        if (prevLines.length > 0) {
+          const prevColor = lineColors[prevLines[prevLines.length - 1]] || '#aaa';
+          dot.style.background = prevColor;
+        }
+      }
+    }
+  }
+}
+
 </script>
 </body>
 </html>
