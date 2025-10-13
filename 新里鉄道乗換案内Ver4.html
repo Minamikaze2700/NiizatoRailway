@@ -1111,7 +1111,9 @@ function adjustMajorLines(){
     const railCol = r.querySelector('.railCol');
     if(!railCol) return;
     const dot = r.querySelector('.railDot');
+    if (railway.includes(data-usedlines)) {
     const minorLine = r.querySelector('.railLineMinor');
+    }
     if(!dot || !minorLine) return;
     const parentRect = railCol.getBoundingClientRect();
     const dotRect = dot.getBoundingClientRect();
