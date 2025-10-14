@@ -780,6 +780,21 @@ function findIndexFrom(path, station, start){
   return -1;
 }
 
+  connectingStations = [
+      { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
+      { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
+      { station: "彩山", endpoints: ["彩山親水公園","彩山口"] },
+      { station: "桜川", endpoints: ["桜川公園","豊野月見台"] },
+      { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
+      { station: "豊町", endpoints: ["削野", "東豊町"] },
+      { station: "横宿", endpoints: ["日森町", "北横宿"] },
+      { station: "成津", endpoints: ["北成津", "大町"] },
+      { station: "りんくう桜川", endpoints: ["余田", "桜川国際空港"] }
+    ];
+    specialMajorStations = [
+      "湯の浜","鶴宮","港通","豊町","成津","りんくう桜川"
+    ];
+  
 // --- 主要駅抽出（元の関数は保持。表示上の主要駅判定はこの関数に従います） ---
 
 function majorStops(path){
