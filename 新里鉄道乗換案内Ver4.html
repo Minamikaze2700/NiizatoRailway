@@ -821,7 +821,7 @@ function majorStops(path){
   for(let i=0;i<path.length-2;i++){
     const ln1 = (findLineOfSegment(path[i], path[i+1]) || "");
     const ln2 = (findLineOfSegment(path[i+1], path[i+2]) || "");
-    if((ln1.includes("豊野鉄道豊野線") && ln2.includes("今橋鉄道豊海線"))||(ln2.includes("豊野鉄道豊野線") && ln1.includes("今橋鉄道豊海線"))){
+    if((ln1.includes("豊野鉄道豊野線(桑畑～園木)") && ln2.includes("今橋鉄道豊海線"))||(ln2.includes("豊野鉄道豊野線(桑畑～園木)") && ln1.includes("今橋鉄道豊海線"))){
       isToyonoToImabashi = true;
       break;
     }
@@ -830,7 +830,7 @@ function majorStops(path){
   for(let i=0;i<path.length-2;i++){
     const ln1 = (findLineOfSegment(path[i], path[i+1]) || "");
     const ln2 = (findLineOfSegment(path[i+1], path[i+2]) || "");
-    if((ln1.includes("豊野鉄道豊野線") && ln2.includes("豊野鉄道坂川線"))||(ln2.includes("豊野鉄道豊野線") && ln1.includes("豊野鉄道坂川線"))){
+    if((ln1.includes("豊野鉄道豊野線(桑畑～園木)") && ln2.includes("豊野鉄道坂川線"))||(ln2.includes("豊野鉄道豊野線(桑畑～園木)") && ln1.includes("豊野鉄道坂川線"))){
       isToyonoToSakagawa = true;
       break;
     }
@@ -855,7 +855,7 @@ function majorStops(path){
     specialMajorStations = [
       "湯の浜","鶴宮","港通","豊町","成津","りんくう桜川","園木","桑畑"
     ];
-    else if(isToyonoToImabashi){
+    } else if(isToyonoToImabashi){
     connectingStations = [
       { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
       { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
@@ -872,7 +872,7 @@ function majorStops(path){
     specialMajorStations = [
       "湯の浜","鶴宮","港通","豊町","成津","りんくう桜川","園木","桑畑"
     ];
-    else if(isToyonoToSakagawa){
+    } else if(isToyonoToSakagawa){
     connectingStations = [
       { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
       { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
