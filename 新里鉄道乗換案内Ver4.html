@@ -141,7 +141,8 @@ const stationLines = {
  "桜川電気鉄道中野線":["中野","南中野","大里","栄町","北桜川","桜川","南桜川","東豊野","すすき野","永田","平川","片野","東片野","新地港"],
  "床川急行電鉄本線":["新地","南新地","熊井","富町","北濱石","濱石","尼田","玉田","倉上","秋岡","今川市","石津台","北吉田","牧町","吉田市","大河","井嶋田","井幡","床川北口","床北公園前","磐谷","又木","床川市","旭原","山木","宮田野","戸倉","外川崎","東学園都市","床川学園都市"],
  "床川急行電鉄床川港線":["床川市","東床川","畠山","真沢","みなと西町","床川港"],
- "豊野鉄道豊野線":["糸島","西糸島","平田","文京町","東桜川","桜川","豊野月見台","豊野","西豊野","白州川","春田","桜峠","桑畑","常盤台","天津川","広野","追分","野川","幕生","羽草","清見台","東園木","園木"],
+ "豊野鉄道豊野線(桜川～桑畑)": ["糸島","西糸島","平田","文京町","東桜川","桜川","豊野月見台","豊野","西豊野","白州川","春田","桜峠","桑畑"],
+ "豊野鉄道豊野線(桑畑～園木)": ["桑畑","常盤台","天津川","広野","追分","野川","幕生","羽草","清見台","東園木","園木"],
  "豊野鉄道坂川線":["桑畑","北桑畑","坂川","天津温泉"],
  "大桑鉄道本線":["桑畑","新桑畑","横山町","東天津","天津中原","北中原","大塚台","観音寺","香春町","芝原","七日市場","大崎","新大崎","北大崎","滝原","南萩川","萩川","平沢町","鶴原","若葉台","内原城址公園","南内原","内原"],
  "大桑鉄道豊川線":["天津中原","南中原","旭町","川端","追分","幕生台","南羽草","新綾山","豊川"],
@@ -158,7 +159,7 @@ const stationLines = {
  "東雲鉄道東雲本線":["大道寺","松木","南綾山","桜陽台","出庭","小木橋","布井","井畔","北條","佐山","福寺","旭口","増林","田井島","飯野","鵜木","東雲","北東雲","大岡浜","上宿","下宿","驫木","朝治","尾野見","前芝","後芝","上代","東津村","古川大橋","下甲","谷山","秋郷","作平"],
  "東雲鉄道内原線":["作平","北作平","扇原","大八木","出町","さくら大谷","小野","笠岡","中の内","萱尾","内原"],
  "東雲鉄道東橋線":["作平","南望町","陣内","砂郷","前岡","南東橋","東橋"],
- "徒歩乗換": ["宮間","栃戸橋","園木","新園木","綾山","新綾山","豊川","豊川大野"],
+ "徒歩乗換": ["宮間","栃戸橋","園木","新園木","綾山","新綾山","豊川","豊川大野"]
 };
 const lineColors = {
   "新里鉄道湯の浜線":"#07b5f7",
@@ -672,6 +673,21 @@ function companyFromLineName(line){
   if(line.startsWith("床川急行電鉄")) return "床川急行電鉄";
   return null;
 }
+
+// --- 豊野線表示統一 ---
+function normalizeLineName(line){
+  if(!line) return line;
+  if(line.startsWith("豊野鉄道豊野線(")) return "豊野鉄道豊野線";
+  return line;
+}
+
+// findLineOfSegment等の表示補正
+const _orig_findLineOfSegment = findLineOfSegment;
+findLineOfSegment = function(a,b){
+  const r = _orig_findLineOfSegment(a,b);
+  return normalizeLineName(r);
+};
+
 // --- 会社名と距離から運賃を取得 ---
 function fareByCompany(company, km){
   switch(company){
@@ -764,6 +780,7 @@ const connectingStations = [
   { station: "成津", endpoints: ["北成津", "大町"] },
   { station: "りんくう桜川", endpoints: ["余田", "桜川国際空港"] },
   { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
+  { station: "桑畑", endpoints: ["桜峠","常盤台"] },
   { station: "園木", endpoints: ["東園木", "富士町"] },
   { station: "園木", endpoints: ["東園木", "大木沢"] },
   { station: "新東橋", endpoints: ["浅見", "東黒田"] }
@@ -795,17 +812,8 @@ function majorStops(path){
   for(let i=0;i<path.length-2;i++){
     const ln1 = (findLineOfSegment(path[i], path[i+1]) || "");
     const ln2 = (findLineOfSegment(path[i+1], path[i+2]) || "");
-    if((ln1.includes("豊野鉄道豊野線") && ln2.includes("東橋鉄道東橋本線"))||(ln2.includes("豊野線") && ln1.includes("東橋本線"))){
+    if((ln1.includes("豊野鉄道豊野線") && ln2.includes("東橋鉄道東橋本線"))||(ln2.includes("豊野鉄道豊野線") && ln1.includes("東橋鉄道東橋本線"))){
       isToyonoToTouhashi = true;
-      break;
-    }
-  }
-  let isToyonoToImabashi = false;
-  for(let i=0;i<path.length-2;i++){
-    const ln1 = (findLineOfSegment(path[i], path[i+1]) || "");
-    const ln2 = (findLineOfSegment(path[i+1], path[i+2]) || "");
-    if((ln1.includes("豊野鉄道豊野線") && ln2.includes("今橋鉄道豊海線"))||(ln2.includes("豊野線") && ln1.includes("東橋本線"))){
-      isToyonoToImabashi = true;
       break;
     }
   }
@@ -825,24 +833,10 @@ function majorStops(path){
       { station: "横宿", endpoints: ["日森町", "北横宿"] },
       { station: "成津", endpoints: ["北成津", "大町"] },
       { station: "りんくう桜川", endpoints: ["余田", "桜川国際空港"] },
-      { station: "園木", endpoints: ["東園木", "大木沢"] }
-    ];
-    specialMajorStations = [
-      "湯の浜","鶴宮","港通","豊町","成津","りんくう桜川","園木"
-    ];
-  if(isToyonoToImabashi){
-    connectingStations = [
-      { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
-      { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
-      { station: "彩山", endpoints: ["彩山親水公園","彩山口"] },
-      { station: "桜川", endpoints: ["桜川公園","豊野月見台"] },
-      { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
-      { station: "豊町", endpoints: ["削野", "東豊町"] },
-      { station: "横宿", endpoints: ["日森町", "北横宿"] },
-      { station: "成津", endpoints: ["北成津", "大町"] },
-      { station: "りんくう桜川", endpoints: ["余田", "桜川国際空港"] },
       { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
-      { station: "園木", endpoints: ["東園木", "富士町"] }
+      { station: "桑畑", endpoints: ["桜峠","常盤台"] },
+      { station: "園木", endpoints: ["東園木", "富士町"] },
+      { station: "園木", endpoints: ["東園木", "大木沢"] }
     ];
     specialMajorStations = [
       "湯の浜","鶴宮","港通","豊町","成津","りんくう桜川","園木","桑畑"
@@ -860,6 +854,7 @@ function majorStops(path){
       { station: "成津", endpoints: ["北成津", "大町"] },
       { station: "りんくう桜川", endpoints: ["余田", "桜川国際空港"] },
       { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
+      { station: "桑畑", endpoints: ["桜峠","常盤台"] },
       { station: "園木", endpoints: ["東園木", "富士町"] },
       { station: "園木", endpoints: ["東園木", "大木沢"] },
       { station: "新東橋", endpoints: ["浅見", "東黒田"] }
@@ -1000,6 +995,51 @@ fromLineSel.addEventListener('change', ()=> { populateStationSelect(fromLineSel,
 toLineSel.addEventListener('change', ()=> { populateStationSelect(toLineSel, toStationSel); saveSelections(); });
 fromStationSel.addEventListener('change', saveSelections);
 toStationSel.addEventListener('change', saveSelections);
+
+
+// --- 豊野線統合処理 ---
+function getUnifiedToyonoStations(){
+  const s1 = stationLines["豊野鉄道豊野線(桜川～桑畑)"] || [];
+  const s2 = stationLines["豊野鉄道豊野線(桑畑～園木)"] || [];
+  const all = [...new Set([...s1, ...s2])];
+  return all;
+}
+
+// populateLineSelectの差し替え
+function populateLineSelect(sel){
+  sel.innerHTML = '';
+  Object.keys(stationLines).forEach(l=>{
+    if((sel.id === 'fromLine' || sel.id === 'toLine') && l === '徒歩乗換') return;
+    // 豊野線統合表示
+    if(l === "豊野鉄道豊野線(桜川～桑畑)") return;
+    if(l === "豊野鉄道豊野線(桑畑～園木)") {
+      const o = document.createElement('option');
+      o.value = "豊野鉄道豊野線";
+      o.textContent = "豊野鉄道豊野線";
+      sel.appendChild(o);
+      return;
+    }
+    const o = document.createElement('option'); o.value = l; o.textContent = l; sel.appendChild(o);
+  });
+}
+
+// populateStationSelectの差し替え
+function populateStationSelect(lineSel, stationSel){
+  stationSel.innerHTML = '';
+  const line = lineSel.value;
+  let stations = [];
+  if(line === "豊野鉄道豊野線"){
+    stations = getUnifiedToyonoStations();
+  } else {
+    stations = stationLines[line] || [];
+  }
+  stations.forEach(st=>{
+    const o = document.createElement('option');
+    o.value = st;
+    o.textContent = displayStationName(st);
+    stationSel.appendChild(o);
+  });
+}
 
 // --- 保存 / 復元 ---
 const STORAGE_KEY = 'niizato_prev_selection_v1';
