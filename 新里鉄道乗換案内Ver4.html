@@ -1010,18 +1010,40 @@ function refreshTabButtons(){
 refreshTabButtons();
 
 
+
 function populateLineSelect(sel){
   sel.innerHTML = '';
   Object.keys(stationLines).forEach(l=>{
-    // 発駅・着駅のプルダウン（id が fromLine / toLine）には「徒歩乗換」を含めない
-    if((sel.id === 'fromLine' || sel.id === 'toLine') && l === '徒歩乗換') return;
+    // 発駅・着駅・経由の行為に使われる「lineSelect」要素では「徒歩乗換」を表示しない
+    const isLineSelect = sel && sel.classList && sel.classList.contains && sel.classList.contains('lineSelect');
+    if((sel.id === 'fromLine' || sel.id === 'toLine' || isLineSelect) && l === '徒歩乗換') return;
     const o = document.createElement('option'); o.value = l; o.textContent = l; sel.appendChild(o);
   });
 }
+
 function populateStationSelect(lineSel, stationSel){
   stationSel.innerHTML = '';
   const line = lineSel.value;
-  (stationLines[line] || []).forEach(st=>{
+  let stations = stationLines[line] || [];
+
+  // 特別処理: 豊野鉄道豊野線 と 豊野鉄道豊野線(桑畑～園木) を結合して全駅を表示する
+  if(line && line.startsWith('豊野鉄道豊野線')){
+    const partsOrder = ['豊野鉄道豊野線','豊野鉄道豊野線(桑畑～園木)'];
+    stations = [];
+    for(const p of partsOrder){
+      const arr = stationLines[p];
+      if(!arr) continue;
+      if(stations.length && stations[stations.length - 1] === arr[0]){
+        // 重複駅（例: 桑畑）を重複させずに結合
+        stations = stations.concat(arr.slice(1));
+      } else {
+        stations = stations.concat(arr);
+      }
+    }
+    // もし選択されているラインが "(桑畑～園木)" のみだった場合でも同じ結合結果を使う
+  }
+
+  (stations || []).forEach(st=>{
     const o = document.createElement('option'); o.value = st; o.textContent = displayStationName(st); stationSel.appendChild(o);
   });
 }
@@ -1726,25 +1748,40 @@ function renderRouteCardForPart(part, partIndex, containerId){
         const ln = findLineOfSegment(path[i], path[i+1]);
         if(ln && !usedLinesForSegment.includes(ln)) usedLinesForSegment.push(ln);
       }
-      const badges = usedLinesForSegment.length > 0 ? usedLinesForSegment : findCommonLines(st, nextStation);
-      if(badges.length > 0){
-        lineListHtml = badges.map(l => `<div class="lineBadge" style="background:${lineColors[l] || '#999'};color:#fff">${l}</div>`).join('');
+      // badgesOriginal keeps the original line keys (used for data/logic); we'll derive a display-only list that collapses
+      // 豊野鉄道豊野線 variants into a single display name "豊野鉄道豊野線".
+      const badgesOriginal = usedLinesForSegment.length > 0 ? usedLinesForSegment : findCommonLines(st, nextStation);
+
+      const displayKey = (ln) => ln && ln.startsWith("豊野鉄道豊野線") ? "豊野鉄道豊野線" : ln;
+      const usedLinesForDisplay = Array.from(new Set(badgesOriginal.map(displayKey)));
+
+      if(usedLinesForDisplay.length > 0){
+        lineListHtml = usedLinesForDisplay.map(disp=>{
+          // pick a source line to determine the badge color (prefer an original key that maps to this display name)
+          const sourceLine = badgesOriginal.find(orig => displayKey(orig) === disp) || disp;
+          const colorForBadge = lineColors[sourceLine] || '#999';
+          return `<div class="lineBadge" style="background:${colorForBadge};color:#fff">${disp}</div>`;
+        }).join('');
       }
     } else if(!nextStation){
       lineListHtml = '';
     }
+
+    // For styling the large line (railLineMajor), prefer the collapsed/display list if available so the visual
+    // appearance merges the two 豊野線 variants. Keep data-usedlines unchanged so internal logic is not affected.
+    const usedLinesDisplayForStyle = (typeof usedLinesForDisplay !== 'undefined' && usedLinesForDisplay.length > 0) ? usedLinesForDisplay : usedLinesForSegment;
 
     const bigLineId = `${cid}-part${partIndex}-bigline-${idx}`;
     const betweenId = `${cid}-part${partIndex}-between-${idx}`;
 
     let initialStyle = '';
     if(nextStation){
-      if(usedLinesForSegment.length > 0){
+      if(usedLinesDisplayForStyle && usedLinesDisplayForStyle.length > 0){
         if(usedLinesForSegment.length === 1){
-          initialStyle = `background: ${lineColors[usedLinesForSegment[0]] || color};`;
+          initialStyle = `background: ${lineColors[usedLinesDisplayForStyle[0]] || color};`;
         } else {
-          const step = 100 / usedLinesForSegment.length;
-          const stops = usedLinesForSegment.map((ln, j) => {
+          const step = 100 / usedLinesDisplayForStyle.length;
+          const stops = usedLinesDisplayForStyle.map((ln, j) => {
             const col = lineColors[ln] || '#999';
             const start = (j * step).toFixed(4);
             const end = ((j+1) * step).toFixed(4);
@@ -2221,5 +2258,352 @@ function colorWalkTransferStartDots() {
 }
 
 </script>
-</body>
+
+<script>
+// 見た目の統一：発着駅・途中駅の選択肢（<option> と <optgroup>）の表示テキストから
+// 長いバリアント表記を取り除き、"豊野鉄道豊野線" だけを表示します。
+// 値（value）や内部IDは変更せず、表示のみを統一します。
+(function(){
+  function normalizeText(t){
+    if(!t) return t;
+    // 先に括弧や詳細がついたバリアントをまとめる
+    // 例: "豊野鉄道豊野線(桑畑～園木)" や "豊野鉄道 豊野線（桑畑〜園木）" など幅広くマッチ
+    return t.replace(/豊野\s*鉄道\s*豊野線[^\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff]*/g, '豊野鉄道豊野線')
+            .replace(/豊野鉄道\s*豊野線[\u3000-\u303F\uFF08-\uFF09()（）。，,~〜～\s\S]*/g, '豊野鉄道豊野線')
+            .replace(/豊野鉄道豊野線.*/g, '豊野鉄道豊野線');
+  }
+
+  function normalizeAll(){
+    try{
+      // 全ての option 要素の表示テキストを正規化
+      document.querySelectorAll('option').forEach(opt=>{
+        const orig = opt.textContent;
+        const norm = normalizeText(orig);
+        if(norm && norm !== orig){
+          opt.textContent = norm;
+        }
+      });
+      // optgroup の label も正規化
+      document.querySelectorAll('optgroup').forEach(og=>{
+        const orig = og.label;
+        const norm = normalizeText(orig);
+        if(norm && norm !== orig){
+          og.label = norm;
+        }
+      });
+      // 一部のカスタムUIで innerText に路線名を使っている要素があればそれも変更（例: .lineBadge の中のテキスト等）
+      document.querySelectorAll('.lineBadge, .railLineMajor, .line-name, .line-label').forEach(el=>{
+        const orig = el.innerText || el.textContent;
+        const norm = normalizeText(orig);
+        if(norm && norm !== orig){
+          if(el.innerText !== undefined) el.innerText = norm; else el.textContent = norm;
+        }
+      });
+    }catch(e){
+      console.error('normalize豊野線表示でエラー', e);
+    }
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', normalizeAll);
+  } else {
+    normalizeAll();
+  }
+
+  // もし動的に選択肢が再構築される場合に備え、MutationObserver で監視して再適用する（負荷を控えめに）
+  const observer = new MutationObserver((mutations)=>{
+    let changed = false;
+    for(const m of mutations){
+      if(m.addedNodes && m.addedNodes.length) { changed = true; break; }
+      if(m.type === 'attributes' && (m.attributeName === 'label' || m.attributeName === 'textContent')) { changed = true; break; }
+    }
+    if(changed) {
+      // 少し待ってから適用（バーストを抑える）
+      setTimeout(normalizeAll, 50);
+    }
+  });
+  observer.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['label','textContent']});
+})();
+</script>
+
+
 </html>
+
+<script>
+(function(){
+  function normalizeDisplayText(t){
+    if(!t) return t;
+    let s = String(t);
+    // remove parenthetical qualifiers
+    s = s.replace(/\（.*?\）|\(.*?\)/g, '');
+    // collapse multiple spaces and trim
+    s = s.replace(/\s+/g,' ').trim();
+    // normalize different dashes/spacers to a single separator token
+    // and split on common range separators to pick the last endpoint (to show single station names)
+    const parts = s.split(/→|->|～|〜|--|—|-|〜|~/).map(x=>x.trim()).filter(Boolean);
+    if(parts.length > 1) {
+      // pick the last endpoint (this helps when options are "糸島〜桑畑" and "桑畑〜園木",
+      // they become "桑畑" and "園木", collapsing the ranges into single station names)
+      s = parts[parts.length - 1];
+    }
+    // unify 豊野線 variants
+    s = s.replace(/豊野\s*鉄道\s*豊野線.*/g, '豊野鉄道豊野線');
+    s = s.replace(/豊野鉄道\s*豊野線.*/g, '豊野鉄道豊野線');
+    // collapse any trailing qualifiers like "（区間）" residuals
+    s = s.replace(/[:：\s　]+$/, '');
+    return s;
+  }
+
+  function mergeSelectOptions(){
+    document.querySelectorAll('select').forEach(select => {
+      const map = new Map();
+      const options = Array.from(select.querySelectorAll('option'));
+      for(const opt of options){
+        const orig = opt.textContent || opt.innerText || '';
+        const norm = normalizeDisplayText(orig);
+        if(!norm) continue;
+        // set the displayed text to the normalized text for the first occurrence
+        if(!map.has(norm)){
+          map.set(norm, opt);
+          opt.textContent = norm;
+          opt.style.display = ''; // ensure visible
+        } else {
+          // duplicate display: hide this option but keep value for safety
+          opt.style.display = 'none';
+          opt.setAttribute('data-merged-into', map.get(norm).value || '');
+          // Also add a small suffix to the merged-into option as tooltip to indicate multiple underlying entries
+          const keeper = map.get(norm);
+          let note = keeper.getAttribute('data-merged-count') || '1';
+          note = String(Number(note) + 1);
+          keeper.setAttribute('data-merged-count', note);
+          keeper.title = `この表示は ${note} 件の内部エントリにまとめられています`;
+        }
+      }
+      // If a select uses a custom UI library that needs refresh, attempt to trigger events
+      try{
+        if(typeof $ !== 'undefined' && select.classList.contains('select2-hidden-accessible')){
+          $(select).trigger('change.select2');
+        }
+      }catch(e){}
+    });
+  }
+
+  function mergeOptgroups(){
+    // merge optgroups having same normalized label within the same select
+    document.querySelectorAll('select').forEach(select => {
+      const groups = Array.from(select.querySelectorAll('optgroup'));
+      if(groups.length <= 1) return;
+      const labelMap = new Map();
+      for(const g of groups){
+        const lbl = g.label || '';
+        const normLbl = normalizeDisplayText(lbl);
+        if(!labelMap.has(normLbl)){
+          g.label = normLbl || g.label;
+          labelMap.set(normLbl, g);
+        } else {
+          // move options from this group to keeper and remove this group
+          const keeper = labelMap.get(normLbl);
+          const opts = Array.from(g.querySelectorAll('option'));
+          for(const o of opts){
+            keeper.appendChild(o);
+          }
+          g.remove();
+        }
+      }
+    });
+  }
+
+  function normalizeInlineLabels(){
+    // For badges, major line labels, station label elements - normalize their innerText
+    const selectors = ['.lineBadge', '.railLineMajor', '.line-name', '.line-label', '.station-name', '.station-label', '.station'];
+    document.querySelectorAll(selectors.join(',')).forEach(el => {
+      const orig = el.innerText || el.textContent || '';
+      const norm = normalizeDisplayText(orig);
+      if(norm && norm !== (el.innerText || el.textContent)){
+        el.innerText = norm;
+      }
+    });
+    // Also normalize any plain text nodes that look like "糸島〜桑畑" etc inside spans or divs commonly used in UI
+    document.querySelectorAll('span,div,label').forEach(el=>{
+      if(!el.children.length){
+        const txt = (el.textContent || '').trim();
+        if(txt.length && /[〜～→<-]/.test(txt)){
+          const norm = normalizeDisplayText(txt);
+          if(norm && norm !== txt) el.textContent = norm;
+        }
+      }
+    });
+  }
+
+  function runAll(){
+    try{
+      mergeOptgroups();
+      mergeSelectOptions();
+      normalizeInlineLabels();
+    }catch(e){
+      console.error('統合処理でエラー', e);
+    }
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', runAll);
+  } else {
+    runAll();
+  }
+
+  // Watch for dynamic changes and reapply normalization (debounced)
+  let timer = null;
+  const mo = new MutationObserver((mutations)=>{
+    if(timer) clearTimeout(timer);
+    timer = setTimeout(()=>{
+      runAll();
+    }, 80);
+  });
+  mo.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['label','textContent']});
+})();
+</script>
+
+
+<script>
+(function(){
+  // separators to recognize
+  const sepRe = /→|->|〜|～|~|～|〜|-|—|--/;
+  function splitRange(t){
+    if(!t) return null;
+    // normalize separators to '〜' and split to endpoints
+    const parts = t.split(/→|->|〜|～|~|--|—|-/).map(s=>s.trim()).filter(Boolean);
+    return parts.length >= 2 ? parts : null;
+  }
+
+  function combineChainsInSelect(select){
+    // find option texts and values for range-like options
+    const options = Array.from(select.querySelectorAll('option'));
+    const ranges = [];
+    const valueMap = new Map(); // key: text -> [option elements]
+    for(const opt of options){
+      const txt = (opt.textContent || opt.innerText || '').trim();
+      if(!txt) continue;
+      const parts = splitRange(txt);
+      if(parts){
+        const start = parts[0], end = parts[parts.length-1];
+        ranges.push({start, end, parts, opt});
+        if(!valueMap.has(txt)) valueMap.set(txt, []);
+        valueMap.get(txt).push(opt);
+      }
+    }
+    if(ranges.length <= 1) return; // nothing to chain
+
+    // build adjacency maps for chain detection: start->end (we assume simple directed chain)
+    const next = new Map();
+    const prev = new Map();
+    for(const r of ranges){
+      // prefer preserving original order; if duplicate edges exist, store arrays
+      if(!next.has(r.start)) next.set(r.start, []);
+      next.get(r.start).push(r.end);
+      prev.set(r.end, (prev.get(r.end) || new Set()).add(r.start));
+    }
+
+    // find chain starts: nodes that are start of an edge and have no incoming from ranges
+    const starts = [];
+    for(const r of ranges){
+      if(!prev.has(r.start)){
+        if(!starts.includes(r.start)) starts.push(r.start);
+      }
+    }
+    // also include any candidate that's not an end of any range
+    for(const r of ranges){
+      if(!starts.includes(r.start) && !Array.from(prev.keys()).includes(r.start)){
+        starts.push(r.start);
+      }
+    }
+
+    // For each start, walk forward greedily to build chain
+    const created = [];
+    for(const s of starts){
+      let cur = s;
+      const chain = [cur];
+      const visited = new Set();
+      visited.add(cur);
+      while(next.has(cur) && next.get(cur).length > 0){
+        const possible = next.get(cur)[0]; // take the first outgoing
+        if(visited.has(possible)) break;
+        chain.push(possible);
+        visited.add(possible);
+        cur = possible;
+      }
+      if(chain.length >= 2){
+        // Create combined label e.g. "糸島〜園木"
+        const combined = chain[0] + '〜' + chain[chain.length-1];
+        // Avoid creating if an option with identical text already exists
+        const exists = options.some(o => (o.textContent || o.innerText || '').trim() === combined);
+        if(exists) continue;
+        // Construct combined option element
+        const combOpt = document.createElement('option');
+        combOpt.textContent = combined;
+        combOpt.setAttribute('data-combined', 'true');
+        // Collect underlying option values and original texts for reference
+        const underlying = [];
+        for(let i=0;i<chain.length-1;i++){
+          const a = chain[i], b = chain[i+1];
+          // find option(s) representing a->b
+          const txtAtoB = a + '〜' + b;
+          // sometimes original format used different separator; search by start/end
+          const found = ranges.filter(r => r.start === a && r.end === b).map(r => r.opt);
+          for(const fo of found){
+            underlying.push(fo.value || fo.textContent || fo.innerText || '');
+            // hide underlying option but keep it available
+            fo.style.display = 'none';
+            fo.setAttribute('data-hidden-for-combine', combined);
+          }
+        }
+        combOpt.setAttribute('data-underlying-values', underlying.join('|'));
+        // insert the combined option at the position of the first underlying option's parent index
+        // find index of first underlying opt in select.options
+        let insertIndex = null;
+        for(const opt of options){
+          if(opt.style.display === 'none' && opt.getAttribute('data-hidden-for-combine') === combined){
+            insertIndex = Array.from(select.options).indexOf(opt);
+            break;
+          }
+        }
+        if(insertIndex === null) insertIndex = select.options.length;
+        try{
+          select.add(combOpt, select.options[insertIndex]);
+        }catch(e){
+          // fallback to append
+          select.appendChild(combOpt);
+        }
+        created.push(combOpt);
+      }
+    }
+
+    // If we created combined options, also set title/tooltips to explain there are merged entries
+    for(const c of created){
+      const count = (c.getAttribute('data-underlying-values') || '').split('|').filter(Boolean).length;
+      c.title = `表示上統合された区間（内部に ${count} 件の細分区間を含む）`;
+    }
+  }
+
+  function combineAllSelects(){
+    document.querySelectorAll('select').forEach(sel => {
+      try{ combineChainsInSelect(sel); }catch(e){ console.error('combineChainsInSelect error', e); }
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', combineAllSelects);
+  } else {
+    combineAllSelects();
+  }
+
+  // Re-run when DOM changes slightly (debounced)
+  let t = null;
+  const mo = new MutationObserver((mut)=>{
+    if(t) clearTimeout(t);
+    t = setTimeout(()=>{ combineAllSelects(); }, 80);
+  });
+  mo.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['textContent','label']});
+})();
+</script>
+
+</body>
