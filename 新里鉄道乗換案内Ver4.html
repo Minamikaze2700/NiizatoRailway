@@ -674,13 +674,6 @@ function companyFromLineName(line){
   return null;
 }
 
-// --- 豊野線表示統一 ---
-function normalizeLineName(line){
-  if(!line) return line;
-  if(line.startsWith("豊野鉄道豊野線(")) return "豊野鉄道豊野線";
-  return line;
-}
-
 // findLineOfSegment等の表示補正
 const _orig_findLineOfSegment = findLineOfSegment;
 findLineOfSegment = function(a,b){
