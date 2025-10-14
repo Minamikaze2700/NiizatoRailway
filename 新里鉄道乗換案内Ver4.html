@@ -673,14 +673,6 @@ function companyFromLineName(line){
   if(line.startsWith("床川急行電鉄")) return "床川急行電鉄";
   return null;
 }
-
-// --- 豊野線表示統一 ---
-function normalizeLineName(line){
-  if(!line) return line;
-  if(line.startsWith("豊野鉄道豊野線(")) return "豊野鉄道豊野線";
-  return line;
-}
-
 // findLineOfSegment等の表示補正
 const _orig_findLineOfSegment = findLineOfSegment;
 findLineOfSegment = function(a,b){
@@ -1037,29 +1029,11 @@ toLineSel.addEventListener('change', ()=> { populateStationSelect(toLineSel, toS
 fromStationSel.addEventListener('change', saveSelections);
 toStationSel.addEventListener('change', saveSelections);
 
-
-// --- 豊野線統合処理 ---
-function getUnifiedToyonoStations(){
-  const s1 = stationLines["豊野鉄道豊野線(桜川～桑畑)"] || [];
-  const s2 = stationLines["豊野鉄道豊野線(桑畑～園木)"] || [];
-  const all = [...new Set([...s1, ...s2])];
-  return all;
-}
-
 // populateLineSelectの差し替え
 function populateLineSelect(sel){
   sel.innerHTML = '';
   Object.keys(stationLines).forEach(l=>{
     if((sel.id === 'fromLine' || sel.id === 'toLine') && l === '徒歩乗換') return;
-    // 豊野線統合表示
-    if(l === "豊野鉄道豊野線(桜川～桑畑)") return;
-    if(l === "豊野鉄道豊野線(桑畑～園木)") {
-      const o = document.createElement('option');
-      o.value = "豊野鉄道豊野線";
-      o.textContent = "豊野鉄道豊野線";
-      sel.appendChild(o);
-      return;
-    }
     const o = document.createElement('option'); o.value = l; o.textContent = l; sel.appendChild(o);
   });
 }
@@ -1069,10 +1043,7 @@ function populateStationSelect(lineSel, stationSel){
   stationSel.innerHTML = '';
   const line = lineSel.value;
   let stations = [];
-  if(line === "豊野鉄道豊野線"){
-    stations = getUnifiedToyonoStations();
-  } else {
-    stations = stationLines[line] || [];
+  stations = stationLines[line] || [];
   }
   stations.forEach(st=>{
     const o = document.createElement('option');
