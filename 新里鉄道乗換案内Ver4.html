@@ -760,17 +760,17 @@ const connectingStations = [
   { station: "桜川", endpoints: ["桜川公園","豊野月見台"] },
   { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
   { station: "豊町", endpoints: ["削野", "東豊町"] },
-  { station: "園木", endpoints: ["東園木", "富士町"] },
-  { station: "園木", endpoints: ["東園木", "大木沢"] },
-  { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
   { station: "横宿", endpoints: ["日森町", "北横宿"] },
   { station: "成津", endpoints: ["北成津", "大町"] },
-  { station: "新東橋", endpoints: ["浅見", "東黒田"] },
-  { station: "りんくう桜川", endpoints: ["余田", "桜川国際空港"] }
+  { station: "りんくう桜川", endpoints: ["余田", "桜川国際空港"] },
+  { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
+  { station: "園木", endpoints: ["東園木", "富士町"] },
+  { station: "園木", endpoints: ["東園木", "大木沢"] },
+  { station: "新東橋", endpoints: ["浅見", "東黒田"] }
 ];
 
 const specialMajorStations = [
-  "湯の浜","鶴宮","港通","豊町","園木","桑畑","横宿","成津","りんくう桜川"
+  "湯の浜","鶴宮","港通","豊町","成津","りんくう桜川","園木","桑畑","新東橋"
 ];
 
 function indexesOf(arr, value){
@@ -786,9 +786,66 @@ function findIndexFrom(path, station, start){
 }
 
 // --- 主要駅抽出（元の関数は保持。表示上の主要駅判定はこの関数に従います） ---
+
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
 
+  // --- 特例判定: 「豊野線 -> 園木 -> 東橋本線」を含むかチェック ---
+  let isToyonoToHigashihashi = false;
+  for(let i=0;i<path.length-2;i++){
+    const ln1 = (findLineOfSegment(path[i], path[i+1]) || "");
+    const ln2 = (findLineOfSegment(path[i+1], path[i+2]) || "");
+    if(ln1.includes("豊野線") && ln2.includes("東橋本線")){
+      isToyonoToHigashihashi = true;
+      break;
+    }
+  }
+
+  // connectingStations / specialMajorStations を場合分けで定義
+  let connectingStations;
+  let specialMajorStations;
+  if(isToyonoToHigashihashi){
+    // 特例: 新東橋を含めないバージョン
+    connectingStations = [
+      { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
+      { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
+      { station: "彩山", endpoints: ["彩山親水公園","彩山口"] },
+      { station: "桜川", endpoints: ["桜川公園","豊野月見台"] },
+      { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
+      { station: "豊町", endpoints: ["削野", "東豊町"] },
+      { station: "横宿", endpoints: ["日森町", "北横宿"] },
+      { station: "成津", endpoints: ["北成津", "大町"] },
+      { station: "りんくう桜川", endpoints: ["余田", "桜川国際空港"] },
+      { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
+      { station: "園木", endpoints: ["東園木", "富士町"] },
+      { station: "園木", endpoints: ["東園木", "大木沢"] }
+    ];
+    specialMajorStations = [
+      "湯の浜","鶴宮","港通","豊町","成津","りんくう桜川","園木","桑畑"
+    ];
+  } else {
+    // 通常: 新東橋を含むバージョン
+    connectingStations = [
+      { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
+      { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
+      { station: "彩山", endpoints: ["彩山親水公園","彩山口"] },
+      { station: "桜川", endpoints: ["桜川公園","豊野月見台"] },
+      { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
+      { station: "豊町", endpoints: ["削野", "東豊町"] },
+      { station: "横宿", endpoints: ["日森町", "北横宿"] },
+      { station: "成津", endpoints: ["北成津", "大町"] },
+      { station: "りんくう桜川", endpoints: ["余田", "桜川国際空港"] },
+      { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
+      { station: "園木", endpoints: ["東園木", "富士町"] },
+      { station: "園木", endpoints: ["東園木", "大木沢"] },
+      { station: "新東橋", endpoints: ["浅見", "東黒田"] }
+    ];
+    specialMajorStations = [
+      "湯の浜","鶴宮","港通","豊町","成津","りんくう桜川","園木","桑畑","新東橋"
+    ];
+  }
+
+  // --- 以下は従来の主要駅判定ロジック（接続スキップ等を含む） ---
   const majors = [path[0]];
   let curLine = findLineOfSegment(path[0], path[1]);
 
@@ -799,6 +856,7 @@ function majorStops(path){
 
     let isBoundary = (ln !== curLine);
 
+    // specialMajorStations に含まれる駅が、前後とも同一路線なら主駅扱いをスキップ
     let isSpecialSkip = false;
     if(specialMajorStations.includes(here) && i > 0 && i < path.length-1){
       const before = path[i-1];
@@ -808,6 +866,7 @@ function majorStops(path){
       }
     }
 
+    // 接続駅（connectingStations）に基づくスキップ判定（前とここ）
     let connectionSkipPrev = false;
     const connsPrev = connectingStations.filter(c => c.station === prev);
     if(connsPrev && connsPrev.length > 0){
@@ -865,6 +924,7 @@ function majorStops(path){
   majors.push(path[path.length-1]);
   return {majors};
 }
+
 
 function findCommonLines(a,b){
   const list = [];
@@ -1940,7 +2000,7 @@ function renderRoutesIntoContainer(parts, containerId){
     // 東橋鉄道→園木→他社線 の場合、その東橋鉄道区間は50円引き
     if(seg.company === '東橋鉄道' && seg.to === '園木'){
       const nextSeg = allCompanySegments[i+1];
-      if(nextSeg && nextSeg.company && nextSeg.company !== '東橋鉄道'){
+      if(nextSeg && nextSeg.company && nextSeg.company == '豊野鉄道'){
         segFare = Math.max(0, segFare - 50);
       }
     }
