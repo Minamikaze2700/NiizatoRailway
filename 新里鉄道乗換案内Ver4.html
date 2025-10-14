@@ -672,7 +672,17 @@ function companyFromLineName(line){
   if(line.startsWith("菅谷高速鉄道")) return "菅谷高速鉄道";
   if(line.startsWith("床川急行電鉄")) return "床川急行電鉄";
   return null;
-  }
+}
+
+// --- 豊野線表示統一 ---
+function normalizeLineName(line){ return line; }
+
+// findLineOfSegment等の表示補正
+const _orig_findLineOfSegment = findLineOfSegment;
+findLineOfSegment = function(a,b){
+  const r = _orig_findLineOfSegment(a,b);
+  return normalizeLineName(r);
+};
 
 // --- 会社名と距離から運賃を取得 ---
 function fareByCompany(company, km){
@@ -1023,29 +1033,6 @@ toLineSel.addEventListener('change', ()=> { populateStationSelect(toLineSel, toS
 fromStationSel.addEventListener('change', saveSelections);
 toStationSel.addEventListener('change', saveSelections);
 
-// populateLineSelectの差し替え
-function populateLineSelect(sel){
-  sel.innerHTML = '';
-  Object.keys(stationLines).forEach(l=>{
-    if((sel.id === 'fromLine' || sel.id === 'toLine') && l === '徒歩乗換') return;
-    const o = document.createElement('option'); o.value = l; o.textContent = l; sel.appendChild(o);
-  });
-}
-
-// populateStationSelectの差し替え
-function populateStationSelect(lineSel, stationSel){
-  stationSel.innerHTML = '';
-  const line = lineSel.value;
-  let stations = [];
-  stations = stationLines[line] || [];
-  }
-  stations.forEach(st=>{
-    const o = document.createElement('option');
-    o.value = st;
-    o.textContent = displayStationName(st);
-    stationSel.appendChild(o);
-  });
-}
 
 // --- 保存 / 復元 ---
 const STORAGE_KEY = 'niizato_prev_selection_v1';
