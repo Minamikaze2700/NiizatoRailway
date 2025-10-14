@@ -791,12 +791,12 @@ function majorStops(path){
   if(path.length <= 1) return {majors: path};
 
   // --- 特例判定: 「豊野線 -> 園木 -> 東橋本線」を含むかチェック ---
-  let isToyonoToHigashihashi = false;
+  let isToyonoToTouhashi = false;
   for(let i=0;i<path.length-2;i++){
     const ln1 = (findLineOfSegment(path[i], path[i+1]) || "");
     const ln2 = (findLineOfSegment(path[i+1], path[i+2]) || "");
     if(ln1.includes("豊野線") && ln2.includes("東橋本線")){
-      isToyonoToHigashihashi = true;
+      isToyonoToTouhashi = true;
       break;
     }
   }
@@ -804,7 +804,7 @@ function majorStops(path){
   // connectingStations / specialMajorStations を場合分けで定義
   let connectingStations;
   let specialMajorStations;
-  if(isToyonoToHigashihashi){
+  if(isToyonoToTouhashi){
     // 特例: 新東橋を含めないバージョン
     connectingStations = [
       { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
