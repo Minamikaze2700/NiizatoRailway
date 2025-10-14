@@ -995,15 +995,6 @@ toLineSel.addEventListener('change', ()=> { populateStationSelect(toLineSel, toS
 fromStationSel.addEventListener('change', saveSelections);
 toStationSel.addEventListener('change', saveSelections);
 
-
-// --- 豊野線統合処理 ---
-function getUnifiedToyonoStations(){
-  const s1 = stationLines["豊野鉄道豊野線(桜川～桑畑)"] || [];
-  const s2 = stationLines["豊野鉄道豊野線(桑畑～園木)"] || [];
-  const all = [...new Set([...s1, ...s2])];
-  return all;
-}
-
 // populateLineSelectの差し替え
 function populateLineSelect(sel){
   sel.innerHTML = '';
