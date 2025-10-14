@@ -817,7 +817,24 @@ function majorStops(path){
       break;
     }
   }
-
+  let isToyonoToImabashi = false;
+  for(let i=0;i<path.length-2;i++){
+    const ln1 = (findLineOfSegment(path[i], path[i+1]) || "");
+    const ln2 = (findLineOfSegment(path[i+1], path[i+2]) || "");
+    if((ln1.includes("豊野鉄道豊野線") && ln2.includes("今橋鉄道豊海線"))||(ln2.includes("豊野鉄道豊野線") && ln1.includes("今橋鉄道豊海線"))){
+      isToyonoToImabashi = true;
+      break;
+    }
+  }
+  let isToyonoToSakagawa = false;
+  for(let i=0;i<path.length-2;i++){
+    const ln1 = (findLineOfSegment(path[i], path[i+1]) || "");
+    const ln2 = (findLineOfSegment(path[i+1], path[i+2]) || "");
+    if((ln1.includes("豊野鉄道豊野線") && ln2.includes("豊野鉄道坂川線"))||(ln2.includes("豊野鉄道豊野線") && ln1.includes("豊野鉄道坂川線"))){
+      isToyonoToSakagawa = true;
+      break;
+    }
+  }
   // connectingStations / specialMajorStations を場合分けで定義
   let connectingStations;
   let specialMajorStations;
