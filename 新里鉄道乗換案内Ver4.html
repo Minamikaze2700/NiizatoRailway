@@ -795,8 +795,17 @@ function majorStops(path){
   for(let i=0;i<path.length-2;i++){
     const ln1 = (findLineOfSegment(path[i], path[i+1]) || "");
     const ln2 = (findLineOfSegment(path[i+1], path[i+2]) || "");
-    if((ln1.includes("豊野線") && ln2.includes("東橋本線"))||(ln2.includes("豊野線") && ln1.includes("東橋本線"))){
+    if((ln1.includes("豊野鉄道豊野線") && ln2.includes("東橋鉄道東橋本線"))||(ln2.includes("豊野線") && ln1.includes("東橋本線"))){
       isToyonoToTouhashi = true;
+      break;
+    }
+  }
+  let isToyonoToImabashi = false;
+  for(let i=0;i<path.length-2;i++){
+    const ln1 = (findLineOfSegment(path[i], path[i+1]) || "");
+    const ln2 = (findLineOfSegment(path[i+1], path[i+2]) || "");
+    if((ln1.includes("豊野鉄道豊野線") && ln2.includes("今橋鉄道豊海線"))||(ln2.includes("豊野線") && ln1.includes("東橋本線"))){
+      isToyonoToImabashi = true;
       break;
     }
   }
@@ -816,9 +825,24 @@ function majorStops(path){
       { station: "横宿", endpoints: ["日森町", "北横宿"] },
       { station: "成津", endpoints: ["北成津", "大町"] },
       { station: "りんくう桜川", endpoints: ["余田", "桜川国際空港"] },
-      { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
-      { station: "園木", endpoints: ["東園木", "富士町"] },
       { station: "園木", endpoints: ["東園木", "大木沢"] }
+    ];
+    specialMajorStations = [
+      "湯の浜","鶴宮","港通","豊町","成津","りんくう桜川","園木"
+    ];
+  if(isToyonoToImabashi){
+    connectingStations = [
+      { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
+      { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
+      { station: "彩山", endpoints: ["彩山親水公園","彩山口"] },
+      { station: "桜川", endpoints: ["桜川公園","豊野月見台"] },
+      { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
+      { station: "豊町", endpoints: ["削野", "東豊町"] },
+      { station: "横宿", endpoints: ["日森町", "北横宿"] },
+      { station: "成津", endpoints: ["北成津", "大町"] },
+      { station: "りんくう桜川", endpoints: ["余田", "桜川国際空港"] },
+      { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
+      { station: "園木", endpoints: ["東園木", "富士町"] }
     ];
     specialMajorStations = [
       "湯の浜","鶴宮","港通","豊町","成津","りんくう桜川","園木","桑畑"
