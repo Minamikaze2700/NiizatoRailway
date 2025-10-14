@@ -855,7 +855,7 @@ function majorStops(path){
     specialMajorStations = [
       "湯の浜","鶴宮","港通","豊町","成津","りんくう桜川","園木","桑畑"
     ];
-    if(isToyonoToImabashi){
+    else if(isToyonoToImabashi){
     connectingStations = [
       { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
       { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
@@ -872,7 +872,7 @@ function majorStops(path){
     specialMajorStations = [
       "湯の浜","鶴宮","港通","豊町","成津","りんくう桜川","園木","桑畑"
     ];
-    if(isToyonoToSakagawa){
+    else if(isToyonoToSakagawa){
     connectingStations = [
       { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
       { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
