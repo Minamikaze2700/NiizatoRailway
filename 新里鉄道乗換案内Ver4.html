@@ -672,13 +672,7 @@ function companyFromLineName(line){
   if(line.startsWith("菅谷高速鉄道")) return "菅谷高速鉄道";
   if(line.startsWith("床川急行電鉄")) return "床川急行電鉄";
   return null;
-}
-// findLineOfSegment等の表示補正
-const _orig_findLineOfSegment = findLineOfSegment;
-findLineOfSegment = function(a,b){
-  const r = _orig_findLineOfSegment(a,b);
-  return normalizeLineName(r);
-};
+  }
 
 // --- 会社名と距離から運賃を取得 ---
 function fareByCompany(company, km){
