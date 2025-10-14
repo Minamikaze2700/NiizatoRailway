@@ -795,7 +795,7 @@ function majorStops(path){
   for(let i=0;i<path.length-2;i++){
     const ln1 = (findLineOfSegment(path[i], path[i+1]) || "");
     const ln2 = (findLineOfSegment(path[i+1], path[i+2]) || "");
-    if(ln1.includes("豊野線") && ln2.includes("東橋本線")){
+    if((ln1.includes("豊野線") && ln2.includes("東橋本線"))||(ln2.includes("豊野線") && ln1.includes("東橋本線"))){
       isToyonoToTouhashi = true;
       break;
     }
