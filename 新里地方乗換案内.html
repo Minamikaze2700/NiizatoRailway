@@ -6,12 +6,22 @@
 </head>
 <body>
   <h1>🚃新里地方乗換案内</h1>
-  <select name="Lines">
-  <option value="湯の浜線">湯の浜線</option>
+  <select name="StartLines">
+  <option value="湯の浜線"selected>湯の浜線</option>
   <option value="燠野線">燠野線</option>
 　<option value="鶴宮線">鶴宮線</option>
 　<option value="新里線">新里線</option>
   <option value="彩山線">彩山線</option>
   </select>
+  <script>
+  switch(StartLines){
+    case "湯の浜線":
+  <select name="StartStation">
+  <option value="新里"selected>新里</option>
+  <option value="新里海浜公園">新里海浜公園</option>
+　<option value="湯の浜海岸">湯の浜海岸</option>
+　<option value="湯の浜">湯の浜</option>
+  </select>
+  </script>
 </body>
 </html>
