@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>新里鉄道 駅情報表示（完全版：個別設定・彩山線更新） - 修正版</title>
+<style>
+  :root{--panel-gap:14px;--accent:#0b6fb8;--muted:#666;--bg:#fbfbfb;}
+  body{font-family:"Helvetica","Arial",sans-serif;margin:0;padding:16px;background:#fff;color:#111;}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  h1{font-size:18px;margin:0;}
+  main{display:grid;grid-template-columns:320px 1fr;gap:var(--panel-gap);align-items:start;}
+  @media (max-width:880px){ main{grid-template-columns:1fr;} }
+  .panel{background:var(--bg);border:1px solid #e6e6e6;padding:12px;border-radius:10px;}
+  label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px;}
+  select{width:100%;padding:8px;border-radius:6px;border:1px solid #ccc;font-size:14px;background:#fff;margin-bottom:8px;}
+  .buttons{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+  .buttons button{padding:8px 10px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer;text-align:left;font-size:14px;}
+  .buttons button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  #infoDisplay{background:var(--bg);border:1px solid #e6e6e6;padding:12px;border-radius:10px;min-height:240px;}
+  #stationHeader{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+  .station-title{font-size:18px;font-weight:700;margin:0;}
+  .station-meta{color:var(--muted);font-size:13px;margin-top:4px;}
+  .num-vertical{display:inline-flex;flex-direction:column;justify-content:center;align-items:center;width:40px;height:40px;padding:-2px;box-sizing:border-box;font-weight:700;color:#fff;margin-right:8px;}
+  .num-vertical.filled{border-radius:0;}
+  .num-vertical.rounded{border-radius:10px;background:transparent;border:4.5px solid;color:#000;}
+  .num-vertical.circle{border-radius:50%;background:transparent;border:5px solid;color:#000;}
+  .small-code{display:inline-flex;align-items:center;justify-content:center;width:36px;height:32px;border-radius:6px;border:3px solid #bbb;background:transparent;font-weight:700;margin-right:8px;}
+  .small-code.filled{background:var(--lc);color:#fff;border:0;}
+  .small-code.rounded{border-radius:8px;background:transparent;color:#000;}
+  .small-code.circle{border-radius:50%;width:36px;height:36px;background:transparent;color:#000;}
+  .tabbar{display:flex;gap:8px;margin-bottom:10px;}
+  .tabbar button{padding:8px 10px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer;}
+  .tabbar button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .content-area{padding:8px;border-radius:8px;background:#fff;border:1px solid #eee;min-height:160px;}
+
+  .timetable-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+  .dir-btn{padding:6px 10px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer;}
+  .dir-btn.active{background:#0b6fb8;color:#fff;border-color:#0b6fb8;}
+
+  .timetable-simple{display:flex;flex-direction:column;gap:8px;}
+  .tt-line{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;border:1px solid #f0f0f0;background:#fcfcfc;justify-content:flex-start;}
+  .tt-type{padding:4px 8px;border-radius:6px;font-weight:700;color:#fff;font-size:13px;min-width:96px;text-align:center;}
+  .tt-time{width:64px;font-weight:700;font-family:monospace;text-align:right;}
+  .tt-dest{font-weight:700;display:flex;align-items:center;gap:8px;}
+
+  .plat-circle{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:26px;height:26px;border-radius:50%;border:2px solid #333;font-weight:700;font-size:13px;margin-left:6px;
+    background:transparent;color:#000;
+  }
+
+  .type-local{background:#4caf50;}
+  .type-express{background:#ff7043;}
+  .type-rapid{background:#29b6f6;color:#000;}
+
+  .muted{color:var(--muted);font-size:13px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>新里鉄道 駅情報表示（完全版：個別設定・彩山線更新） - 修正版</h1>
+</header>
+
+<main>
+  <aside class="panel" aria-label="操作パネル">
+    <label for="companySelect">会社</label>
+    <select id="companySelect"><option value="">選択してください</option><option value="新里鉄道">新里鉄道</option></select>
+    <label for="lineSelect">路線</label>
+    <select id="lineSelect" disabled><option value="">先に会社を選んでください</option></select>
+    <label for="stationSelect">駅</label>
+    <select id="stationSelect" disabled><option value="">先に路線を選んでください</option></select>
+    <div class="buttons" id="infoButtons" role="tablist" aria-label="情報メニュー">
+      <button data-view="platforms" class="active" role="tab">のりば案内</button>
+      <button data-view="timetable" role="tab">時刻表</button>
+      <button data-view="exits" role="tab">出口案内</button>
+      <button data-view="details" role="tab">詳細</button>
+    </div>
+  </aside>
+
+  <section id="infoDisplay" class="panel" aria-live="polite">
+    <div id="stationHeader">
+      <div id="stationNumber" style="display:flex;align-items:center;"></div>
+      <div>
+        <div id="stationName" class="station-title">駅が選択されていません</div>
+        <div id="stationSub" class="station-meta">会社・路線・駅番号などがここに表示されます</div>
+      </div>
+    </div>
+
+    <div class="tabbar" role="tablist" id="tabbar">
+      <button data-view="platforms" class="active">のりば案内</button>
+      <button data-view="timetable">時刻表</button>
+      <button data-view="exits">出口案内</button>
+      <button data-view="details">詳細</button>
+    </div>
+
+    <div class="content-area" id="infoContent">駅を選択するとここに表示されます。</div>
+  </section>
+</main>
+
+<script>
+/* Priority order */
+const LINE_PRIORITY = ["湯の浜線","燠野線","鶴宮線","新里線","彩山線"];
+
+/* DATA (彩山線は atwiki から取得・更新済み) */
+const DATA = {
+  "新里鉄道": {
+    "湯の浜線": { code:"Y", colorHex:"#07b5f7", style:"circle", stations:[
+"豊町駅","東豊町駅","清水浜駅","安田町駅","南栃原駅","栃原駅","宇城駅","須川駅","御浜埼公園駅","御浜駅",
+"伊坂駅","垳下駅","北浜駅","西新里駅","新里駅","河岸駅","新里海浜公園駅","湯の浜海岸駅","湯の浜駅","七浦駅",
+"那珂町駅","宇多野駅","伊奈崎駅","鶴宮神社駅","鶴宮駅","北鶴宮駅","鬼越峠駅","片牧町駅","虹川駅","新的場駅",
+"神道山口駅","原津駅","奥沢高原駅","京新峡駅","流沢温泉駅","流沢温泉口駅","白木稲荷駅","籾井駅","猫崎海岸駅","百合ヶ山公園駅",
+"北河都駅","河都駅","南河都駅","恋野宮駅","紅原台駅","外神駅","大三浜駅","千種園駅","白砂駅","余田駅","りんくう桜川駅"
+] },
+    "燠野線": { code:"A", colorHex:"#fd5062", style:"circle", stations:["湯の浜駅","新里大学前駅","綾原駅","福来駅","燠野駅","湯川駅","温泉口駅"] },
+    "鶴宮線": { code:"T", colorHex:"#feac2c", style:"circle", stations:["鶴宮駅","南鶴宮駅","あずさ台駅","橘町駅","白枝駅","紅葉台駅","桐山駅","湊川駅","彩山駅","田ノ原駅"] },
+    "新里線": { code:"N", colorHex:"#0cab5e", style:"circle", stations:["新里駅","南新里駅","田ノ原駅","北玖川駅","玖川駅","中野原駅"] },
+    /* 彩山線を atwiki (新里地方wiki) から更新しました（S-01〜S-10）。*/
+    "彩山線": { code:"S", colorHex:"#7dca22", style:"circle", stations:[
+"彩山駅","彩山口駅","新里国際スキー場駅","鷹見台駅","久我原駅","浪原駅","深江駅","三栗谷駅","桜川公園駅","桜川駅"
+] }
+  }
+};
+
+/* Per-station overrides (個別設定) */
+const STATION_OVERRIDES = {
+  "彩山駅": {
+    stationNumber: "S-01",
+    platforms: ["1番のりば：鶴宮・湯の浜方面（のりば番号1）","2番のりば：桜川方面（のりば番号2）"],
+    timetables: [
+      { typeLabel:"各駅停車", typeClass:"type-local", time:"06:12", destination:"鶴宮・湯の浜方面", platformNumber:1 },
+      { typeLabel:"急行", typeClass:"type-express", time:"06:28", destination:"桜川方面", platformNumber:2 }
+    ],
+    exits: ["東口 - バスターミナル","西口 - 駐車場・タクシー乗り場"],
+    details: { address:"彩山市 中央町 1-1", contact:"電話:012-345-6789" }
+  },
+  "彩山口駅": {
+    stationNumber: "S-02",
+    platforms: ["1番のりば：上下本線（単式）"],
+    timetables: [
+      { typeLabel:"各駅停車", typeClass:"type-local", time:"06:18", destination:"桜川方面", platformNumber:1 },
+      { typeLabel:"区間準急", typeClass:"type-rapid", time:"06:45", destination:"鶴宮方面", platformNumber:1 }
+    ],
+    exits: ["北口 - 徒歩連絡路","南口 - 集落入口"],
+    details: { address:"彩山市 山麓 2-3", contact:"電話:012-345-6790" }
+  },
+  "新里国際スキー場駅": {
+    stationNumber: "S-03",
+    platforms: ["1番のりば：スキー場連絡（臨時列車設定あり）","2番のりば：通常上下線"],
+    timetables: [
+      { typeLabel:"臨時", typeClass:"type-express", time:"07:05", destination:"湯の浜方面（シーズン列車）", platformNumber:1 },
+      { typeLabel:"各駅停車", typeClass:"type-local", time:"07:22", destination:"桜川方面", platformNumber:2 }
+    ],
+    exits: ["ゲレンデ入口直結","駐車場（有料）"],
+    details: { address:"彩山市 スキー場 ほか", contact:"電話:012-345-6791" }
+  },
+  "鷹見台駅": { stationNumber:"S-04", platforms:["単式ホーム 1番線"], timetables:[{typeLabel:"各駅停車",typeClass:"type-local",time:"06:30",destination:"桜川方面",platformNumber:1}], exits:["南口 - 集落"], details:{address:"桜川市 鷹見台", contact:"電話:012-345-6792"} },
+  "久我原駅": { stationNumber:"S-05", platforms:["島式 1/2番線"], timetables:[{typeLabel:"各駅停車",typeClass:"type-local",time:"06:40",destination:"鶴宮方面",platformNumber:1}], exits:["改札口のみ"], details:{address:"浪原市 久我原", contact:"電話:012-345-6793"} },
+  "浪原駅": { stationNumber:"S-06", platforms:["1番線：上り","2番線：下り"], timetables:[{typeLabel:"急行",typeClass:"type-express",time:"06:50",destination:"鶴宮方面",platformNumber:2}], exits:["東口 - バス停","西口 - 商店街"], details:{address:"浪原市 中央", contact:"電話:012-345-6794"} },
+  "深江駅": { stationNumber:"S-07", platforms:["単式ホーム 1番"], timetables:[{typeLabel:"各駅停車",typeClass:"type-local",time:"07:02",destination:"桜川方面",platformNumber:1}], exits:["北口 - 住宅街"], details:{address:"浪原市 深江", contact:"電話:012-345-6795"} },
+  "三栗谷駅": { stationNumber:"S-08", platforms:["島式 1/2番"], timetables:[{typeLabel:"区間準急",typeClass:"type-rapid",time:"07:15",destination:"湯の浜方面",platformNumber:2}], exits:["南口 - 公園"], details:{address:"浪原市 三栗谷", contact:"電話:012-345-6796"} },
+  "桜川公園駅": { stationNumber:"S-09", platforms:["1番線：公園口"], timetables:[{typeLabel:"各駅停車",typeClass:"type-local",time:"07:25",destination:"鶴宮方面",platformNumber:1}], exits:["公園直結"], details:{address:"桜川市 桜川公園", contact:"電話:012-345-6797"} },
+  "桜川駅": { stationNumber:"S-10", platforms:["1番のりば：豊野方面","2番のりば：彩山方面"], timetables:[{typeLabel:"急行",typeClass:"type-express",time:"07:40",destination:"豊野方面",platformNumber:1},{typeLabel:"各駅停車",typeClass:"type-local",time:"07:55",destination:"彩山方面",platformNumber:2}], exits:["中央口 - 駅前広場","西口 - バスターミナル"], details:{address:"桜川県 浪原市 桜川 1-1", contact:"電話:012-345-6798"} }
+};
+
+/* Build merged per-station info and include per-entry platformNumber when applicable */
+const STATION_INFO = {};
+function sampleTime(baseH, baseM){
+  let h = baseH; let m = baseM + Math.floor(Math.random()*30);
+  if(m>=60){ h+=Math.floor(m/60); m%=60; }
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+/* Stations that should have platform numbers (legacy fallback) */
+const PLAT_NUM_STATIONS = new Set();
+// add 豊町駅
+PLAT_NUM_STATIONS.add("豊町駅");
+// find range 新里駅 to 湯の浜駅 in 湯の浜線
+const yStations = DATA["新里鉄道"]["湯の浜線"].stations;
+const idxNewSato = yStations.indexOf("新里駅");
+const idxYunohama = yStations.indexOf("湯の浜駅");
+if(idxNewSato !== -1 && idxYunohama !== -1 && idxNewSato <= idxYunohama){
+  for(let i=idxNewSato;i<=idxYunohama;i++) PLAT_NUM_STATIONS.add(yStations[i]);
+}
+// add 鶴宮駅 and 彩山駅
+PLAT_NUM_STATIONS.add("鶴宮駅");
+PLAT_NUM_STATIONS.add("彩山駅");
+
+// build station info: use STATION_OVERRIDES when present to set per-station data
+for(const company of Object.keys(DATA)){
+  const lines = DATA[company];
+  for(const lineName of Object.keys(lines)){
+    const line = lines[lineName];
+    for(const [idx, station] of line.stations.entries()){
+      if(!STATION_INFO[station]) STATION_INFO[station] = { platforms: [], timetables: [], exits: [], details: {} };
+      // if override exists, copy overrides directly
+      if(STATION_OVERRIDES[station]){
+        const o = STATION_OVERRIDES[station];
+        STATION_INFO[station].platforms = o.platforms ? o.platforms.slice() : STATION_INFO[station].platforms;
+        STATION_INFO[station].timetables = o.timetables ? o.timetables.slice() : STATION_INFO[station].timetables;
+        STATION_INFO[station].exits = o.exits ? o.exits.slice() : STATION_INFO[station].exits;
+        STATION_INFO[station].details = o.details ? Object.assign({}, o.details) : STATION_INFO[station].details;
+        // continue to next - overrides supplied explicit info
+        continue;
+      }
+
+      // default platforms (simple)
+      if(STATION_INFO[station].platforms.length === 0){
+        STATION_INFO[station].platforms = [`${lineName}方面（のりば1）: ${line.code}${String(idx+1).padStart(2,'0')}`, `対向方面（のりば2）`];
+      }
+      // create timetable entries, include platformNumber only if station is in PLAT_NUM_STATIONS
+      const hasPlat = PLAT_NUM_STATIONS.has(station);
+      const forwardPlat = 1;
+      const reversePlat = 2;
+      const t1 = { typeLabel:"急行", typeClass:"type-express", time: sampleTime(6,10+(idx%10)), destination: lineName + "方面", lineCode: line.code, platformNumber: hasPlat? forwardPlat : undefined };
+      const t2 = { typeLabel:"各駅停車", typeClass:"type-local", time: sampleTime(6,30+(idx%20)), destination: "市内各停車駅方面", lineCode: line.code, platformNumber: hasPlat? reversePlat : undefined };
+      STATION_INFO[station].timetables.push(t1, t2);
+      // exits/details placeholders (can be overridden by STATION_OVERRIDES later)
+      STATION_INFO[station].exits = ["北口 - バスターミナル","南口 - 駅ビル・タクシー乗り場"];
+      STATION_INFO[station].details = { address:"架空県 架空市（仮）", contact:"電話:000-0000-0000" };
+    }
+  }
+}
+
+/* DOM refs */
+const companySelect = document.getElementById('companySelect');
+const lineSelect = document.getElementById('lineSelect');
+const stationSelect = document.getElementById('stationSelect');
+const infoButtons = document.getElementById('infoButtons');
+const infoContent = document.getElementById('infoContent');
+const stationNumber = document.getElementById('stationNumber');
+const stationName = document.getElementById('stationName');
+const stationSub = document.getElementById('stationSub');
+const tabbar = document.getElementById('tabbar');
+
+/* Populate selects */
+companySelect.addEventListener('change', ()=>{
+  const company = companySelect.value;
+  lineSelect.innerHTML=''; stationSelect.innerHTML='<option value="">先に路線を選んでください</option>'; stationSelect.disabled=true;
+  if(!company){ lineSelect.innerHTML='<option value="">先に会社を選んでください</option>'; lineSelect.disabled=true; clearInfo(); return; }
+  const lines = Object.keys(DATA[company]||{});
+  const ph=document.createElement('option'); ph.value=''; ph.textContent='選択してください'; lineSelect.appendChild(ph);
+  for(const l of lines){ const opt=document.createElement('option'); opt.value=l; opt.textContent=l; lineSelect.appendChild(opt); }
+  lineSelect.disabled=false; clearInfo();
+});
+lineSelect.addEventListener('change', ()=>{
+  const company = companySelect.value; const line=lineSelect.value;
+  stationSelect.innerHTML=''; if(!line){ stationSelect.innerHTML='<option value="">選択してください</option>'; stationSelect.disabled=true; clearInfo(); return; }
+  const stations=(DATA[company]&&DATA[company][line])?DATA[company][line].stations:[]; const ph=document.createElement('option'); ph.value=''; ph.textContent='選択してください'; stationSelect.appendChild(ph);
+  for(const s of stations){ const opt=document.createElement('option'); opt.value=s; opt.textContent=s; stationSelect.appendChild(opt); }
+  stationSelect.disabled=false; clearInfo();
+});
+
+/* Handlers */
+stationSelect.addEventListener('change', ()=>{ renderHeaderBadges(); const view = getActiveView(); renderInfo(view); });
+
+infoButtons.addEventListener('click',(e)=>{ if(e.target.tagName!=='BUTTON') return; const btns=infoButtons.querySelectorAll('button'); btns.forEach(b=>b.classList.remove('active')); e.target.classList.add('active'); const view=e.target.dataset.view; renderInfo(view); setActiveTab(view); });
+tabbar.addEventListener('click',(e)=>{ if(e.target.tagName!=='BUTTON') return; const view=e.target.dataset.view; setActiveTab(view); const leftBtn = infoButtons.querySelector('button[data-view="'+view+'"]'); if(leftBtn){ const btns=infoButtons.querySelectorAll('button'); btns.forEach(b=>b.classList.remove('active')); leftBtn.classList.add('active'); } renderInfo(view); });
+function setActiveTab(view){ const tabs=tabbar.querySelectorAll('button'); tabs.forEach(t=>t.classList.remove('active')); const active=tabbar.querySelector('button[data-view="'+view+'"]'); if(active) active.classList.add('active'); }
+function getActiveView(){ const btn=infoButtons.querySelector('button.active'); return btn?btn.dataset.view:'platforms'; }
+function clearInfo(){ stationNumber.innerHTML=''; stationName.textContent='駅が選択されていません'; stationSub.textContent='会社・路線・駅番号などがここに表示されます'; infoContent.innerHTML='駅を選択するとここに表示されます。'; }
+
+/* Render header badges: fix numbering bug
+   - Display only numeric portion in badge (ユーザー要求)
+   - When an override stationNumber exists, use it only when it corresponds to the current line (e.g. "S-03" used for 彩山線 entries),
+     otherwise fall back to the per-line index (01, 02, ...).
+   - This prevents 彩山線の番号が他路線（鶴宮線等）に影響する不具合を修正。
+*/
+function renderHeaderBadges(){
+  const company = companySelect.value;
+  const station = stationSelect.value;
+  stationNumber.innerHTML=''; stationName.textContent = station || '駅が選択されていません';
+  stationSub.textContent = station ? ('選択駅: ' + station) : '会社・路線・駅番号などがここに表示されます';
+  if(!company || !station) return;
+  const lines = DATA[company];
+  const serving = [];
+  for(const ln of LINE_PRIORITY){ if(lines[ln] && lines[ln].stations.includes(station)) serving.push({name:ln, info:lines[ln]}); }
+  for(const ln of Object.keys(lines)){ if(!LINE_PRIORITY.includes(ln) && lines[ln].stations.includes(station)) serving.push({name:ln, info:lines[ln]}); }
+
+  const badges = serving.map(s=>{
+    const override = STATION_OVERRIDES[station];
+    // determine numeric index to display for this specific line
+    let idxDigits = null;
+    if(override && override.stationNumber){
+      // if override has pattern like "S-03" or "S03", extract digits and check prefix matches this line code
+      const m = String(override.stationNumber).match(/^([A-Za-z])[-]?0*([0-9]+)$/);
+      if(m){
+        const prefix = m[1];
+        const digits = m[2].padStart(2,'0');
+        // use override only if prefix equals this line's code
+        if(prefix === s.info.code){
+          idxDigits = digits;
+        }
+      }
+      // if override is purely numeric, use it
+      if(idxDigits===null){
+        const m2 = String(override.stationNumber).match(/^0*([0-9]+)$/);
+        if(m2) idxDigits = m2[1].padStart(2,'0');
+      }
+    }
+    // fallback: use index within this line
+    if(idxDigits===null){
+      const pos = s.info.stations.indexOf(station);
+      idxDigits = String(pos+1).padStart(2,'0');
+    }
+
+    const c = s.info.colorHex; const style = s.info.style||'filled';
+    // Badge shows only digits (ユーザー希望)
+    if(style==='filled'){ return `<span class="num-vertical filled" style="background:${c};"><span style="font-size:16px;line-height:1">${s.info.code}</span><span style="font-size:14px;line-height:1;margin-top:0px">${idxDigits}</span></span>`;}
+    if(style==='rounded'){ return `<span class="num-vertical rounded" style="border-color:${c};"><span style="font-size:15px;line-height:1;color:#000">${s.info.code}</span><span style="font-size:14px;line-height:1;margin-top:-1px;color:#000">${idxDigits}</span></span>`;}
+    return `<span class="num-vertical circle" style="border-color:${c};"><span style="font-size:14px;line-height:1;color:#000">${s.info.code}</span><span style="font-size:14px;line-height:1;margin-top:-1px;color:#000">${idxDigits}</span></span>`;
+  });
+  stationNumber.innerHTML = badges.join('');
+  // stationSub shows codes (prefer per-line numeric)
+  const label = serving.map(s=>{
+    const override = STATION_OVERRIDES[station];
+    let numLabel = null;
+    if(override && override.stationNumber){
+      const m = String(override.stationNumber).match(/^([A-Za-z])[-]?0*([0-9]+)$/);
+      if(m && m[1] === s.info.code){
+        numLabel = s.info.code + '-' + m[2].padStart(2,'0');
+      }
+      // numeric-only override
+      if(!numLabel){
+        const m2 = String(override.stationNumber).match(/^0*([0-9]+)$/);
+        if(m2) numLabel = s.info.code + '-' + m2[1].padStart(2,'0');
+      }
+    }
+    if(!numLabel){
+      const pos = s.info.stations.indexOf(station);
+      numLabel = s.info.code + '-' + String(pos+1).padStart(2,'0');
+    }
+    return numLabel;
+  }).join(' / ');
+  stationSub.textContent = company + ' — ' + label;
+}
+
+/* Render info (same as before) */
+function renderInfo(view){
+  const company = companySelect.value; const station = stationSelect.value;
+  if(!company || !station){ infoContent.innerHTML = '<em>駅が選択されていません。</em>'; return; }
+  const sInfo = STATION_INFO[station]; if(!sInfo){ infoContent.innerHTML = '<em>駅情報がありません（内部）</em>'; return; }
+
+  if(view==='platforms'){
+    let html = `<h3 style="margin-top:0">${station} のりば案内（個別表示）</h3><ul>`;
+    for(const p of sInfo.platforms) html += `<li>${p}</li>`;
+    html += `</ul>`; infoContent.innerHTML = html; return;
+  }
+
+  if(view==='timetable'){
+    const companyLines = DATA[company];
+    const directions = [];
+    for(const t of sInfo.timetables){
+      let lnName = null;
+      for(const ln of Object.keys(companyLines)){ if(companyLines[ln].code === t.lineCode || ln === t.lineCode){ lnName = ln; break; } }
+      const label = t.destination;
+      const key = label + '|' + (t.lineCode||'');
+      if(!directions.find(d=>d.key===key)) directions.push({key, label, lineCode: t.lineCode||''});
+    }
+
+    let html = `<h3 style="margin-top:0">${station} 時刻表（個別）</h3>`;
+    html += `<div class="timetable-controls" id="timetableControls">`;
+    if(directions.length===0){
+      html += `<div class="muted">この駅の時刻表データは登録されていません。</div>`;
+    } else {
+      directions.forEach((d,i)=>{ html += `<button class="dir-btn" data-key="${d.key}" ${i===0?'data-default="true"':''}>${d.label}</button>`; });
+    }
+    html += `</div><div id="timetableList"></div>`;
+    infoContent.innerHTML = html;
+
+    const ctrl = document.getElementById('timetableControls');
+    if(directions.length>0){
+      const buttons = Array.from(ctrl.querySelectorAll('button.dir-btn'));
+      buttons.forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          buttons.forEach(b=>b.classList.remove('active'));
+          btn.classList.add('active');
+          const key = btn.dataset.key;
+          renderTimetableForKey(key, sInfo, company);
+        });
+      });
+      const defaultBtn = buttons.find(b=>b.dataset.default==='true') || buttons[0];
+      defaultBtn.click();
+    }
+    return;
+  }
+
+  if(view==='exits'){
+    let html=`<h3 style="margin-top:0">${station} 出口案内</h3><ul>`;
+    for(const e of sInfo.exits) html += `<li>${e}</li>`;
+    html += `</ul>`; infoContent.innerHTML = html; return;
+  }
+
+  if(view==='details'){
+    const d = sInfo.details; infoContent.innerHTML = `<h3 style="margin-top:0">${station} 詳細</h3><p>所在地: ${d.address}</p><p>${d.contact}</p>`; return;
+  }
+}
+
+/* render timetable entries matching a direction key (label|lineCode) */
+function renderTimetableForKey(key, sInfo, company){
+  const parts = key.split('|'); const label = parts[0]; const code = parts[1];
+  const entries = sInfo.timetables.filter(t=>t.destination===label || (t.lineCode||'')===code);
+  let list = entries.length? entries : sInfo.timetables.slice();
+  let html = '';
+  if(list.length===0){ html = `<div class="muted">この方面の時刻データが見つかりません。</div>`; }
+  else {
+    html = `<div class="timetable-simple">`;
+    for(const t of list){
+      const platHtml = (typeof t.platformNumber !== 'undefined' && t.platformNumber !== null) ? `<span class="plat-circle">${t.platformNumber}</span>` : '';
+      html += `<div class="tt-line"><div class="tt-type ${t.typeClass}">${t.typeLabel}</div><div class="tt-time">${t.time}</div><div class="tt-dest">${t.destination}${platHtml}</div></div>`;
+    }
+    html += `</div>`;
+  }
+  const container = document.getElementById('timetableList');
+  if(container) container.innerHTML = html;
+}
+
+/* initialize */
+clearInfo();
+
+</script>
+</body>
+</html>
