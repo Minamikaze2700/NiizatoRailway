@@ -21,7 +21,7 @@
 html,body{height:100%;margin:0;font-family:var(--font-sans);background:var(--bg);color:#0b1324}
 .wrap{max-width:980px;margin:28px auto;padding:20px}
 h1{margin:0 0 12px;font-size:20px}
-.card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:0 8px 24px rgba(2,6,23,0.07);margin-bottom:12px}
+.card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:0 8px 24px rgba(2,6,23,0.07);margin:12px 0px}
 .row{display:flex;gap:12px;align-items:flex-start;flex-direction:column}
 .col{display:flex;flex-direction:column;gap:6px;position:relative;align-items:flex-start}
 select,button{font-size:14px;padding:8px 10px;border-radius:4px;border:1px solid #d1d5db;background:#fff}
@@ -70,11 +70,26 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .viaList{display:flex;flex-direction:column;gap:6px;margin:6px 0;align-items:flex-start}
 .viaRow{display:flex;align-items:center;gap:6px;justify-content:flex-start}
 .viaRow button{font-size:12px;padding:4px 6px}
+.CompatibleRoutes{height: 150px;overflow: auto;background:#fff;}
 </style>
 </head>
 <body>
 <div class="wrap">
-<h1>新里地方 乗換案内</h1>
+<h2>新里地方 乗換案内</h2>
+<h1>対応路線</h1>
+<div class="CompatibleRoutes">
+<p>新里鉄道：全線</p>
+<p>豊野鉄道：全線</p>
+<p>桜川電気鉄道：空港線 全線　中野線 桜川～新地港　桜州環状線 春田～東片野</p>
+<p>床川急行電鉄：全線</p>
+<p>浪川急行電鉄：全線</p>
+<p>今橋鉄道：豊海線 全線　成津線 全線</p>
+<p>東雲鉄道：全線</p>
+<p>大桑鉄道：本線 桑畑～内原　豊川線 全線</p>
+<p>東橋鉄道：全線</p>
+<p>坂津ポートライナー：全線</p>
+<p>笠原電気鉄道：笠原本線 東津村～津村</p>
+</div>
 <div class="card">
 <div id="stationSelector">
 <div class="row">
