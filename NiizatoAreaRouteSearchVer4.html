@@ -74,6 +74,55 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .CompatibleRoutes{height: 145px;overflow: auto;background:#fff}
 .CompatibleRoutes p{margin:0em 12px}
 </style>
+
+<style>
+.between-count{
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "メイリオ", sans-serif;
+  color: #111;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(0,0,0,0.12);
+  padding: 2px 6px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  z-index: 9999;
+}
+</style>
+
+<style>
+.between-count{
+  font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+  color: #fff;
+  background: #f5a623;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  z-index: 9999;
+  display: inline-block;
+}
+</style>
+
+<style>
+.between-count{
+  font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+  color: #fff;
+  background: #f5a623;
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  z-index: 9999;
+  display: inline-block;
+  border: 1px solid #fff;
+}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -2044,10 +2093,13 @@ function renderRouteCardForPart(part, partIndex, containerId){
 
 // containerId を受け取って、そのコンテナ内の .toggleBtn のみにリスナをバインドする
 
+
+
+
+
 function wireToggleButtons(containerId){
   refreshTabButtons();
   tabButtons.forEach(btn=>{
-    // remove previous to avoid double-binding
     if(btn._tabListener) btn.removeEventListener('click', btn._tabListener);
     const listener = ()=>{
       const target = btn.dataset.target;
@@ -2064,38 +2116,164 @@ function wireToggleButtons(containerId){
         if(elS) elS.style.display = 'none';
         if(elF) elF.style.display = 'block';
       }
-      // 表示切替後に再調整（非表示時の計算を避ける）
       runAdjustments();
     };
     btn.addEventListener('click', listener);
     btn._tabListener = listener;
   });
 
-  // Bind toggle buttons inside each result container (they're created dynamically)
+  function readableTextColor(hex){
+    if(!hex) return '#fff';
+    let r=0,g=0,b=0;
+    if(hex.startsWith('rgb')){
+      const nums = hex.replace(/[^\d,]/g,'').split(',').map(n=>parseInt(n,10));
+      [r,g,b] = nums;
+    } else {
+      const h = hex.replace('#','');
+      if(h.length === 3){
+        r = parseInt(h[0]+h[0],16);
+        g = parseInt(h[1]+h[1],16);
+        b = parseInt(h[2]+h[2],16);
+      } else {
+        r = parseInt(h.substr(0,2),16);
+        g = parseInt(h.substr(2,2),16);
+        b = parseInt(h.substr(4,2),16);
+      }
+    }
+    const luminance = (0.299*r + 0.587*g + 0.114*b)/255;
+    return luminance > 0.6 ? '#111' : '#fff';
+  }
+
+  // Reposition a specific between-count to be horizontally and vertically centered on bigLine midpoint
+  function positionLabelOverLine(span, bigLine){
+    if(!span || !bigLine || !bigLine.parentElement) return;
+    const parent = bigLine.parentElement;
+    const parentRect = parent.getBoundingClientRect();
+    const lineRect = bigLine.getBoundingClientRect();
+    const spanRect = span.getBoundingClientRect();
+    // center X and center Y of the line, relative to parent
+    const centerX = (lineRect.left - parentRect.left) + (lineRect.width / 2);
+    const centerY = (lineRect.top - parentRect.top) + (lineRect.height / 2);
+    // set span so its center aligns to centerX/centerY
+    const leftPx = Math.round(centerX - spanRect.width / 2);
+    const topPx = Math.round(centerY - spanRect.height / 2);
+    span.style.left = Math.max(2, leftPx) + 'px';
+    span.style.top = Math.max(2, topPx) + 'px';
+  }
+
+  function updateBetweenCount(list, bigLine, cid, part, idx){
+    if(!bigLine) return;
+    const countId = `${cid}-part${part}-bigline-${idx}-between-count`;
+    const existing = document.getElementById(countId);
+    const rows = list ? list.querySelectorAll('.rowBetween').length : 0;
+    const isHidden = list ? (getComputedStyle(list).display === 'none') : true;
+    if(rows >= 1 && isHidden){
+      if(!existing){
+        const parent = bigLine.parentElement;
+        if(parent && getComputedStyle(parent).position === 'static'){
+          parent.style.position = 'relative';
+        }
+        const span = document.createElement('span');
+        span.id = countId;
+        span.className = 'between-count';
+        span.textContent = rows.toString() + '駅';
+        span.style.position = 'absolute';
+        span.style.pointerEvents = 'auto';
+        span.style.fontSize = '11px';
+        span.style.padding = '1px 6px';
+        span.style.borderRadius = '999px';
+        span.style.whiteSpace = 'nowrap';
+        span.style.fontWeight = '700';
+        span.style.zIndex = '9999';
+        span.style.border = '1px solid #fff';
+        const baseColor = (bigLine.dataset && bigLine.dataset.color) ? bigLine.dataset.color : '#f5a623';
+        span.dataset.bg = baseColor;
+        span.style.background = baseColor;
+        span.style.color = readableTextColor(baseColor);
+        span.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
+        parent.appendChild(span);
+        // Ensure layout happened, then position precisely at the center of the line
+        // Use requestAnimationFrame to ensure correct measurements after insertion
+        requestAnimationFrame(()=>{ positionLabelOverLine(span, bigLine); });
+      } else {
+        existing.textContent = rows.toString() + '駅';
+        const baseColor = (bigLine.dataset && bigLine.dataset.color) ? bigLine.dataset.color : '#f5a623';
+        existing.style.background = baseColor;
+        existing.style.color = readableTextColor(baseColor);
+        // reposition to always be centered vertically/horizontally
+        requestAnimationFrame(()=>{ positionLabelOverLine(existing, bigLine); });
+      }
+    } else {
+      if(existing){
+        existing.remove();
+      }
+    }
+  }
+
+  // Reposition all between-count labels (useful on resize/scroll/runAdjustments)
+  function repositionAllBetweenCounts(){
+    const labels = Array.from(document.querySelectorAll('.between-count'));
+    labels.forEach(label=>{
+      // derive bigLine id from label id pattern: <cid>-part<part>-bigline-<idx>-between-count
+      const id = label.id || '';
+      const m = id.match(/^(.*-bigline-(\d+))-between-count$/);
+      if(!m) return;
+      const bigLineIdBase = m[1]; // e.g., result-shortest-part0-bigline-1
+      const bigLine = document.getElementById(bigLineIdBase);
+      if(bigLine){
+        positionLabelOverLine(label, bigLine);
+      }
+    });
+  }
+
+  // keep labels aligned on resize/scroll/orientationchange
+  if(!window._betweenCountListenersAdded){
+    const reposition = ()=>{ requestAnimationFrame(repositionAllBetweenCounts); };
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    window.addEventListener('orientationchange', reposition);
+    // Hook into runAdjustments if available by wrapping it to also reposition (if runAdjustments exists)
+    if(typeof runAdjustments === 'function'){
+      const origRunAdjustments = runAdjustments;
+      runAdjustments = function(){
+        const res = origRunAdjustments.apply(this, arguments);
+        requestAnimationFrame(repositionAllBetweenCounts);
+        return res;
+      };
+    }
+    window._betweenCountListenersAdded = true;
+  }
+
   const containers = ['result-shortest','result-fewest'];
   containers.forEach(containerIdLocal=>{
     const container = document.getElementById(containerIdLocal);
     if(!container) return;
     const toggleBtns = Array.from(container.querySelectorAll('.toggleBtn'));
     toggleBtns.forEach(btn=>{
-      // remove previous listener if exists
       if(btn._routeToggleListener) btn.removeEventListener('click', btn._routeToggleListener);
 
-      // determine corresponding between-list id
       const part = btn.dataset.part;
       const idx = btn.dataset.seg;
       const cid = btn.dataset.container || containerIdLocal;
       const listId = `${cid}-part${part}-between-${idx}`;
       const list = document.getElementById(listId);
 
-      // If there's no between list or it contains no intermediate rows, hide the toggle button.
-      // This covers the case "主要駅と主要駅の間に途中駅がない区間".
       if(!list || list.querySelectorAll('.rowBetween').length === 0){
         btn.style.display = 'none';
+        const bigLineId = `${cid}-part${part}-bigline-${idx}`;
+        const bigLine = document.getElementById(bigLineId);
+        if(bigLine){
+          const countEl = document.getElementById(`${bigLineId}-between-count`);
+          if(countEl) countEl.remove();
+        }
         return;
       } else {
         btn.style.display = '';
       }
+
+      const bigLineId = `${cid}-part${part}-bigline-${idx}`;
+      const bigLine = document.getElementById(bigLineId);
+      updateBetweenCount(list, bigLine, cid, part, idx);
 
       const listener = ()=>{
         const part = btn.dataset.part;
@@ -2124,6 +2302,9 @@ function wireToggleButtons(containerId){
             runAdjustments();
           }
         }
+
+        updateBetweenCount(list, bigLine, cid, part, idx);
+
         runAdjustments();
       };
       btn.addEventListener('click', listener);
