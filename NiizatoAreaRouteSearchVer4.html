@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 
 <html lang="ja">
@@ -2042,48 +2043,94 @@ function renderRouteCardForPart(part, partIndex, containerId){
 }
 
 // containerId を受け取って、そのコンテナ内の .toggleBtn のみにリスナをバインドする
+
 function wireToggleButtons(containerId){
-  const container = document.getElementById(containerId);
-  if(!container) return;
-  const btns = Array.from(container.querySelectorAll('.toggleBtn'));
-  btns.forEach(btn=>{
-    // remove previous listener if exists
-    if(btn._routeToggleListener) btn.removeEventListener('click', btn._routeToggleListener);
-
+  refreshTabButtons();
+  tabButtons.forEach(btn=>{
+    // remove previous to avoid double-binding
+    if(btn._tabListener) btn.removeEventListener('click', btn._tabListener);
     const listener = ()=>{
-      const part = btn.dataset.part;
-      const idx = btn.dataset.seg;
-      const cid = btn.dataset.container || containerId;
-      const listId = `${cid}-part${part}-between-${idx}`;
-      const bigLineId = `${cid}-part${part}-bigline-${idx}`;
-      const list = document.getElementById(listId);
-      const bigLine = document.getElementById(bigLineId);
-      if(!list) return;
-      const isOpen = getComputedStyle(list).display !== 'block';
-      list.style.display = isOpen ? 'block' : 'none';
-      btn.dataset.open = isOpen.toString();
-            const usedLinesRaw = btn.dataset.usedlines || '';
-      const isBus = /バス/.test(usedLinesRaw);
-      btn.textContent = isOpen ? (isBus ? '経由地を非表示' : '停車駅を非表示') : (isBus ? '経由地を表示' : '停車駅を表示');
-
-      if(bigLine){
-        const baseColor = bigLine.dataset.color || '#999';
-
-        if(isOpen){
-          bigLine.style.background = baseColor;
-          shortenBigLineToFirstBetween(bigLine, list);
-        } else {
-          delete bigLine.dataset.shortened;
-          runAdjustments();
-        }
+      const target = btn.dataset.target;
+      tabButtons.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      if(target === 'shortest'){
+        const elS = document.getElementById('result-shortest');
+        const elF = document.getElementById('result-fewest');
+        if(elS) elS.style.display = 'block';
+        if(elF) elF.style.display = 'none';
+      } else {
+        const elS = document.getElementById('result-shortest');
+        const elF = document.getElementById('result-fewest');
+        if(elS) elS.style.display = 'none';
+        if(elF) elF.style.display = 'block';
       }
+      // 表示切替後に再調整（非表示時の計算を避ける）
       runAdjustments();
     };
     btn.addEventListener('click', listener);
-    btn._routeToggleListener = listener;
+    btn._tabListener = listener;
+  });
+
+  // Bind toggle buttons inside each result container (they're created dynamically)
+  const containers = ['result-shortest','result-fewest'];
+  containers.forEach(containerIdLocal=>{
+    const container = document.getElementById(containerIdLocal);
+    if(!container) return;
+    const toggleBtns = Array.from(container.querySelectorAll('.toggleBtn'));
+    toggleBtns.forEach(btn=>{
+      // remove previous listener if exists
+      if(btn._routeToggleListener) btn.removeEventListener('click', btn._routeToggleListener);
+
+      // determine corresponding between-list id
+      const part = btn.dataset.part;
+      const idx = btn.dataset.seg;
+      const cid = btn.dataset.container || containerIdLocal;
+      const listId = `${cid}-part${part}-between-${idx}`;
+      const list = document.getElementById(listId);
+
+      // If there's no between list or it contains no intermediate rows, hide the toggle button.
+      // This covers the case "主要駅と主要駅の間に途中駅がない区間".
+      if(!list || list.querySelectorAll('.rowBetween').length === 0){
+        btn.style.display = 'none';
+        return;
+      } else {
+        btn.style.display = '';
+      }
+
+      const listener = ()=>{
+        const part = btn.dataset.part;
+        const idx = btn.dataset.seg;
+        const cid = btn.dataset.container || containerIdLocal;
+        const listId = `${cid}-part${part}-between-${idx}`;
+        const bigLineId = `${cid}-part${part}-bigline-${idx}`;
+        const list = document.getElementById(listId);
+        const bigLine = document.getElementById(bigLineId);
+        if(!list) return;
+        const isOpen = getComputedStyle(list).display !== 'block';
+        list.style.display = isOpen ? 'block' : 'none';
+        btn.dataset.open = isOpen.toString();
+        const usedLinesRaw = btn.dataset.usedlines || '';
+        const isBus = /バス/.test(usedLinesRaw);
+        btn.textContent = isOpen ? (isBus ? '経由地を非表示' : '停車駅を非表示') : (isBus ? '経由地を表示' : '停車駅を表示');
+
+        if(bigLine){
+          const baseColor = bigLine.dataset.color || '#999';
+
+          if(isOpen){
+            bigLine.style.background = baseColor;
+            shortenBigLineToFirstBetween(bigLine, list);
+          } else {
+            delete bigLine.dataset.shortened;
+            runAdjustments();
+          }
+        }
+        runAdjustments();
+      };
+      btn.addEventListener('click', listener);
+      btn._routeToggleListener = listener;
+    });
   });
 }
-
 function shortenBigLineToFirstBetween(bigLine, betweenEl){
   if(!bigLine || !betweenEl) return;
   const railCol = bigLine.parentElement;
