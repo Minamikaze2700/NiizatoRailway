@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 
 <html lang="ja">
@@ -979,14 +978,13 @@ function findLinesOfSegment(a,b){
   for(const [line, stations] of Object.entries(stationLines)){
     const ia = stations.indexOf(a);
     const ib = stations.indexOf(b);
-    // 両端が存在することを確認
     if(ia === -1 || ib === -1) continue;
-    // 1) 通常の隣接（index差が1）
+    // 1) 通常の隣接（インデックス差が1）
     if(Math.abs(ia - ib) === 1){
       candidates.push(line);
       continue;
     }
-    // 2) 環状線対応：路線名に "環状" を含む場合、先頭と末尾を隣接として扱う
+    // 2) 環状線対応：路線名に「環状」を含む路線では先頭と末尾を隣接とみなす
     const isCircular = /環状/.test(line);
     if(isCircular && stations.length > 1){
       if((ia === 0 && ib === stations.length - 1) || (ib === 0 && ia === stations.length - 1)){
@@ -1703,6 +1701,103 @@ function shortestPathMinMajors(start, goal, forbidden){
   return {path: pathStations, distance: trueDist, majors: bestMaj};
 }
 
+
+function shortestPathMinTransfers(start, goal, forbidden){
+  if(!graph[start] || !graph[goal]) return {path:[],distance:Infinity};
+  // distMap: key => {transfers, dist}
+  const distMap = new Map();
+  const prevState = new Map();
+  const Q = new Set();
+
+  const startKey = keyOfState(start, '');
+  distMap.set(startKey, {transfers:0, dist:0});
+  Q.add(startKey);
+
+  while(Q.size){
+    // pick best by (transfers, dist)
+    let bestKey = null; let bestTrans = Infinity; let bestDist = Infinity;
+    for(const k of Q){
+      const v = distMap.get(k);
+      if(!v) continue;
+      if(v.transfers < bestTrans || (v.transfers === bestTrans && v.dist < bestDist)){
+        bestKey = k; bestTrans = v.transfers; bestDist = v.dist;
+      }
+    }
+    if(bestKey === null) break;
+    Q.delete(bestKey);
+    const {station: u, prevLine: prevLineOfU} = parseStateKey(bestKey);
+    if(forbidden.has(u) && u !== start && u !== goal) continue;
+    if(u === goal){
+      // we found goal with minimal transfers/dist among queued states; reconstruct path
+      let path = [];
+      let cur = bestKey;
+      while(cur){
+        const ps = parseStateKey(cur);
+        path.unshift(ps.station);
+        cur = prevState.get(cur);
+      }
+      return { path, distance: distMap.get(bestKey).dist };
+    }
+    // explore neighbors
+    for(const [v,w] of Object.entries(graph[u]||{})){
+      // get candidate lines between u and v
+      const candidateLines = findLinesOfSegment(u, v);
+      if(!candidateLines || candidateLines.length === 0){
+        // still allow transition with unknown line
+        const vKey = keyOfState(v, '');
+        const cur = distMap.get(bestKey);
+        const existing = distMap.get(vKey);
+        const newTrans = cur.transfers;
+        const newDist = cur.dist + w;
+        if(!existing || newTrans < existing.transfers || (newTrans === existing.transfers && newDist < existing.dist)){
+          distMap.set(vKey, {transfers:newTrans, dist:newDist});
+          prevState.set(vKey, bestKey);
+          Q.add(vKey);
+        }
+      } else {
+        for(const ln of candidateLines){
+          const compPrev = prevLineOfU ? companyFromLineName(prevLineOfU) : null;
+          const compCur = companyFromLineName(ln);
+          let inc = 0;
+          if(prevLineOfU && compPrev && compCur && compPrev !== compCur){
+            // company change => transfer
+            // but if u is a connectingStationName, we may or may not count; follow existing logic: don't count if connectingStationName(u)
+            if(!isConnectingStationName(u)) inc = 1;
+          }
+          const vKey = keyOfState(v, ln);
+          const cur = distMap.get(bestKey);
+          const newTrans = cur.transfers + inc;
+          const newDist = cur.dist + w;
+          const existing = distMap.get(vKey);
+          if(!existing || newTrans < existing.transfers || (newTrans === existing.transfers && newDist < existing.dist)){
+            distMap.set(vKey, {transfers:newTrans, dist:newDist});
+            prevState.set(vKey, bestKey);
+            Q.add(vKey);
+          }
+        }
+      }
+    }
+  }
+
+  // find best goal state among distMap keys
+  let bestGoalKey = null; let bestT = Infinity; let bestD = Infinity;
+  for(const [k,v] of distMap.entries()){
+    const parsed = parseStateKey(k);
+    if(parsed.station !== goal) continue;
+    if(v.transfers < bestT || (v.transfers === bestT && v.dist < bestD)){
+      bestGoalKey = k; bestT = v.transfers; bestD = v.dist;
+    }
+  }
+  if(!bestGoalKey) return {path:[],distance:Infinity};
+  let path = []; let cur = bestGoalKey;
+  while(cur){
+    const ps = parseStateKey(cur);
+    path.unshift(ps.station);
+    cur = prevState.get(cur);
+  }
+  return { path, distance: distMap.get(bestGoalKey).dist };
+}
+
 /* =========================
    既存の「一筆書き（重複禁止）ルート作成」ロジック（距離優先）
    (元プログラムのロジックを保持)
@@ -1878,6 +1973,80 @@ function buildRoutePartsNoOverlapMinMajors(from, viaStations, to){
   return outParts;
 }
 
+
+function buildRoutePartsNoOverlapMinTransfers(from, viaStations, to){
+  const waypoints = [from, ...viaStations, to];
+  let full = [];
+  let totalDist = 0;
+  const used = new Set();
+
+  for(let i=0;i<waypoints.length-1;i++){
+    const a = waypoints[i], b = waypoints[i+1];
+    const forbidden = new Set(used);
+    if(forbidden.has(a)) forbidden.delete(a);
+    if(forbidden.has(b)) forbidden.delete(b);
+
+    const sp = shortestPathMinTransfers(a, b, forbidden);
+    if(!sp.path || sp.path.length === 0){
+      const sp2 = shortestPathAvoiding(a, b, forbidden);
+      if(!sp2.path || sp2.path.length === 0){
+        const sp3 = shortestPath(a, b);
+        if(!sp3.path || sp3.path.length === 0) return null;
+        const seg3 = (i===0) ? sp3.path.slice() : sp3.path.slice(1);
+        full.push(...seg3);
+        totalDist += sp3.distance;
+        for(const st of sp3.path){ if(st !== b) used.add(st); }
+        continue;
+      } else {
+        const seg2 = (i===0) ? sp2.path.slice() : sp2.path.slice(1);
+        full.push(...seg2);
+        totalDist += sp2.distance;
+        for(const st of sp2.path){ if(st !== b) used.add(st); }
+        continue;
+      }
+    }
+
+    const seg = (i===0) ? sp.path.slice() : sp.path.slice(1);
+    full.push(...seg);
+    totalDist += sp.distance;
+    for(const st of sp.path){ if(st !== b) used.add(st); }
+  }
+
+  if(full.length === 0) return [];
+
+  function splitOnTripleRepeat(fullPath){
+    if(!Array.isArray(fullPath) || fullPath.length === 0) return [fullPath.slice()];
+    const parts = [];
+    let curStart = 0;
+    for(let i = 2; i < fullPath.length; i++){
+      if(fullPath[i-2] === fullPath[i]){
+        const firstPart = fullPath.slice(curStart, i);
+        if(firstPart.length > 1) parts.push(firstPart);
+        curStart = i - 1;
+      }
+    }
+    const last = fullPath.slice(curStart);
+    if(last.length > 1) parts.push(last);
+    return parts;
+  }
+
+  function distanceOfPath(p){
+    if(!p || p.length < 2) return 0;
+    let d = 0;
+    for(let i=0;i<p.length-1;i++){
+      const a = p[i], b = p[i+1];
+      if(typeof graph !== 'undefined' && graph && graph[a] && typeof graph[a][b] === 'number') d += graph[a][b];
+      else if(typeof graph !== 'undefined' && graph && graph[b] && typeof graph[b][a] === 'number') d += graph[b][a];
+      else d += 0;
+    }
+    return d;
+  }
+
+  const splitted = splitOnTripleRepeat(full);
+  const outParts = splitted.map(p => ({ path: p, distance: distanceOfPath(p) }));
+  return outParts;
+}
+
 /* ---- 以下は既存の分割・描画・運賃計算ロジックを保持 ---- */
 
 function splitByCompany(path){
@@ -1892,8 +2061,27 @@ function splitByCompany(path){
 
   for(let i=1;i<path.length;i++){
     const a = path[i-1], b = path[i];
-    const ln = findLineOfSegment(a,b);
-    const comp = ln ? companyFromLineName(ln) : null;
+    // 路線候補を取得
+    const candidateLines = findLinesOfSegment(a,b);
+    let ln = candidateLines.length ? candidateLines[0] : null;
+    let comp = ln ? companyFromLineName(ln) : null;
+
+    // 複数候補がある場合、現在の会社と一致する候補を優先
+    if(candidateLines.length > 1 && curCompany){
+      for(const cand of candidateLines){
+        if(companyFromLineName(cand) === curCompany){
+          ln = cand;
+          comp = curCompany;
+          break;
+        }
+      }
+    }
+
+    // 候補が見つからないが curCompany が既にある場合は継続扱い（不必要な分割を防ぐ）
+    if(!comp && curCompany){
+      comp = curCompany;
+      ln = null;
+    }
 
     if(comp !== curCompany){
       segments.push({ from:start, to:prev, company:curCompany });
@@ -2450,6 +2638,38 @@ function shortenBigLineToFirstBetween(bigLine, betweenEl){
 /* ===========================
    検索イベント、レンダリング
    =========================== */
+
+
+// --- 追加ヘルパー: 乗換回数計算と fewest 用ソート ---
+function computeTransferCountForPart(part){
+  if(!part || !part.path) return Infinity;
+  const comps = splitByCompany(part.path);
+  if(!comps || comps.length === 0) return 0;
+  let transferCount = 0;
+  for(let i=1;i<comps.length;i++){
+    if(comps[i-1].company !== comps[i].company) transferCount++;
+  }
+  return transferCount;
+}
+
+function sortPartsForFewest(parts){
+  if(!Array.isArray(parts)) return parts;
+  return parts.slice().sort((A,B)=>{
+    const tA = computeTransferCountForPart(A);
+    const tB = computeTransferCountForPart(B);
+    if(tA !== tB) return tA - tB;
+    if(A.distance !== B.distance) return A.distance - B.distance;
+    const mA = (A.majors?A.majors.length:0);
+    const mB = (B.majors?B.majors.length:0);
+    return mA - mB;
+  });
+}
+
+function getActiveTab(){
+  const btn = document.querySelector('.tabBtn.active');
+  return btn ? btn.dataset.target : 'shortest';
+}
+// --- ヘルパーここまで ---
 function renderResultHeader(totalDistance, totalFare){
   return `
     <div class="card">
@@ -2560,7 +2780,10 @@ function renderRoutesIntoContainer(parts, containerId){
   const headerHtml = renderResultHeader(totalDistance, totalFare);
 
   let html = headerHtml;
-  parts.forEach((p, idx)=>{
+  // fewest タブでは乗り換え回数を最優先でソート
+  const activeTab = getActiveTab();
+  const partsToRender = (activeTab === 'fewest') ? sortPartsForFewest(parts) : parts;
+  partsToRender.forEach((p, idx)=>{
     html += renderRouteCardForPart(p, idx, containerId);
   });
 
@@ -2607,7 +2830,7 @@ searchBtn.addEventListener('click', ()=>{
   // 距離優先（既存のロジック）
   const partsShortest = buildRoutePartsNoOverlap(from, viaStations, to);
   // 乗換少なめ（主要駅数を最優先で最小化；接続駅は主要駅カウントから除外）
-  const partsFewest = buildRoutePartsNoOverlapMinMajors(from, viaStations, to);
+  const partsFewest = buildRoutePartsNoOverlapMinTransfers(from, viaStations, to);
 
   if((!partsShortest || partsShortest.length === 0) && (!partsFewest || partsFewest.length === 0)){
     document.getElementById('result-shortest').innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
