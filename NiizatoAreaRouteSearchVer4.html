@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 
 <html lang="ja">
@@ -130,7 +131,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 <div class="CompatibleRoutes">
 <p>新里鉄道：全線</p>
 <p>豊野鉄道：全線</p>
-<p>桜川電気鉄道：空港線 全線　彩山線 全線　中野線 全線　桜州環状線 春田～中野（東回り）</p>
+<p>桜川電気鉄道：全線</p>
 <p>床川急行電鉄：全線</p>
 <p>浪川急行電鉄：全線</p>
 <p>今橋鉄道：豊海線 全線　成津線 全線</p>
@@ -715,7 +716,7 @@ const rawGraph={
 "中洲":{"似島":2.3},
 "似島":{"彩山川":1.5},
 "彩山川":{"桜鉄浪原":2.4},
-"中野":{"南中野":1.8},
+"中野":{"南中野":1.8,西中野:1.9},
 "南中野":{"大里":1.7},
 "大里":{"栄町":1.9},
 "栄町":{"北桜川":2.1},
@@ -724,6 +725,11 @@ const rawGraph={
 "福原":{"桜台":2.3},
 "桜台":{"東中野":2.1},
 "東中野":{"中野":1.9},
+"西中野":{"川渡":2.2},
+"川渡":{"八軒町":2.1},
+"八軒町":{"木ノ葉台":2.7},
+"木ノ葉台":{"北春田":4.3},
+"北春田":{"春田":1.7},
 "東豊海":{"牛見":1.7},
 "牛見":{"三九十九":1.4},
 "三九十九":{"咲田口":2.1},
@@ -973,8 +979,20 @@ function findLinesOfSegment(a,b){
   for(const [line, stations] of Object.entries(stationLines)){
     const ia = stations.indexOf(a);
     const ib = stations.indexOf(b);
-    if(ia !== -1 && ib !== -1 && Math.abs(ia - ib) === 1){
+    // 両端が存在することを確認
+    if(ia === -1 || ib === -1) continue;
+    // 1) 通常の隣接（index差が1）
+    if(Math.abs(ia - ib) === 1){
       candidates.push(line);
+      continue;
+    }
+    // 2) 環状線対応：路線名に "環状" を含む場合、先頭と末尾を隣接として扱う
+    const isCircular = /環状/.test(line);
+    if(isCircular && stations.length > 1){
+      if((ia === 0 && ib === stations.length - 1) || (ib === 0 && ia === stations.length - 1)){
+        candidates.push(line);
+        continue;
+      }
     }
   }
   return candidates;
