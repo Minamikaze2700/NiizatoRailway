@@ -2784,7 +2784,15 @@ function renderRoutesIntoContainer(parts, containerId){
     if(isInTOZone(seg.from) && isInTOZone(seg.to)){
       segFare = 250;
     } else {
-      segFare = fareByCompany(seg.company, spComp.distance);
+      // shortestPathWithinCompany が見つからない（会社別経路が disconnected）の場合は
+      // 全体の最短経路距離で代替する（不当に大きな既定料金が適用されるのを防ぐ）
+      if(!isFinite(spComp.distance)){
+        console.warn('company-constrained path not found for', seg, 'falling back to overall shortest path');
+        const spAny = shortestPath(seg.from, seg.to);
+        segFare = fareByCompany(seg.company, spAny.distance);
+      } else {
+        segFare = fareByCompany(seg.company, spComp.distance);
+      }
     }
 
     // 東橋鉄道→園木→他社線 の場合、その東橋鉄道区間は50円引き
@@ -2799,13 +2807,41 @@ function renderRoutesIntoContainer(parts, containerId){
   }
 
 
-  const eligibleCompanies = new Set(["新里鉄道","豊野鉄道","桜川電気鉄道","大桑鉄道"]);
+  // 運賃特例：五社（新里・豊野・桜川・大桑・笠原）のみを対象に乗換回数×100円を割引する
+  const eligibleCompanies = new Set(["新里鉄道","豊野鉄道","桜川電気鉄道","大桑鉄道","笠原電気鉄道"]);
   const usedCompaniesSet = new Set(allCompanySegments.map(s => s.company).filter(Boolean));
+
+  // --- 徒歩連絡（徒歩乗換）が経路内に含まれるか判定 ---
+  function pathHasWalk(parts){
+    if(!Array.isArray(parts)) return false;
+    for(const part of parts){
+      const path = part.path || [];
+      for(let i=1;i<path.length;i++){
+        const a = path[i-1], b = path[i];
+        // 1) 路線定義上に「徒歩」を含む路線があれば徒歩あり
+        const candidateLines = findLinesOfSegment(a,b) || [];
+        if(candidateLines.some(l => /徒歩/.test(l))) return true;
+        // 2) 明示的に stationLines['徒歩乗換'] に登録されている隣接なら徒歩
+        const walkList = stationLines['徒歩乗換'] || [];
+        const ia = walkList.indexOf(a), ib = walkList.indexOf(b);
+        if(ia !== -1 && ib !== -1 && Math.abs(ia - ib) === 1) return true;
+        // 3) 候補路線が無く、距離が非常に短ければ徒歩と推定（例: 0.5km 以下）
+        if(candidateLines.length === 0 && graph[a] && typeof graph[a][b] === 'number' && graph[a][b] <= 0.5) return true;
+      }
+    }
+    return false;
+  }
+
+  const hasWalk = pathHasWalk(parts);
+
+  // 特例適用フラグ（五社のみで構成されていることが前提）
   let applyDiscount = true;
   if(usedCompaniesSet.size === 0) applyDiscount = false;
   for(const c of usedCompaniesSet){
     if(!eligibleCompanies.has(c)){ applyDiscount = false; break; }
   }
+  // 「間に徒歩連絡を挟むとき」は特例の適用外
+  if(hasWalk) applyDiscount = false;
 
   if(applyDiscount){
     let transferCount = 0;
@@ -2818,7 +2854,7 @@ function renderRoutesIntoContainer(parts, containerId){
     totalFare = Math.max(0, totalFare - discount);
   }
 
-  const headerHtml = renderResultHeader(totalDistance, totalFare);
+const headerHtml = renderResultHeader(totalDistance, totalFare);
 
   let html = headerHtml;
   // fewest タブでは乗り換え回数を最優先でソート
