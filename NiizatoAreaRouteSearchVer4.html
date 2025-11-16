@@ -835,10 +835,33 @@ function fareImabashi(km){
   if(km <= 33) return 360;
   return 380;
 }
-function fareSakuragawa(km){ return 0; }
+function fareSakuragawa(km){
+  if(km<=2)return 140;
+  if(km<=4)return 150;
+  if(km<=7)return 160;
+  if(km<=10)return 170;
+  if(km<=14)return 180;
+  if(km<=18)return 200;
+  if(km<=23)return 220;
+  if(km<=28)return 240;
+  if(km<=34)return 260;
+  if(km<=40)return 280;
+  return 310;
+}
 function fareSeiou(km){ return 0; }
-function fareKasahara(km){ return 0; }
-function fareKogane(km){ return 0; }
+function fareKasahara(km){ 
+  if(km<=2)return 150;
+  if(km<=3)return 160;
+  if(km<=4)return 170;
+  if(km<=6)return 180;
+  if(km<=8)return 190;
+  if(km<=10)return 200;
+  if(km<=13)return 210;
+  if(km<=16)return 220;
+  if(km<=19)return 230;
+  if(km<=23)return 240;
+  return 250;
+}function fareKogane(km){ return 0; }
 function fareOkuwa(km){
   if(km <= 3) return 150;
   if(km <= 5) return 170;
