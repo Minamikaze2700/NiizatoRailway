@@ -3031,5 +3031,65 @@ function colorWalkTransferStartDots() {
 }
 
 </script>
+
+<!-- Search logging script: send search events to Google Apps Script Web App -->
+<script id="search-logging">
+/*
+  1) Deploy a Google Apps Script web app (see README.txt) and paste its URL below.
+  2) If you don't want logging active yet, leave GAS_ENDPOINT with the placeholder.
+*/
+const GAS_ENDPOINT = "PASTE_YOUR_GAS_WEBAPP_URL_HERE";
+
+function collectSearchPayload(){
+  try{
+    const fromEl = document.getElementById("fromStation") || document.getElementById("fromStationText") || null;
+    const toEl = document.getElementById("toStation") || document.getElementById("toStationText") || null;
+    const from = fromEl ? (fromEl.value ?? fromEl.textContent ?? "") : "";
+    const to = toEl ? (toEl.value ?? toEl.textContent ?? "") : "";
+    const viaElems = document.querySelectorAll(".viaRow select, .viaRow input");
+    const via = Array.from(viaElems).map(e => e.value || e.textContent || "").filter(x => x);
+    return {
+      from,
+      via,
+      to,
+      time: new Date().toISOString(),
+      userAgent: navigator.userAgent
+    };
+  } catch (err){
+    return {error: err.message, time: new Date().toISOString()};
+  }
+}
+
+function sendLogToGAS(payload){
+  if(!GAS_ENDPOINT || GAS_ENDPOINT.includes("PASTE_YOUR_GAS_WEBAPP_URL_HERE")){
+    // Logging not configured yet
+    console.info("Search logging not sent: GAS endpoint not set.");
+    return;
+  }
+  fetch(GAS_ENDPOINT, {
+    method: "POST",
+    mode: "cors",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(payload)
+  }).then(r=>r.json().then(j=>console.info("Logged search:", j)).catch(()=>console.info("Logged (no json)")))
+    .catch(e=>console.warn("Failed to send log:", e));
+}
+
+// Attach a listener to the search button. If the page already has other listeners,
+// this will run in addition to them (non-destructive).
+document.addEventListener("DOMContentLoaded", function(){
+  const btn = document.getElementById("searchBtn");
+  if(!btn) return;
+  btn.addEventListener("click", function(){
+    try{
+      const payload = collectSearchPayload();
+      sendLogToGAS(payload);
+    }catch(e){
+      console.warn("Logging error:", e);
+    }
+  }, {passive:true});
+});
+</script>
+
 </body>
 </html>
