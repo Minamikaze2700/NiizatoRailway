@@ -2490,18 +2490,23 @@ function wireToggleButtons(containerId){
 
   // Reposition a specific between-count to be horizontally and vertically centered on bigLine midpoint
   function positionLabelOverLine(span, bigLine){
-    if(!span || !bigLine || !bigLine.parentElement) return;
+    if(!bigLine || !span || !bigLine.parentElement) return;
     const parent = bigLine.parentElement;
+    // ensure parent is positioned so absolute children are relative to it
+    if(getComputedStyle(parent).position === 'static'){
+      parent.style.position = 'relative';
+    }
     const parentRect = parent.getBoundingClientRect();
     const lineRect = bigLine.getBoundingClientRect();
     const spanRect = span.getBoundingClientRect();
-    // center X and center Y of the line, relative to parent
-    const centerX = (lineRect.left - parentRect.left) + (lineRect.width / 2);
+    // vertical center of the line relative to parent
     const centerY = (lineRect.top - parentRect.top) + (lineRect.height / 2);
-    // set span so its center aligns to centerX/centerY
-    const leftPx = Math.round(centerX - spanRect.width / 2);
+    // horizontally align the label to the visual center of the line.
+    // the line itself is positioned at 50% (CSS left:50%), so set left:50% and translateX(-50%) to keep it centered
+    span.style.left = '50%';
+    // keep only horizontal translate here; top is set via exact pixel value below
+    span.style.transform = 'translateX(-50%)';
     const topPx = Math.round(centerY - spanRect.height / 2);
-    span.style.left = Math.max(2, leftPx) + 'px';
     span.style.top = Math.max(2, topPx) + 'px';
   }
 
