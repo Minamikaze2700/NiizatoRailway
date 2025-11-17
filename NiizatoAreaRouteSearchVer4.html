@@ -3033,21 +3033,57 @@ function colorWalkTransferStartDots() {
 
 </script>
 
+<!-- Search logging script: sends search events to provided Google Apps Script Web App -->
 <script id="search-logging">
-const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbysgHtjJ2Ho3DoPwW6jQuJSCjblN8T47mQ1Xo9I9FJoFUacHP_zOmb4nYZ_R5Smr11p/exec";
+const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbwjbJpATKXg9FAC0yQctmeRLK2FwF3leMBg_wjBpck5G61WUibaAOVgLHXpIN2bba_5/exec";
+
 function collectSearchPayload(){
-  const fromEl=document.getElementById("fromStation");
-  const toEl=document.getElementById("toStation");
-  const from=fromEl?fromEl.value:"";
-  const to=toEl?toEl.value:"";
-  const viaElems=document.querySelectorAll(".viaRow select");
-  const via=Array.from(viaElems).map(e=>e.value).filter(x=>x);
-  return {from, via, to, time:new Date().toISOString(), ua:navigator.userAgent};
+  try{
+    const fromEl = document.getElementById("fromStation") || document.querySelector("#fromStation");
+    const toEl = document.getElementById("toStation") || document.querySelector("#toStation");
+    const from = fromEl ? (fromEl.value ?? fromEl.textContent ?? "") : "";
+    const to = toEl ? (toEl.value ?? toEl.textContent ?? "") : "";
+    const viaElems = document.querySelectorAll(".viaRow select, .viaRow input");
+    const via = Array.from(viaElems).map(e => e.value || e.textContent || "").filter(x => x);
+    return {
+      from: from,
+      via: via,
+      to: to,
+      time: new Date().toISOString(),
+      userAgent: navigator.userAgent
+    };
+  }catch(e){
+    return {error: e.message, time: new Date().toISOString()};
+  }
 }
-function sendLog(p){ fetch(GAS_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)}); }
-document.addEventListener("DOMContentLoaded",()=>{
-  const btn=document.getElementById("searchBtn");
-  if(btn) btn.addEventListener("click",()=>sendLog(collectSearchPayload()));
+
+function sendLogToGAS(payload){
+  if(!GAS_ENDPOINT || GAS_ENDPOINT.includes("PASTE_YOUR_GAS_WEBAPP_URL_HERE")){
+    console.info("GAS endpoint not set.");
+    return;
+  }
+  fetch(GAS_ENDPOINT, {
+    method: "POST",
+    mode: "cors",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(payload)
+  }).then(response=>{
+    console.info("search log sent", response.status);
+  }).catch(err=>{
+    console.warn("failed to send search log", err);
+  });
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+  const btn = document.getElementById("searchBtn");
+  if(!btn){
+    console.warn("searchBtn not found; logging won't run.");
+    return;
+  }
+  btn.addEventListener("click", function(){
+    const payload = collectSearchPayload();
+    sendLogToGAS(payload);
+  }, {passive:true});
 });
 </script>
 
