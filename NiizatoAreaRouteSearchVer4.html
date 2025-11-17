@@ -37,7 +37,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 /* 路線図レイアウト */
 .routeLine{display:flex;flex-direction:column;gap:10px;margin-top:4px}
 .rowStation{display:grid;grid-template-columns:var(--gutter) 1fr;align-items:start;column-gap:10px;position:relative;}
-.railCol{display:flex;flex-direction:column;align-items:center;position:relative;}
+.railCol{display:flex;flex-direction:column;align-items:center;position:relative;width:var(--gutter);box-sizing:border-box;}
 .railDot{border-radius:50%;width:var(--dotMajor);height:var(--dotMajor);z-index:3;border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);box-sizing:content-box;}
 .rowBetween .railDot{width:var(--dotMinor);height:var(--dotMinor);border:2px solid #fff;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:2;}
 .railLineMajor{width:var(--lineWMajor);border-radius:2px;position:absolute;left:50%;transform:translateX(-50%);z-index:1;top:100px;height:0;background:#999;}
@@ -2488,26 +2488,59 @@ function wireToggleButtons(containerId){
     return luminance > 0.6 ? '#111' : '#fff';
   }
 
-  // Reposition a specific between-count to be horizontally and vertically centered on bigLine midpoint
+  // Reposition a specific between-count so it's horizontally centered with the line
+  // and vertically located at the midpoint between the BOTTOM of the start major dot and
+  // the TOP of the end major dot (this keeps the label visually centered between the two dots).
   function positionLabelOverLine(span, bigLine){
-    if(!bigLine || !span || !bigLine.parentElement) return;
-    const parent = bigLine.parentElement;
-    // ensure parent is positioned so absolute children are relative to it
-    if(getComputedStyle(parent).position === 'static'){
-      parent.style.position = 'relative';
+    try{
+      if(!bigLine || !span) return;
+      // railCol is the parent of bigLine; its containing row is the .rowStation element
+      const railCol = bigLine.parentElement;
+      if(!railCol) return;
+      const row = railCol.closest('.rowStation') || railCol.parentElement;
+      if(!row) return;
+      // find next visible rowStation that contains a .railDot
+      const rows = Array.from(row.parentElement.querySelectorAll('.rowStation'));
+      const idx = rows.indexOf(row);
+      let nextRow = null;
+      for(let i = idx + 1; i < rows.length; i++){
+        const r = rows[i];
+        if(r && r.offsetParent && r.querySelector('.railDot')){ nextRow = r; break; }
+      }
+      // If nextRow not found, fallback to center of bigLine bounding box
+      const parent = railCol;
+      if(getComputedStyle(parent).position === 'static'){
+        parent.style.position = 'relative';
+      }
+      const parentRect = parent.getBoundingClientRect();
+      const spanRect = span.getBoundingClientRect();
+      const startDot = row.querySelector('.railDot');
+      const endDot = nextRow ? nextRow.querySelector('.railDot') : null;
+      if(startDot && endDot){
+        const startRect = startDot.getBoundingClientRect();
+        const endRect = endDot.getBoundingClientRect();
+        // compute midpoint between bottom of start dot and top of end dot (relative to parent)
+        const startBottomRel = startRect.bottom - parentRect.top;
+        const endTopRel = endRect.top - parentRect.top;
+        const centerY = (startBottomRel + endTopRel) / 2;
+        // horizontal centering: keep label at 50% of parent (line is centered there)
+        span.style.left = '50%';
+        span.style.transform = 'translateX(-50%)';
+        const topPx = Math.round(centerY - spanRect.height / 2);
+        span.style.top = Math.max(2, topPx) + 'px';
+      } else {
+        // fallback: use bigLine bounding box center (previous behavior) if we can't find next dot
+        const lineRect = bigLine.getBoundingClientRect();
+        const centerY = (lineRect.top - parentRect.top) + (lineRect.height / 2);
+        span.style.left = '50%';
+        span.style.transform = 'translateX(-50%)';
+        const topPx = Math.round(centerY - spanRect.height / 2);
+        span.style.top = Math.max(2, topPx) + 'px';
+      }
+    }catch(e){
+      // if anything goes wrong, silently ignore to avoid breaking UI
+      return;
     }
-    const parentRect = parent.getBoundingClientRect();
-    const lineRect = bigLine.getBoundingClientRect();
-    const spanRect = span.getBoundingClientRect();
-    // vertical center of the line relative to parent
-    const centerY = (lineRect.top - parentRect.top) + (lineRect.height / 2);
-    // horizontally align the label to the visual center of the line.
-    // the line itself is positioned at 50% (CSS left:50%), so set left:50% and translateX(-50%) to keep it centered
-    span.style.left = '50%';
-    // keep only horizontal translate here; top is set via exact pixel value below
-    span.style.transform = 'translateX(-50%)';
-    const topPx = Math.round(centerY - spanRect.height / 2);
-    span.style.top = Math.max(2, topPx) + 'px';
   }
 
   function updateBetweenCount(list, bigLine, cid, part, idx){
