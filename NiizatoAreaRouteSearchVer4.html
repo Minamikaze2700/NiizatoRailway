@@ -845,7 +845,16 @@ function fareImabashi(km){
   if(km <= 27) return 320;
   if(km <= 30) return 340;
   if(km <= 33) return 360;
-  return 380;
+  if(km <= 36) return 380;
+  if(km <= 39) return 400;
+  if(km <= 42) return 420;
+  if(km <= 45) return 440;
+  if(km <= 48) return 460;
+  if(km <= 51) return 480;
+  if(km <= 54) return 500;
+  if(km <= 57) return 520;
+  if(km <= 60) return 540;
+  return 560;
 }
 function fareSakuragawa(km){
   if(km<=2)return 140;
