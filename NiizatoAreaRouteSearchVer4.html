@@ -1153,11 +1153,12 @@ const connectingStations = [
   { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
   { station: "園木", endpoints: ["東園木", "富士町"] },
   { station: "園木", endpoints: ["東園木", "大木沢"] },
-  { station: "新東橋", endpoints: ["浅見", "矢崎"] }
+  { station: "新東橋", endpoints: ["浅見", "矢崎"] },
+  { station: "床川市", endpoints: ["又木", "床川南"] }
 ];
 
 const specialMajorStations = [
-  "湯の浜","鶴宮","港通","豊町","成津","園木","桑畑","新東橋"
+  "湯の浜","鶴宮","港通","豊町","成津","園木","桑畑","新東橋","床川市"
 ];
 
 function indexesOf(arr, value){
@@ -1205,9 +1206,10 @@ function majorStops(path){
       { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
       { station: "園木", endpoints: ["東園木", "富士町"] },
       { station: "園木", endpoints: ["東園木", "大木沢"] }
+      { station: "床川市", endpoints: ["又木", "床川南"] }
     ];
     specialMajorStations = [
-      "湯の浜","鶴宮","港通","豊町","成津","園木","桑畑"
+      "湯の浜","鶴宮","港通","豊町","成津","園木","桑畑","床川市"
     ];
   } else {
     // 通常: 新東橋を含むバージョン
@@ -1223,10 +1225,11 @@ function majorStops(path){
       { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
       { station: "園木", endpoints: ["東園木", "富士町"] },
       { station: "園木", endpoints: ["東園木", "大木沢"] },
-      { station: "新東橋", endpoints: ["浅見", "矢崎"] }
+      { station: "新東橋", endpoints: ["浅見", "矢崎"] },
+      { station: "床川市", endpoints: ["又木", "床川南"] }
     ];
     specialMajorStations = [
-      "湯の浜","鶴宮","港通","豊町","成津","園木","桑畑","新東橋"
+      "湯の浜","鶴宮","港通","豊町","成津","園木","桑畑","新東橋","床川市"
     ];
   }
 
