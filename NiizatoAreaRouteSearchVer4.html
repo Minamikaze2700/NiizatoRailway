@@ -884,180 +884,182 @@ const allStations = Array.from(new Set([...Object.keys(graph), ...Object.values(
 
 // ============ 運賃ロジック ============
 function fareImabashi(km){
-  if(km <= 3) return 160;
-  if(km <= 6) return 180;
-  if(km <= 9) return 200;
-  if(km <= 12) return 220;
-  if(km <= 15) return 240;
-  if(km <= 18) return 260;
-  if(km <= 21) return 280;
-  if(km <= 24) return 300;
-  if(km <= 27) return 320;
-  if(km <= 30) return 340;
-  if(km <= 33) return 360;
-  if(km <= 36) return 380;
-  if(km <= 39) return 400;
-  if(km <= 42) return 420;
-  if(km <= 45) return 440;
-  if(km <= 48) return 460;
-  if(km <= 51) return 480;
-  if(km <= 54) return 500;
-  if(km <= 57) return 520;
-  if(km <= 60) return 540;
+  if(km < 3) return 160;
+  if(km < 6) return 180;
+  if(km < 9) return 200;
+  if(km < 12) return 220;
+  if(km < 15) return 240;
+  if(km < 18) return 260;
+  if(km < 21) return 280;
+  if(km < 24) return 300;
+  if(km < 27) return 320;
+  if(km < 30) return 340;
+  if(km < 33) return 360;
+  if(km < 36) return 380;
+  if(km < 39) return 400;
+  if(km < 42) return 420;
+  if(km < 45) return 440;
+  if(km < 48) return 460;
+  if(km < 51) return 480;
+  if(km < 54) return 500;
+  if(km < 57) return 520;
+  if(km < 60) return 540;
   return 560;
 }
 function fareSakuragawa(km){
-  if(km<=2)return 140;
-  if(km<=4)return 150;
-  if(km<=7)return 160;
-  if(km<=10)return 170;
-  if(km<=14)return 180;
-  if(km<=18)return 200;
-  if(km<=23)return 220;
-  if(km<=28)return 240;
-  if(km<=34)return 260;
-  if(km<=40)return 280;
+  if(km<2)return 140;
+  if(km<4)return 150;
+  if(km<7)return 160;
+  if(km<10)return 170;
+  if(km<14)return 180;
+  if(km<18)return 200;
+  if(km<23)return 220;
+  if(km<28)return 240;
+  if(km<34)return 260;
+  if(km<40)return 280;
   return 310;
 }
 function fareSeiou(km){ return 0; }
+function fareChidori(km){ return 0; }
 function fareKasahara(km){ 
-  if(km<=2)return 150;
-  if(km<=3)return 160;
-  if(km<=4)return 170;
-  if(km<=6)return 180;
-  if(km<=8)return 190;
-  if(km<=10)return 200;
-  if(km<=13)return 210;
-  if(km<=16)return 220;
-  if(km<=19)return 230;
-  if(km<=23)return 240;
+  if(km<2)return 150;
+  if(km<3)return 160;
+  if(km<4)return 170;
+  if(km<6)return 180;
+  if(km<8)return 190;
+  if(km<10)return 200;
+  if(km<13)return 210;
+  if(km<16)return 220;
+  if(km<19)return 230;
+  if(km<23)return 240;
   return 250;
-}function fareKogane(km){ return 0; }
+}
+function fareKogane(km){ return 0; }
 function fareOkuwa(km){
-  if(km <= 3) return 150;
-  if(km <= 5) return 170;
-  if(km <= 9) return 210;
-  if(km <= 13) return 250;
-  if(km <= 18) return 300;
-  if(km <= 23) return 350;
-  if(km <= 28) return 400;
-  if(km <= 34) return 460;
-  if(km <= 40) return 520;
-  if(km <= 47) return 590;
-  if(km <= 54) return 660;
-  if(km <= 62) return 740;
+  if(km < 3) return 150;
+  if(km < 5) return 170;
+  if(km < 9) return 210;
+  if(km < 13) return 250;
+  if(km < 18) return 300;
+  if(km < 23) return 350;
+  if(km < 28) return 400;
+  if(km < 34) return 460;
+  if(km < 40) return 520;
+  if(km < 47) return 590;
+  if(km < 54) return 660;
+  if(km < 62) return 740;
   return 820;
 }
 function fareShinonome(km){
-  if(km <= 3) return 140;
-  if(km <= 6) return 160;
-  if(km <= 9) return 180;
-  if(km <= 12) return 200;
-  if(km <= 15) return 220;
-  if(km <= 18) return 240;
-  if(km <= 21) return 260;
-  if(km <= 24) return 280;
-  if(km <= 27) return 300;
-  if(km <= 30) return 320;
-  if(km <= 33) return 340;
-  if(km <= 36) return 360;
-  if(km <= 39) return 380;
-  if(km <= 42) return 400;
-  if(km <= 45) return 420;
-  if(km <= 48) return 440;
-  if(km <= 51) return 460;
-  if(km <= 54) return 480;
-  if(km <= 57) return 500;
-  if(km <= 60) return 520;
+  if(km < 3) return 140;
+  if(km < 6) return 160;
+  if(km < 9) return 180;
+  if(km < 12) return 200;
+  if(km < 15) return 220;
+  if(km < 18) return 240;
+  if(km < 21) return 260;
+  if(km < 24) return 280;
+  if(km < 27) return 300;
+  if(km < 30) return 320;
+  if(km < 33) return 340;
+  if(km < 36) return 360;
+  if(km < 39) return 380;
+  if(km < 42) return 400;
+  if(km < 45) return 420;
+  if(km < 48) return 440;
+  if(km < 51) return 460;
+  if(km < 54) return 480;
+  if(km < 57) return 500;
+  if(km < 60) return 520;
   return 540;
   }
 function fareSakatsu(km){ return 0; }
 function fareSakatsuPortliner(km){ return 0; }
 function fareToyono(km){
-  if (km <= 2) return 140;
-  if (km <= 4) return 150;
-  if (km <= 6) return 170;
-  if (km <= 9) return 200;
-  if (km <= 12) return 230;
-  if (km <= 16) return 270;
-  if (km <= 20) return 310;
-  if (km <= 25) return 350;
-  if (km <= 30) return 400;
-  if (km <= 35) return 450;
-  if (km <= 40) return 500;
-  if (km <= 45) return 550;
-  if (km <= 50) return 600;
-  if (km <= 55) return 660;
-  if (km <= 60) return 720;
-  if (km <= 65) return 780;
-  if (km <= 70) return 840;
-  if (km <= 75) return 900;
-  if (km <= 80) return 960;
-  if (km <= 85) return 1020;
-  if (km <= 90) return 1080;
-  if (km <= 95) return 1140;
+  if (km < 2) return 140;
+  if (km < 4) return 150;
+  if (km < 6) return 170;
+  if (km < 9) return 200;
+  if (km < 12) return 230;
+  if (km < 16) return 270;
+  if (km < 20) return 310;
+  if (km < 25) return 350;
+  if (km < 30) return 400;
+  if (km < 35) return 450;
+  if (km < 40) return 500;
+  if (km < 45) return 550;
+  if (km < 50) return 600;
+  if (km < 55) return 660;
+  if (km < 60) return 720;
+  if (km < 65) return 780;
+  if (km < 70) return 840;
+  if (km < 75) return 900;
+  if (km < 80) return 960;
+  if (km < 85) return 1020;
+  if (km < 90) return 1080;
+  if (km < 95) return 1140;
   return 1200;
 }
 function fareTokogawa(km) {
-  if (km <= 3)  return 120;
-  if (km <= 6)  return 160;
-  if (km <= 9)  return 200;
-  if (km <= 12) return 240;
-  if (km <= 15) return 280;
-  if (km <= 18) return 320;
-  if (km <= 21) return 360;
-  if (km <= 24) return 400;
-  if (km <= 27) return 440;
-  if (km <= 30) return 480;
-  if (km <= 33) return 520;
-  if (km <= 36) return 560;
+  if (km < 3)  return 120;
+  if (km < 6)  return 160;
+  if (km < 9)  return 200;
+  if (km < 12) return 240;
+  if (km < 15) return 280;
+  if (km < 18) return 320;
+  if (km < 21) return 360;
+  if (km < 24) return 400;
+  if (km < 27) return 440;
+  if (km < 30) return 480;
+  if (km < 33) return 520;
+  if (km < 36) return 560;
   return 600; // 39kmを超える場合（必要なら延長可能）
 }
 
 function fareTouhashi(km){
-  if(km <= 3) return 180;
-  if(km <= 4) return 190;
-  if(km <= 7) return 210;
-  if(km <= 10) return 250;
-  if(km <= 14) return 330;
-  if(km <= 18) return 400;
-  if(km <= 23) return 470;
-  if(km <= 28) return 530;
-  if(km <= 33) return 590;
-  if(km <= 38) return 650;
-  if(km <= 43) return 690;
-  if(km <= 49) return 750;
-  if(km <= 55) return 810;
-  if(km <= 62) return 860;
-  if(km <= 69) return 910;
-  if(km <= 76) return 960;
-  if(km <= 84) return 1010;
-  if(km <= 92) return 1050;
-  if(km <= 100) return 1090;
-  if(km <= 109) return 1130;
-  if(km <= 120) return 1170;
-  if(km <= 132) return 1210;
-  if(km <= 145) return 1250;
+  if(km < 3) return 180;
+  if(km < 4) return 190;
+  if(km < 7) return 210;
+  if(km < 10) return 250;
+  if(km < 14) return 330;
+  if(km < 18) return 400;
+  if(km < 23) return 470;
+  if(km < 28) return 530;
+  if(km < 33) return 590;
+  if(km < 38) return 650;
+  if(km < 43) return 690;
+  if(km < 49) return 750;
+  if(km < 55) return 810;
+  if(km < 62) return 860;
+  if(km < 69) return 910;
+  if(km < 76) return 960;
+  if(km < 84) return 1010;
+  if(km < 92) return 1050;
+  if(km < 100) return 1090;
+  if(km < 109) return 1130;
+  if(km < 120) return 1170;
+  if(km < 132) return 1210;
+  if(km < 145) return 1250;
   return 1250;
 }
 function fareNiizato(km){
-  if(km<=2)return 130;
-  if(km<=5)return 140;
-  if(km<=8)return 160;
-  if(km<=12)return 190;
-  if(km<=16)return 220;
-  if(km<=20)return 250;
-  if(km<=25)return 290;
-  if(km<=30)return 340;
-  if(km<=35)return 390;
-  if(km<=40)return 450;
-  if(km<=50)return 510;
-  if(km<=56)return 580;
-  if(km<=62)return 650;
-  if(km<=68)return 720;
-  if(km<=75)return 790;
-  if(km<=82)return 870;
-  if(km<=90)return 950;
+  if(km<2)return 130;
+  if(km<5)return 140;
+  if(km<8)return 160;
+  if(km<12)return 190;
+  if(km<16)return 220;
+  if(km<20)return 250;
+  if(km<25)return 290;
+  if(km<30)return 340;
+  if(km<35)return 390;
+  if(km<40)return 450;
+  if(km<50)return 510;
+  if(km<56)return 580;
+  if(km<62)return 650;
+  if(km<68)return 720;
+  if(km<75)return 790;
+  if(km<82)return 870;
+  if(km<90)return 950;
   return 1040;
 }
 function fareSugaya(km){
@@ -1088,6 +1090,7 @@ function companyFromLineName(line){
   if(line.startsWith("浪川急行電鉄")) return "浪川急行電鉄";
   if(line.startsWith("笠原電気鉄道")) return "笠原電気鉄道";
   if(line.startsWith("槻平急行電鉄")) return "槻平急行電鉄";
+  if(line.startsWith("千鳥鉄道")) return "千鳥鉄道";
   return null;
 }
 // --- 会社名と距離から運賃を取得 ---
@@ -1109,6 +1112,7 @@ function fareByCompany(company, km){
     case "浪川急行電鉄": return fareNamikawa(km);
     case "笠原電気鉄道": return fareKasahara(km);
     case "槻平急行電鉄": return fareTsukihira(km);
+    case "千鳥鉄道": return fareChidori(km);
     default: return 0;
   }
 }
