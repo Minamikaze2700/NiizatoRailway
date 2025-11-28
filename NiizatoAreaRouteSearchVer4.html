@@ -1174,29 +1174,7 @@ function majorStops(path){
 
   // connectingStations / specialMajorStations を場合分けで定義
   let connectingStations;
-  let specialMajorStations;
-  if(isToyonoToHigashihashi){
-    // 特例: 新今津を含めないバージョン
-    connectingStations = [
-      { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
-      { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
-      { station: "彩山", endpoints: ["彩山親水公園","彩山口"] },
-      { station: "桜川", endpoints: ["桜川公園","豊野月見台"] },
-      { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
-      { station: "豊町", endpoints: ["削野", "東豊町"] },
-      { station: "横宿", endpoints: ["日森町", "北横宿"] },
-      { station: "成津", endpoints: ["北成津", "大町"] },
-      { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
-      { station: "園木", endpoints: ["東園木", "富士町"] },
-      { station: "園木", endpoints: ["東園木", "大木沢"] },
-      { station: "床川市", endpoints: ["又木", "床川南"] }
-    ];
-    specialMajorStations = [
-      "湯の浜","鶴宮","港通","豊町","成津","園木","桑畑","床川市"
-    ];
-  } else {
-    // 通常: 新今津を含むバージョン
-    connectingStations = [
+const connectingStations = [
       { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
       { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
       { station: "彩山", endpoints: ["彩山親水公園","彩山口"] },
@@ -1210,11 +1188,11 @@ function majorStops(path){
       { station: "園木", endpoints: ["東園木", "大木沢"] },
       { station: "新今津", endpoints: ["浅見", "矢崎"] },
       { station: "床川市", endpoints: ["又木", "床川南"] }
-    ];
-    specialMajorStations = [
-      "湯の浜","鶴宮","港通","豊町","成津","園木","桑畑","新今津","床川市"
-    ];
-  }
+  ];
+
+  const specialMajorStations = [
+    "湯の浜","鶴宮","港通","豊町","成津","園木","桑畑","新今津","床川市"
+  ];
 
   // --- 以下は従来の主要駅判定ロジック（接続スキップ等を含む） ---
   const majors = [path[0]];
