@@ -1019,9 +1019,7 @@ function companyFromLineName(line){
   if(line.startsWith("桜川電気鉄道")) return "桜川電気鉄道";
   if(line.startsWith("桜津開発鉄道")) return "桜津開発鉄道";
   if(line.startsWith("坂津電鉄")) return "坂津電鉄";
-  if(line.startsWith("坂津ポートライナー")) return "坂津ポートライナー";
   if(line.startsWith("豊野鉄道")) return "豊野鉄道";
-  if(line.startsWith("今津鉄道")) return "今津鉄道";
   if(line.startsWith("新里鉄道")) return "新里鉄道";
   if(line.startsWith("菅谷高速鉄道")) return "菅谷高速鉄道";
   if(line.startsWith("床川急行電鉄")) return "床川急行電鉄";
@@ -1041,9 +1039,7 @@ function fareByCompany(company, km){
     case "桜川電気鉄道": return fareSakuragawa(km);
     case "西桜開発鉄道": return fareSeiou(km);
     case "坂津電鉄": return fareSakatsu(km);
-    case "坂津ポートライナー": return fareSakatsuPortliner(km);
     case "豊野鉄道": return fareToyono(km);
-    case "今津鉄道": return fareTouhashi(km);
     case "新里鉄道": return fareNiizato(km);
     case "菅谷高速鉄道": return fareSugaya(km);
     case "床川急行電鉄": return fareTokogawa(km);
