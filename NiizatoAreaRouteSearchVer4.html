@@ -1133,15 +1133,13 @@ const connectingStations = [
   { station: "豊町", endpoints: ["削野", "東豊町"] },
   { station: "横宿", endpoints: ["日森町", "北横宿"] },
   { station: "成津", endpoints: ["北成津", "大町"] },
-  { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
-  { station: "園木", endpoints: ["東園木", "富士町"] },
-  { station: "園木", endpoints: ["東園木", "大木沢"] },
-  { station: "新今津", endpoints: ["浅見", "矢崎"] },
+  { station: "桑畑", endpoints: ["桜峠", "常盤台"] },
+  { station: "小動", endpoints: ["東小動", "克己ヶ丘"] },
   { station: "床川市", endpoints: ["又木", "床川南"] }
 ];
 
 const specialMajorStations = [
-  "湯の浜","鶴宮","港通","豊町","成津","園木","桑畑","新今津","床川市"
+  "湯の浜","鶴宮","港通","豊町","成津","小動","桑畑","床川市"
 ];
 
 function indexesOf(arr, value){
@@ -1161,36 +1159,23 @@ function findIndexFrom(path, station, start){
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
 
-  // --- 特例判定: 「豊野線 -> 園木 -> 今津本線」を含むかチェック ---
-  let isToyonoToHigashihashi = false;
-  for(let i=0;i<path.length-2;i++){
-    const ln1 = (findLineOfSegment(path[i], path[i+1]) || "");
-    const ln2 = (findLineOfSegment(path[i+1], path[i+2]) || "");
-    if(ln1.includes("豊野線") && ln2.includes("今津本線")){
-      isToyonoToHigashihashi = true;
-      break;
-    }
-  }
-
 const connectingStations = [
-      { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
-      { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
-      { station: "彩山", endpoints: ["彩山親水公園","彩山口"] },
-      { station: "桜川", endpoints: ["桜川公園","豊野月見台"] },
-      { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
-      { station: "豊町", endpoints: ["削野", "東豊町"] },
-      { station: "横宿", endpoints: ["日森町", "北横宿"] },
-      { station: "成津", endpoints: ["北成津", "大町"] },
-      { station: "桑畑", endpoints: ["北桑畑", "常盤台"] },
-      { station: "園木", endpoints: ["東園木", "富士町"] },
-      { station: "園木", endpoints: ["東園木", "大木沢"] },
-      { station: "新今津", endpoints: ["浅見", "矢崎"] },
-      { station: "床川市", endpoints: ["又木", "床川南"] }
-  ];
+  { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
+  { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
+  { station: "彩山", endpoints: ["彩山親水公園","彩山口"] },
+  { station: "桜川", endpoints: ["桜川公園","豊野月見台"] },
+  { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
+  { station: "豊町", endpoints: ["削野", "東豊町"] },
+  { station: "横宿", endpoints: ["日森町", "北横宿"] },
+  { station: "成津", endpoints: ["北成津", "大町"] },
+  { station: "桑畑", endpoints: ["桜峠", "常盤台"] },
+  { station: "小動", endpoints: ["東小動", "克己ヶ丘"] },
+  { station: "床川市", endpoints: ["又木", "床川南"] }
+];
 
-  const specialMajorStations = [
-    "湯の浜","鶴宮","港通","豊町","成津","園木","桑畑","新今津","床川市"
-  ];
+const specialMajorStations = [
+  "湯の浜","鶴宮","港通","豊町","成津","小動","桑畑","床川市"
+];
 
   // --- 以下は従来の主要駅判定ロジック（接続スキップ等を含む） ---
   const majors = [path[0]];
