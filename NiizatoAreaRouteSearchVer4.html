@@ -2787,6 +2787,21 @@ function renderRoutesIntoContainer(parts, containerId){
 
   let totalFare = 0;
 
+  // --- 合計運賃の計算（会社ごとの区間距離から運賃を取得して合算） ---
+  // splitByCompany が返す各セグメントは {from, to, company} なので、
+  // shortestPath(from,to).distance を用いて区間距離を求め、会社別運賃を合算します。
+  try{
+    for(const seg of allCompanySegments){
+      const km = (seg && seg.from && seg.to) ? shortestPath(seg.from, seg.to).distance : 0;
+      const comp = seg && seg.company ? seg.company : (seg && seg.from && seg.to ? companyFromLineName(findLineOfSegment(seg.from, seg.to)) : null);
+      if(comp){
+        totalFare += fareByCompany(comp, km);
+      }
+    }
+  }catch(e){
+    // 何か問題があってもUIを壊さないために黙って無視（ログ出力が必要ならここでconsole.error）
+  }
+
   // 運賃特例：五社（新里・豊野・桜川・大桑・笠原）のみを対象に乗換回数×100円を割引する
   const eligibleCompanies = new Set(["新里鉄道","豊野鉄道","桜川電気鉄道","大桑鉄道","笠原電気鉄道"]);
   const usedCompaniesSet = new Set(allCompanySegments.map(s => s.company).filter(Boolean));
