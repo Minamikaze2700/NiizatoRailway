@@ -281,7 +281,7 @@ const lineColors = {
 };
 
 const railwayCompanyList = [
-  "新里鉄道","大桑鉄道","桜川電気鉄道","豊野鉄道","今橋鉄道","東雲鉄道","床川急行電鉄","坂津電鉄","西桜開発鉄道","菅谷高速鉄道","千鳥鉄道","小金鉄道","坂津ポートライナー","浪川急行電鉄","笠原電気鉄道","槻平急行電鉄"
+  "新里鉄道","桜川電気鉄道","豊野鉄道","今橋鉄道","東雲鉄道","床川急行電鉄","坂津電鉄","西桜開発鉄道","菅谷高速鉄道","千鳥鉄道","小金鉄道","樺山電鉄","浪川急行電鉄","笠原電気鉄道","槻平急行電鉄"
 ];
 const busCompanyList = [""];
 
@@ -923,6 +923,7 @@ function fareKasahara(km){
   return 250;
 }
 function fareKogane(km){ return 0; }
+function fareKabayama(km){ return 0; }
 function fareShinonome(km){
   if(km < 3) return 140;
   if(km < 6) return 160;
@@ -1022,10 +1023,10 @@ function companyFromLineName(line){
   if(!line) return null;
   if(line.startsWith("今橋鉄道")) return "今橋鉄道";
   if(line.startsWith("小金鉄道")) return "小金鉄道";
-  if(line.startsWith("大桑鉄道")) return "大桑鉄道";
+  if(line.startsWith("樺山電鉄")) return "樺山電鉄";
   if(line.startsWith("東雲鉄道")) return "東雲鉄道";
   if(line.startsWith("桜川電気鉄道")) return "桜川電気鉄道";
-  if(line.startsWith("桜津開発鉄道")) return "桜津開発鉄道";
+  if(line.startsWith("西桜開発鉄道")) return "西桜開発鉄道";
   if(line.startsWith("坂津電鉄")) return "坂津電鉄";
   if(line.startsWith("豊野鉄道")) return "豊野鉄道";
   if(line.startsWith("新里鉄道")) return "新里鉄道";
@@ -1042,7 +1043,7 @@ function fareByCompany(company, km){
   switch(company){
     case "今橋鉄道": return fareImabashi(km);
     case "小金鉄道": return fareKogane(km);
-    case "大桑鉄道": return fareOkuwa(km);
+    case "樺山電鉄": return fareKabayama(km);
     case "東雲鉄道": return fareShinonome(km);
     case "桜川電気鉄道": return fareSakuragawa(km);
     case "西桜開発鉄道": return fareSeiou(km);
@@ -2799,60 +2800,6 @@ function renderRoutesIntoContainer(parts, containerId){
   }
 
   let totalFare = 0;
-
-  // --- TOゾーン定義: 今津本線の今津から新今津の各駅 + 今津鉄道横宿線の全区間 ---
-  function buildTOZoneSet(){
-    const set = new Set();
-    const mainLine = stationLines['今津鉄道今津本線'] || [];
-    const yokoLine = stationLines['今津鉄道横宿線'] || [];
-
-    const idxFrom = mainLine.indexOf('今津');
-    const idxTo = mainLine.indexOf('新今津');
-    if(idxFrom !== -1 && idxTo !== -1){
-      const a = Math.min(idxFrom, idxTo), b = Math.max(idxFrom, idxTo);
-      for(let i=a;i<=b;i++) set.add(mainLine[i]);
-    }
-    // 横宿線は全区間を追加
-    for(const s of yokoLine) set.add(s);
-    return set;
-  }
-  const TO_ZONE_SET = buildTOZoneSet();
-  function isInTOZone(st){
-    return TO_ZONE_SET.has(st);
-  }
-
-  // --- 各社ごとの区間運賃を計算（TOゾーン均一と園木割引を適用） ---
-  for(let i=0;i<allCompanySegments.length;i++){
-    const seg = allCompanySegments[i];
-    const spComp = shortestPathWithinCompany(seg.from, seg.to, seg.company);
-    let segFare = 0;
-
-    // TOゾーン内発着なら250円均一（会社問わずその区間が全てTOゾーン内発着であること）
-    if(isInTOZone(seg.from) && isInTOZone(seg.to)){
-      segFare = 250;
-    } else {
-      // shortestPathWithinCompany が見つからない（会社別経路が disconnected）の場合は
-      // 全体の最短経路距離で代替する（不当に大きな既定料金が適用されるのを防ぐ）
-      if(!isFinite(spComp.distance)){
-        console.warn('company-constrained path not found for', seg, 'falling back to overall shortest path');
-        const spAny = shortestPath(seg.from, seg.to);
-        segFare = fareByCompany(seg.company, spAny.distance);
-      } else {
-        segFare = fareByCompany(seg.company, spComp.distance);
-      }
-    }
-
-    // 今津鉄道→園木→他社線 の場合、その今津鉄道区間は50円引き
-    if(seg.company === '今津鉄道' && seg.to === '園木'){
-      const nextSeg = allCompanySegments[i+1];
-      if(nextSeg && nextSeg.company && nextSeg.company == '豊野鉄道'){
-        segFare = Math.max(0, segFare - 50);
-      }
-    }
-
-    totalFare += segFare;
-  }
-
 
   // 運賃特例：五社（新里・豊野・桜川・大桑・笠原）のみを対象に乗換回数×100円を割引する
   const eligibleCompanies = new Set(["新里鉄道","豊野鉄道","桜川電気鉄道","大桑鉄道","笠原電気鉄道"]);
