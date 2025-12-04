@@ -1,0 +1,10 @@
+<ul id="list"></ul>
+
+<script>
+  fetch('list.json')
+    .then(r => r.json())
+    .then(items => {
+      const ul = document.getElementById('list');
+      ul.innerHTML = items.map(item => `<li>${item}</li>`).join('');
+    });
+</script>
