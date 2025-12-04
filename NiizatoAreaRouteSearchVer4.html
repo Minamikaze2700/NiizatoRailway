@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 
 <html lang="ja">
@@ -1163,28 +1164,11 @@ function findIndexFrom(path, station, start){
   return -1;
 }
 
-// --- 主要駅抽出（元の関数は保持。表示上の主要駅判定はこの関数に従います） ---
 
 function majorStops(path){
   if(path.length <= 1) return {majors: path};
 
-const connectingStations = [
-  { station: "鶴宮", endpoints: ["鶴宮神社","南鶴宮"] },
-  { station: "湯の浜", endpoints: ["湯の浜海岸","新里大学前"] },
-  { station: "彩山", endpoints: ["彩山親水公園","彩山口"] },
-  { station: "桜川", endpoints: ["桜川公園","豊野月見台"] },
-  { station: "港通", endpoints: ["坂電坂津", "東坂津"] },
-  { station: "豊町", endpoints: ["削野", "東豊町"] },
-  { station: "横宿", endpoints: ["日森町", "北横宿"] },
-  { station: "成津", endpoints: ["北成津", "大町"] },
-  { station: "桑畑", endpoints: ["桜峠", "常盤台"] },
-  { station: "小動", endpoints: ["東小動", "克己ヶ丘"] },
-  { station: "床川市", endpoints: ["又木", "床川南"] }
-];
 
-const specialMajorStations = [
-  "湯の浜","鶴宮","港通","豊町","成津","小動","桑畑","床川市"
-];
 
   // --- 以下は従来の主要駅判定ロジック（接続スキップ等を含む） ---
   const majors = [path[0]];
