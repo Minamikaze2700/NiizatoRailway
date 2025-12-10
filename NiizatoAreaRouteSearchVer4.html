@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 
 <html lang="ja">
@@ -3278,18 +3279,26 @@ function colorWalkTransferStartDots() {
     }
   }
 
-  // Run on load
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', alignAllTimeWraps);
-  } else {
+  // Run on load (and then re-run on the next two animation frames to ensure the final layout is captured)
+  function runInitialAlign(){
     alignAllTimeWraps();
+    requestAnimationFrame(()=>{ alignAllTimeWraps(); requestAnimationFrame(alignAllTimeWraps); });
   }
 
-  // Re-run on resize and scroll (throttle)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runInitialAlign);
+  } else {
+    runInitialAlign();
+  }
+
+  // Re-run on resize and scroll (throttle, but also do an immediate rAF pass for low-latency updates)
   let resizeTimer = null;
   function scheduleAlign(){
+    // immediate low-latency attempt using rAF (helps eliminate perceived lag for newly inserted elements)
+    requestAnimationFrame(()=>{ alignAllTimeWraps(); });
     if(resizeTimer) clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(()=>{ alignAllTimeWraps(); resizeTimer = null; }, 80);
+    // backup after short delay to catch any late layout shifts
+    resizeTimer = setTimeout(()=>{ alignAllTimeWraps(); resizeTimer = null; }, 40);
   }
   window.addEventListener('resize', scheduleAlign);
   window.addEventListener('scroll', scheduleAlign, true);
@@ -3298,19 +3307,16 @@ function colorWalkTransferStartDots() {
   const observer = new MutationObserver((mutations)=>{
     let shouldRun = false;
     for(const m of mutations){
+      // react to added/removed nodes immediately
       if(m.type === 'childList' || m.type === 'subtree' || m.type === 'attributes'){
         shouldRun = true; break;
       }
     }
     if(shouldRun) scheduleAlign();
   });
+  observer.observe(document.body || document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'id'] });
 
-  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
-
-  // Also expose for manual debugging
-  window.alignAllTimeWraps = alignAllTimeWraps;
-})();
-</script>
+})();</script>
 
 </body>
 </html>
