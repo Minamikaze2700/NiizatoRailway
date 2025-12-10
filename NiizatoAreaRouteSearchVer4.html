@@ -1935,11 +1935,10 @@ function shortestPathMinTransfers(start, goal, forbidden){
           const compPrev = prevLineOfU ? companyFromLineName(prevLineOfU) : null;
           const compCur = companyFromLineName(ln);
           let inc = 0;
-          if(prevLineOfU && compPrev && compCur && compPrev !== compCur){
-            // company change => transfer
-            // but if u is a connectingStationName, we may or may not count; follow existing logic: don't count if connectingStationName(u)
-            if(!isConnectingStationName(u)) inc = 1;
-          }
+          if (prevLineOfU && ln && prevLineOfU !== ln) {
+  if (!isConnectingStationName(u)) inc = 1;
+}
+
           const vKey = keyOfState(v, ln);
           const cur = distMap.get(bestKey);
           const newTrans = cur.transfers + inc;
