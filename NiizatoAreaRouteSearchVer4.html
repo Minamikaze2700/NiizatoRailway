@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 
 <html lang="ja">
@@ -2059,7 +2060,12 @@ function buildRoutePartsNoOverlap(from, viaStations, to){
   }
 
   const splitted = splitOnTripleRepeat(full);
-  const outParts = splitted.map(p => ({ path: p, distance: distanceOfPath(p) }));
+  const fullSchedule = computeStationSchedule(full);
+  const outParts = splitted.map(p => {
+    const idx = findIndexFrom(full, p[0], 0);
+    const base = (idx >= 0 && fullSchedule[idx]) ? (fullSchedule[idx].departure || fullSchedule[idx].arrival || null) : null;
+    return { path: p, distance: distanceOfPath(p), baseDepartureSec: base };
+  });
   return outParts;
 }
 
@@ -2341,14 +2347,16 @@ function renderTimeHtml(entry){
 }
 
 
-function computeStationSchedule(path){
+function computeStationSchedule(path, baseDepartureSec){
   // returns array of {arrival: sec|null, departure: sec|null} per station index in path
   const nowSec = Math.floor(Date.now() / 1000); // current time in seconds
+  const baseSec = (typeof baseDepartureSec === 'number' && baseDepartureSec > 0) ? baseDepartureSec : nowSec;
+// current time in seconds
   const schedule = new Array(path.length).fill(null).map(()=>({arrival:null, departure:null}));
   if(!path || path.length===0) return schedule;
   // departure station: departure = now
   schedule[0].arrival = null;
-  schedule[0].departure = nowSec;
+  schedule[0].departure = baseSec;
   for(let i=1;i<path.length;i++){
     const a = path[i-1], b = path[i];
     // determine if this segment is walk
@@ -2358,7 +2366,7 @@ function computeStationSchedule(path){
     const distKm = (graph[a] && typeof graph[a][b] === 'number') ? graph[a][b] : (graph[b] && typeof graph[b][a] === 'number' ? graph[b][a] : 0);
     let travelSec = isWalk ? computeWalkSeconds(distKm) : computeRailTravelSeconds(distKm);
     // arrival at station i
-    const arr = (schedule[i-1].departure || schedule[i-1].arrival || nowSec) + travelSec;
+    const arr = (schedule[i-1].departure || schedule[i-1].arrival || baseSec) + travelSec;
     schedule[i].arrival = arr;
     // determine dwell time: major station? minor?
     // find if path[i] is a major station according to majorStops logic: majorStops(path).majors contains station
@@ -2402,7 +2410,7 @@ document.head.appendChild(styleEl);
 // === end added schedule helpers ===
 
 function renderRouteCardForPart(part, partIndex, containerId){
-  const schedule = computeStationSchedule(part.path || []);
+  const schedule = computeStationSchedule(part.path || [], (part.baseDepartureSec !== undefined) ? part.baseDepartureSec : undefined);
 
   const path = part.path;
 
@@ -2613,6 +2621,8 @@ function renderRouteCardForPart(part, partIndex, containerId){
 
           const prevSt = path[jIndex-1];
           const nextSt = path[jIndex+1];
+          const isPrevNextSame = (prevSt === nextSt);
+
 
           const directCandidates = findLinesOfSegment(s, nextSt);
           if(directCandidates.length > 0){
@@ -2633,7 +2643,7 @@ function renderRouteCardForPart(part, partIndex, containerId){
               break;
             }
           }
-          if(threeLine && lineColors[threeLine]){
+          if(!isPrevNextSame && threeLine && lineColors[threeLine]){
             pairColors[bj - betweenStart] = lineColors[threeLine]; pairUsedLines[bj - betweenStart] = threeLine;
             continue;
           }
@@ -2645,7 +2655,7 @@ function renderRouteCardForPart(part, partIndex, containerId){
               break;
             }
           }
-          if(bothLine && lineColors[bothLine]){
+          if(!isPrevNextSame && bothLine && lineColors[bothLine]){
             pairColors[bj - betweenStart] = lineColors[bothLine]; pairUsedLines[bj - betweenStart] = bothLine;
             continue;
           }
