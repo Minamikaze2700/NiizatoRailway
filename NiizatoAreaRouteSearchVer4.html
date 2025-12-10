@@ -62,8 +62,8 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 .toggleBtn{cursor:pointer;padding:4px 8px;font-size:12px}
 .rowBetween{display:grid;grid-template-columns:var(--gutter) 1fr;column-gap:10px;align-items:start;height:auto;padding-top:12px;}
 .rowBetween .stationText{display:flex;align-items:flex-start;padding-top:0;}
-.minorName{font-size:14px;font-weight:400;margin:0;position:relative;top:-4px;}
-.condMinorName{font-size:14px;font-weight:400;margin:0;position:relative;top:-4px;color:#333;}
+.minorName{font-size:14px;font-weight:400;margin-left:4px !important;margin:0;position:relative;top:-4px;}
+.condMinorName{font-size:14px;font-weight:400;margin-left:4px !important;margin:0;position:relative;top:-4px;color:#333;}
 .rowBetween .railLineMinor{height:48px;}
 .betweenList{ display:none; }
 .spacer4{height:4px}
@@ -123,6 +123,18 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
   border: 1px solid #fff;
 }
 </style>
+
+<!-- ALIGN-FIX: enforce uniform timeWrap font and prevent overrides -->
+<style id="timewrap-uniform-style">
+.timeWrap {
+  font-size: 12px !important;
+  line-height: 1 !important;
+  white-space: nowrap;
+  display: block;
+  transform: translateY(-50%) !important;
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -1660,6 +1672,19 @@ colorWalkTransferStartDots();
     if (!nextRow) { line.style.height = '0px'; return; }
     const parentRect = railCol.getBoundingClientRect();
     const dotRect = dot.getBoundingClientRect();
+
+    // --- align any .timeWrap inside this railCol so its vertical center matches the railDot center ---
+    try{
+      const timeWrap = railCol.querySelector('.timeWrap');
+      if(timeWrap){
+        // dotRect and parentRect already defined in this scope
+        const dotCenter = (dotRect.top - parentRect.top) + (dotRect.height / 2);
+        timeWrap.style.top = dotCenter + 'px';
+        // keep translateY(-50%) so the .timeWrap is centered by its own height
+        timeWrap.style.transform = 'translateY(-50%)';
+      }
+    }catch(e){}
+
     const nextDot = nextRow.querySelector('.railDot');
     const nextDotRect = nextDot.getBoundingClientRect();
     line.style.top = (dotRect.top - parentRect.top) + 'px';
@@ -1690,6 +1715,19 @@ colorWalkTransferStartDots();
     if(!dot || !minorLine) return;
     const parentRect = railCol.getBoundingClientRect();
     const dotRect = dot.getBoundingClientRect();
+
+    // --- align any .timeWrap inside this railCol so its vertical center matches the railDot center ---
+    try{
+      const timeWrap = railCol.querySelector('.timeWrap');
+      if(timeWrap){
+        // dotRect and parentRect already defined in this scope
+        const dotCenter = (dotRect.top - parentRect.top) + (dotRect.height / 2);
+        timeWrap.style.top = dotCenter + 'px';
+        // keep translateY(-50%) so the .timeWrap is centered by its own height
+        timeWrap.style.transform = 'translateY(-50%)';
+      }
+    }catch(e){}
+
     minorLine.style.top = (dotRect.top - parentRect.top) + 'px';
     minorLine.style.height = '48px';
     // bus overlay for minor lines (between-list)
@@ -2227,7 +2265,144 @@ function splitByCompany(path){
    - wireToggleButtons(containerId) を用いてコンテナ内のみバインド
    ----------------------------- */
 
+
+// === 追加: 発着時刻計算（列車動力性能: 新里鉄道5000系を使用） ===
+// 起動加速度 (km/h/s), 減速度（常用、km/h/s）、最高速度 (km/h)
+const TRAIN_ACCEL_KMHPS = 3.3;
+const TRAIN_DECEL_KMHPS = 4.0;
+const TRAIN_VMAX_KMH = 110;
+
+// convert units
+function kmhps_to_ms2(x){ return x * 1000.0 / 3600.0; }
+const TRAIN_ACCEL = kmhps_to_ms2(TRAIN_ACCEL_KMHPS);
+const TRAIN_DECEL = kmhps_to_ms2(TRAIN_DECEL_KMHPS);
+const TRAIN_VMAX = TRAIN_VMAX_KMH * 1000.0 / 3600.0; // m/s
+
+function computeRailTravelSeconds(distance_km){
+  // distance_km -> seconds required for run starting from 0 and stopping to 0
+  if(!distance_km || distance_km <= 0) return 0;
+  const s = distance_km * 1000.0;
+  const a = TRAIN_ACCEL;
+  const b = TRAIN_DECEL;
+  const Vmax = TRAIN_VMAX;
+  const s_acc = Vmax*Vmax / (2*a);
+  const s_dec = Vmax*Vmax / (2*b);
+  if(s_acc + s_dec <= s){
+    const t_acc = Vmax / a;
+    const t_dec = Vmax / b;
+    const t_cruise = (s - s_acc - s_dec) / Vmax;
+    return Math.ceil(t_acc + t_cruise + t_dec);
+  } else {
+    // cannot reach Vmax; triangular profile
+    const denom = 0.5*(1.0/a + 1.0/b);
+    const Vp = Math.sqrt(s / denom);
+    const t_acc = Vp / a;
+    const t_dec = Vp / b;
+    return Math.ceil(t_acc + t_dec);
+  }
+}
+
+function computeWalkSeconds(distance_km){
+  const meters = distance_km * 1000.0;
+  const walk_m_per_s = 80.0 / 60.0; // 80 m/min
+  return Math.ceil(meters / walk_m_per_s) || 1;
+}
+
+function pad2(n){ return (n<10? '0'+n : ''+n); }
+function formatHHMMFromEpochSec(epochSec){
+  const d = new Date(epochSec*1000);
+  return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+function hhmmEquals(t1sec, t2sec){
+  if(t1sec==null || t2sec==null) return false;
+  const d1 = new Date(t1sec*1000);
+  const d2 = new Date(t2sec*1000);
+  return d1.getHours()===d2.getHours() && d1.getMinutes()===d2.getMinutes();
+}
+function renderTimeHtml(entry){
+  // entry: {arrival:sec|null, departure:sec|null}
+  if(!entry) return '';
+  if(entry.arrival==null && entry.departure==null) return '';
+  // only arrival
+  if(entry.arrival != null && entry.departure == null){
+    return `<div class="timeWrap"><div class="timeBox single">${formatHHMMFromEpochSec(entry.arrival)}</div></div>`;
+  }
+  // only departure
+  if(entry.departure != null && entry.arrival == null){
+    return `<div class="timeWrap"><div class="timeBox single">${formatHHMMFromEpochSec(entry.departure)}</div></div>`;
+  }
+  // both present
+  if(hhmmEquals(entry.arrival, entry.departure)){
+    return `<div class="timeWrap"><div class="timeBox single">${formatHHMMFromEpochSec(entry.arrival)}</div></div>`;
+  } else {
+    return `<div class="timeWrap"><div class="timeBox arrival">${formatHHMMFromEpochSec(entry.arrival)}</div><div class="timeBox departure">${formatHHMMFromEpochSec(entry.departure)}</div></div>`;
+  }
+}
+
+
+function computeStationSchedule(path){
+  // returns array of {arrival: sec|null, departure: sec|null} per station index in path
+  const nowSec = Math.floor(Date.now() / 1000); // current time in seconds
+  const schedule = new Array(path.length).fill(null).map(()=>({arrival:null, departure:null}));
+  if(!path || path.length===0) return schedule;
+  // departure station: departure = now
+  schedule[0].arrival = null;
+  schedule[0].departure = nowSec;
+  for(let i=1;i<path.length;i++){
+    const a = path[i-1], b = path[i];
+    // determine if this segment is walk
+    const candidateLines = findLinesOfSegment(a,b) || [];
+    let isWalk = candidateLines.some(l => /徒歩/.test(l));
+    if(!isWalk && candidateLines.length === 0 && graph[a] && typeof graph[a][b] === 'number' && graph[a][b] <= 0.5) isWalk = true;
+    const distKm = (graph[a] && typeof graph[a][b] === 'number') ? graph[a][b] : (graph[b] && typeof graph[b][a] === 'number' ? graph[b][a] : 0);
+    let travelSec = isWalk ? computeWalkSeconds(distKm) : computeRailTravelSeconds(distKm);
+    // arrival at station i
+    const arr = (schedule[i-1].departure || schedule[i-1].arrival || nowSec) + travelSec;
+    schedule[i].arrival = arr;
+    // determine dwell time: major station? minor?
+    // find if path[i] is a major station according to majorStops logic: majorStops(path).majors contains station
+    // we'll approximate: if path[i] exists in special majors or is a 'majors' by calling majorStops
+  }
+  // To determine majors we call majorStops once
+  const maj = majorStops(path).majors || path;
+  for(let i=1;i<path.length;i++){
+    // arrival already set above
+    // find dwell: if final station -> no departure
+    if(i === path.length - 1){
+      schedule[i].departure = null;
+      continue;
+    }
+    const stationName = path[i];
+    const isMajor = maj.includes(stationName);
+    const dwell = isMajor ? 60 : 20; // seconds
+    schedule[i].departure = schedule[i].arrival + dwell;
+  }
+  return schedule;
+}
+
+// CSS for timeBox (minimal)
+
+const styleEl = document.createElement('style');
+styleEl.textContent = `
+/* time boxes: positioned absolutely inside the railCol; JS will align top to the dot center */
+.timeWrap{position:absolute; left: 30px; top:50%; transform:translateY(-50%); z-index:4; white-space:nowrap; text-align:left;}
+.rowBetween .timeWrap{ left: calc(50% + var(--dotMinor)/2 + 8px); }
+/* ensure station text is always to the right of the time box to avoid overlap */
+.rowStation .stationText { margin-left: calc(var(--dotMajor) + 18px); }
+.rowBetween .stationText { margin-left: calc(var(--dotMinor) + 18px); }
+
+.timeBox{font-size:13px; display:block; line-height:1; margin:0; padding:0;}
+.timeBox.single{margin-bottom:2px;}
+.timeBox.arrival{font-size:13px;}
+.timeBox.departure{font-size:13px;}
+`;
+document.head.appendChild(styleEl);
+
+// === end added schedule helpers ===
+
 function renderRouteCardForPart(part, partIndex, containerId){
+  const schedule = computeStationSchedule(part.path || []);
+
   const path = part.path;
 
   const { majors } = majorStops(path);
@@ -2389,7 +2564,7 @@ function renderRouteCardForPart(part, partIndex, containerId){
     routeHtml += `
       <div class="rowStation">
         <div class="railCol">
-          <div class="railDot" style="background:${color}"></div>
+          <div class="railDot" style="background:${color}"></div>${ renderTimeHtml( schedule[ majorIndices[idx] ] || null ) }
           ${nextStation ? `<div id="${bigLineId}" class="railLineMajor" data-color="${color}" data-nextcolor="${nextColor || color}" data-usedlines="${usedLinesDataAttr}" style="${initialStyle}"></div>${ (usedLinesForSegment && usedLinesForSegment.some(l=>/バス/.test(l))) ? `<div id="${bigLineId}-overlay" class="busOverlay"></div>` : '' }` : `<div class="spacer6"></div>`}
         </div>
         <div class="stationText">
@@ -2503,7 +2678,7 @@ function renderRouteCardForPart(part, partIndex, containerId){
           routeHtml += `
             <div class="rowBetween">
               <div class="railCol">
-                <div class="railDot" style="background:${displayColor}"></div>
+                <div class="railDot" style="background:${displayColor}"></div>${ renderTimeHtml( schedule[ betweenStart + (arrIdx) ] || null ) }
                 <div id="${betweenId}-minorLine-${arrIdx}" class="railLineMinor" data-usedlines="${pairUsedLines[arrIdx]||''}" style="${ (pairUsedLines[arrIdx] && /徒歩/.test(pairUsedLines[arrIdx])) ? 'background: repeating-linear-gradient(  to bottom,  #aaa 0px,  #aaa 8px, #fff 8px,  #fff 16px);' : 'background:'+displayColor+';' }"></div>
                 ${ (pairUsedLines[arrIdx] && /バス/.test(pairUsedLines[arrIdx])) ? `<div id="${betweenId}-overlay-${arrIdx}" class="busOverlay"></div>` : '' }
               </div>
@@ -3076,5 +3251,66 @@ function colorWalkTransferStartDots() {
 }
 
 </script>
+
+<!-- ALIGN-FIX: robust aligner for all .timeWrap -->
+<script>
+(function(){
+  function alignAllTimeWraps(){
+    try{
+      const railCols = document.querySelectorAll('.railCol');
+      railCols.forEach(railCol => {
+        const dot = railCol.querySelector('.railDot');
+        const timeWrap = railCol.querySelector('.timeWrap');
+        if(!dot || !timeWrap) return;
+        // compute dot center relative to railCol
+        const parentRect = railCol.getBoundingClientRect();
+        const dotRect = dot.getBoundingClientRect();
+        const dotCenter = (dotRect.top - parentRect.top) + (dotRect.height / 2);
+        // apply top relative to railCol
+        timeWrap.style.position = 'absolute';
+        timeWrap.style.top = dotCenter + 'px';
+        // ensure centering by transform (already enforced by CSS)
+        timeWrap.style.transform = 'translateY(-50%)';
+      });
+    }catch(e){
+      // swallow errors to avoid breaking page
+      console.warn('alignAllTimeWraps error', e);
+    }
+  }
+
+  // Run on load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', alignAllTimeWraps);
+  } else {
+    alignAllTimeWraps();
+  }
+
+  // Re-run on resize and scroll (throttle)
+  let resizeTimer = null;
+  function scheduleAlign(){
+    if(resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(()=>{ alignAllTimeWraps(); resizeTimer = null; }, 80);
+  }
+  window.addEventListener('resize', scheduleAlign);
+  window.addEventListener('scroll', scheduleAlign, true);
+
+  // Observe DOM changes that might add/remove railCols or change dot positions
+  const observer = new MutationObserver((mutations)=>{
+    let shouldRun = false;
+    for(const m of mutations){
+      if(m.type === 'childList' || m.type === 'subtree' || m.type === 'attributes'){
+        shouldRun = true; break;
+      }
+    }
+    if(shouldRun) scheduleAlign();
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+
+  // Also expose for manual debugging
+  window.alignAllTimeWraps = alignAllTimeWraps;
+})();
+</script>
+
 </body>
 </html>
