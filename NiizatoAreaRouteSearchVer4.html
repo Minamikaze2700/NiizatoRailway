@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 
 <html lang="ja">
@@ -188,9 +189,27 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 <select class="stationSelect" id="toStation"></select>
 </div>
 </div>
+
+<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;">
+  <label style="font-weight:700;margin-bottom:4px">時刻モード</label>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <button type="button" class="tabBtn" id="modeDeparture" data-mode="departure">出発時刻</button>
+    <button type="button" class="tabBtn" id="modeArrival" data-mode="arrival">到着時刻</button>
+    <button type="button" class="tabBtn" id="modeFirst" data-mode="first">始発</button>
+    <button type="button" class="tabBtn" id="modeLast" data-mode="last">終電</button>
+
+    <div style="margin-left:8px;display:flex;gap:6px;align-items:center;">
+      <input type="date" id="timeDate" style="height:34px"/>
+      <input type="time" id="timeTime" style="height:34px"/>
+      <label style="font-size:12px;margin-left:6px;"><input type="checkbox" id="useNow" /> 現在時刻 (出発時刻モードのみ)</label>
+    </div>
+  </div>
+  <div id="timeNote" style="font-size:12px;color:#666">※ 任意時刻は始発〜終電の範囲に制限されます。始発/終電を使う場合は日付のみ指定してください。</div>
+</div>
 <div style="display:flex;align-items:flex-end;">
 <button class="primary" id="searchBtn">検索</button>
 </div>
+
 </div>
 </div>
 </div>
@@ -2352,6 +2371,111 @@ function computeWalkSeconds(distance_km){
   return Math.ceil(meters / walk_m_per_s) || 1;
 }
 
+// === 追加: 時刻モードのヘルパー ===
+// 都市部の平均的な始発/終電（分まで指定）
+// Note: 始発は当日5:04、終電（着駅到着）は当日0:58（午前0時58分）を都市部平均として使用。
+// 終電は0時台に到着する想定（必要なら調整してください）。
+const AVERAGE_FIRST_TIME = { hour: 5, minute: 4 };
+const AVERAGE_LAST_ARRIVAL = { hour: 0, minute: 58 }; // 00:58 (i.e., 24:58 previous day -> next-day handling applied)
+
+// 総所要時間（秒）を推定（移動+停車）
+function computePathTravelSeconds(path){
+  if(!Array.isArray(path) || path.length < 2) return 0;
+  let total = 0;
+  for(let i=1;i<path.length;i++){
+    const a = path[i-1], b = path[i];
+    const candidateLines = findLinesOfSegment(a,b) || [];
+    let isWalk = candidateLines.some(l => /徒歩/.test(l));
+    if(!isWalk && candidateLines.length === 0 && graph[a] && typeof graph[a][b] === 'number' && graph[a][b] <= 0.5) isWalk = true;
+    const distKm = (graph[a] && typeof graph[a][b] === 'number') ? graph[a][b] : (graph[b] && typeof graph[b][a] === 'number' ? graph[b][a] : 0);
+    total += isWalk ? computeWalkSeconds(distKm) : computeRailTravelSeconds(distKm);
+  }
+  // add dwell times for intermediate stops (same logic as computeStationSchedule: major->60s, minor->20s)
+  const maj = majorStops(path).majors || path;
+  for(let i=1;i<path.length-1;i++){
+    const stationName = path[i];
+    const isMajor = maj.indexOf(stationName) !== -1;
+    total += isMajor ? 60 : 20;
+  }
+  return total;
+}
+
+// UI wiring for mode buttons and time validation
+(function(){
+  const modes = ['departure','arrival','first','last'];
+  let activeMode = 'departure';
+  function setActiveMode(m){
+    activeMode = m;
+    modes.forEach(md=>{
+      const btn = document.getElementById('mode' + (md.charAt(0).toUpperCase()+md.slice(1)));
+      if(btn){
+        if(md === m) btn.classList.add('active'); else btn.classList.remove('active');
+      }
+    });
+    // first/last only needs date; arrival/departure need time (unless 'useNow' checked)
+    const timeInput = document.getElementById('timeTime');
+    const useNowCb = document.getElementById('useNow');
+    if(m === 'first' || m === 'last'){
+      if(timeInput) timeInput.disabled = true;
+      if(useNowCb) useNowCb.checked = false;
+      if(useNowCb) useNowCb.disabled = true;
+    } else {
+      if(timeInput) timeInput.disabled = false;
+      if(useNowCb) useNowCb.disabled = false;
+    }
+  }
+  // attach buttons
+  modes.forEach(md=>{
+    const btn = document.getElementById('mode' + (md.charAt(0).toUpperCase()+md.slice(1)));
+    if(btn){
+      btn.addEventListener('click', ()=> setActiveMode(md));
+    }
+  });
+  setActiveMode('departure');
+
+  // utility: make a Date at local time (no timezone adjustment)
+  function makeEpochSecFromDateTime(dateStr, timeStr){
+    if(!dateStr || !timeStr) return null;
+    const dt = dateStr + 'T' + timeStr + ':00';
+    const t = new Date(dt);
+    if(isNaN(t.getTime())) return null;
+    return Math.floor(t.getTime() / 1000);
+  }
+  function makeEpochSecFromDateAndHM(dateStr, hour, minute){
+    if(!dateStr) return null;
+    const pad = n => (n<10 ? '0'+n : ''+n);
+    const dt = dateStr + 'T' + pad(hour) + ':' + pad(minute) + ':00';
+    const t = new Date(dt);
+    if(isNaN(t.getTime())) return null;
+    return Math.floor(t.getTime() / 1000);
+  }
+
+  // validate whether a given epochSec falls between that day's first and last arrival.
+  function isWithinFirstLast(dateStr, epochSec){
+    if(!dateStr || epochSec == null) return false;
+    const firstSec = makeEpochSecFromDateAndHM(dateStr, AVERAGE_FIRST_TIME.hour, AVERAGE_FIRST_TIME.minute);
+    // last arrival may be in the next day if hour == 0, treat as next-day when comparing
+    const lastDay = (AVERAGE_LAST_ARRIVAL.hour === 0) ? (new Date(dateStr + 'T00:00:00')) : new Date(dateStr + 'T00:00:00');
+    let lastSec = makeEpochSecFromDateAndHM(dateStr, AVERAGE_LAST_ARRIVAL.hour, AVERAGE_LAST_ARRIVAL.minute);
+    if(AVERAGE_LAST_ARRIVAL.hour === 0){
+      // treat as next day's 00:xx -> add 24h to lastSec to represent 24:xx
+      lastSec += 24 * 3600;
+    }
+    // if epochSec is in the early morning (after midnight) it might be > lastSec - 24h; keep simple: allow if in [firstSec, lastSec]
+    return (epochSec >= firstSec && epochSec <= lastSec);
+  }
+
+  // expose helpers on window for search handler to use
+  window._timeModeHelpers = {
+    makeEpochSecFromDateTime,
+    makeEpochSecFromDateAndHM,
+    computePathTravelSeconds,
+    isWithinFirstLast,
+    getActiveMode: ()=> activeMode
+  };
+})();
+
+
 function pad2(n){ return (n<10? '0'+n : ''+n); }
 function formatHHMMFromEpochSec(epochSec){
   const d = new Date(epochSec*1000);
@@ -2386,8 +2510,8 @@ function renderTimeHtml(entry){
 
 function computeStationSchedule(path, baseDepartureSec){
   // returns array of {arrival: sec|null, departure: sec|null} per station index in path
-  const nowSec = Math.floor(Date.now() / 1000); // current time in seconds
-  const baseSec = (typeof baseDepartureSec === 'number' && baseDepartureSec > 0) ? baseDepartureSec : nowSec;
+   // current time in seconds
+  const baseSec = (typeof baseDepartureSec === 'number' && baseDepartureSec > 0) ? baseDepartureSec : null;
 // current time in seconds
   const schedule = new Array(path.length).fill(null).map(()=>({arrival:null, departure:null}));
   if(!path || path.length===0) return schedule;
@@ -3181,18 +3305,25 @@ const headerHtml = renderResultHeader(totalDistance, totalFare);
 }
 
 searchBtn.addEventListener('click', ()=>{
-  // 発/着/経由の stationSelect をまとめて探す（DOM上の順に依存）
+  // gather stations
   const stationSelectsAll = Array.from(document.querySelectorAll('.stationSelect'));
   const from = stationSelectsAll[0] ? stationSelectsAll[0].value : '';
   const to = stationSelectsAll[stationSelectsAll.length - 1] ? stationSelectsAll[stationSelectsAll.length - 1].value : '';
   const viaSelects = Array.from(viaListDiv.querySelectorAll('.stationSelect'));
   const viaStations = viaSelects.map(s=>s.value).filter(v=>v);
 
-  // ensure result containers exist to avoid accidentally wiping structure
+  // time mode values
+  const mode = (window._timeModeHelpers && window._timeModeHelpers.getActiveMode) ? window._timeModeHelpers.getActiveMode() : 'departure';
+  const dateVal = document.getElementById('timeDate') ? document.getElementById('timeDate').value : '';
+  const timeVal = document.getElementById('timeTime') ? document.getElementById('timeTime').value : '';
+  const useNow = document.getElementById('useNow') ? document.getElementById('useNow').checked : false;
+
+  // ensure result containers exist
   if(!document.getElementById('result-shortest') || !document.getElementById('result-fewest')){
     resultArea.innerHTML = '<div id="result-shortest"></div><div id="result-fewest" style="display:none"></div>';
   }
 
+  // basic station validation
   if(!from || !to){
     document.getElementById('result-shortest').innerHTML = '<div class="card">駅を選択してください</div>';
     document.getElementById('result-fewest').innerHTML = '';
@@ -3208,12 +3339,20 @@ searchBtn.addEventListener('click', ()=>{
     return;
   }
 
-  // 保存
-  saveSelections();
+  // time validation & compute per-part baseDepartureSec
+  // For departure: if useNow true -> base = now; else require date+time
+  // For arrival: require date+time (arrival time), then base = arrival - travelSec (per-part)
+  // For first: require date -> base = that date's average first
+  // For last: require date -> arrival = that date's average last arrival -> base = arrival - travelSec (per-part)
+  function showTimeError(msg){
+    document.getElementById('result-shortest').innerHTML = '<div class="card">'+msg+'</div>';
+    document.getElementById('result-fewest').innerHTML = '';
+    resultTabs.style.display = 'none';
+    refreshTabButtons();
+  }
 
-  // 距離優先（既存のロジック）
+  // prepare parts
   const partsShortest = buildRoutePartsNoOverlap(from, viaStations, to);
-  // 乗換少なめ（主要駅数を最優先で最小化；接続駅は主要駅カウントから除外）
   const partsFewest = buildRoutePartsNoOverlapMinTransfers(from, viaStations, to);
 
   if((!partsShortest || partsShortest.length === 0) && (!partsFewest || partsFewest.length === 0)){
@@ -3224,15 +3363,70 @@ searchBtn.addEventListener('click', ()=>{
     return;
   }
 
-  // タブを表示
+  // helper access
+  const helpers = window._timeModeHelpers || {};
+  const makeEpochSecFromDateTime = helpers.makeEpochSecFromDateTime;
+  const makeEpochSecFromDateAndHM = helpers.makeEpochSecFromDateAndHM;
+  const computePathTravelSeconds = helpers.computePathTravelSeconds;
+  const isWithinFirstLast = helpers.isWithinFirstLast;
+
+  // compute base secs for each part
+  try{
+    if(mode === 'departure'){
+      let baseSec = null;
+      if(useNow){
+        baseSec = Math.floor(Date.now()/1000);
+      } else {
+        if(!dateVal || !timeVal) { showTimeError('出発時刻モードでは日付と時刻を指定するか「現在時刻」を選択してください。'); return; }
+        baseSec = makeEpochSecFromDateTime(dateVal, timeVal);
+        if(baseSec == null){ showTimeError('無効な日時です'); return; }
+        // validate range
+        if(!isWithinFirstLast(dateVal, baseSec)){ showTimeError('指定時刻は始発〜終電の範囲内で指定してください。'); return; }
+      }
+      // assign to all parts
+      if(partsShortest) partsShortest.forEach(p=>p.baseDepartureSec = baseSec);
+      if(partsFewest) partsFewest.forEach(p=>p.baseDepartureSec = baseSec);
+    } else if(mode === 'arrival'){
+      if(!dateVal || !timeVal){ showTimeError('到着時刻モードでは日付と時刻を指定してください。'); return; }
+      const arrivalSec = makeEpochSecFromDateTime(dateVal, timeVal);
+      if(arrivalSec == null){ showTimeError('無効な日時です'); return; }
+      if(!isWithinFirstLast(dateVal, arrivalSec)){ showTimeError('指定到着時刻は始発〜終電の範囲内で指定してください。'); return; }
+      // per-part base = arrival - travelSeconds
+      if(partsShortest) partsShortest.forEach(p=>{ const travel = computePathTravelSeconds(p.path || []); p.baseDepartureSec = arrivalSec - travel; });
+      if(partsFewest) partsFewest.forEach(p=>{ const travel = computePathTravelSeconds(p.path || []); p.baseDepartureSec = arrivalSec - travel; });
+    } else if(mode === 'first'){
+      if(!dateVal){ showTimeError('始発モードでは日付を指定してください。'); return; }
+      const baseSec = makeEpochSecFromDateAndHM(dateVal, AVERAGE_FIRST_TIME.hour, AVERAGE_FIRST_TIME.minute);
+      if(baseSec == null){ showTimeError('無効な日付です'); return; }
+      if(partsShortest) partsShortest.forEach(p=>p.baseDepartureSec = baseSec);
+      if(partsFewest) partsFewest.forEach(p=>p.baseDepartureSec = baseSec);
+    } else if(mode === 'last'){
+      if(!dateVal){ showTimeError('終電モードでは日付を指定してください。'); return; }
+      // arrival is average last arrival for that date; if hour === 0 treat as next-day early morning
+      let arrivalSec = makeEpochSecFromDateAndHM(dateVal, AVERAGE_LAST_ARRIVAL.hour, AVERAGE_LAST_ARRIVAL.minute);
+      if(AVERAGE_LAST_ARRIVAL.hour === 0){
+        arrivalSec += 24*3600; // treat as 24:xx on the same calendar date
+      }
+      if(!isWithinFirstLast(dateVal, arrivalSec)){ /* still allow but validate loosely */ }
+      if(partsShortest) partsShortest.forEach(p=>{ const travel = computePathTravelSeconds(p.path || []); p.baseDepartureSec = arrivalSec - travel; });
+      if(partsFewest) partsFewest.forEach(p=>{ const travel = computePathTravelSeconds(p.path || []); p.baseDepartureSec = arrivalSec - travel; });
+    }
+  }catch(e){
+    showTimeError('時刻処理中にエラーが発生しました: ' + String(e));
+    return;
+  }
+
+  // save selections
+  saveSelections();
+
+  // display tabs and render
   resultTabs.style.display = 'flex';
   refreshTabButtons();
 
-  // 描画（それぞれ別コンテナに）
   renderRoutesIntoContainer(partsShortest || [], 'result-shortest');
   renderRoutesIntoContainer(partsFewest || [], 'result-fewest');
 
-  // タブ制御: 距離短いをデフォルトで表示
+  // set default active tab
   tabButtons.forEach(btn=> btn.classList.remove('active'));
   const shortestBtn = resultTabs.querySelector('[data-target="shortest"]');
   if(shortestBtn) shortestBtn.classList.add('active');
@@ -3240,6 +3434,7 @@ searchBtn.addEventListener('click', ()=>{
   document.getElementById('result-fewest').style.display = 'none';
   runAdjustments();
 });
+
 
 // タブ押下で切り替え
 function wireTabButtons(){
@@ -3364,6 +3559,135 @@ function colorWalkTransferStartDots() {
   observer.observe(document.body || document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'id'] });
 
 })();</script>
+
+
+<script>
+// --- Patch: set default time inputs to current local date/time and check "現在時刻" ---
+(function(){
+  try{
+    function pad2(n){ return (n<10 ? '0'+n : ''+n); }
+    const dt = new Date();
+    const localDate = dt.toISOString().slice(0,10); // YYYY-MM-DD in local time converts to UTC; fallback compute manually
+    // Create correct local date/time parts to avoid timezone pitfalls
+    const Y = dt.getFullYear(), M = pad2(dt.getMonth()+1), D = pad2(dt.getDate());
+    const h = pad2(dt.getHours()), m = pad2(dt.getMinutes());
+    const dateStr = `${Y}-${M}-${D}`;
+    const timeStr = `${h}:${m}`;
+    const dateEl = document.getElementById('timeDate');
+    const timeEl = document.getElementById('timeTime');
+    const useNowEl = document.getElementById('useNow');
+    if(dateEl) dateEl.value = dateStr;
+    if(timeEl) timeEl.value = timeStr;
+    if(useNowEl) useNowEl.checked = true;
+  }catch(e){ console.warn('default-time patch failed', e); }
+})();
+
+// --- Patch: split route parts when any station arrival/departure crosses first/last boundaries ---
+(function(){
+  try{
+    // helpers expected to exist in the original script
+    const AVERAGE_FIRST_TIME = window.AVERAGE_FIRST_TIME || (typeof AVERAGE_FIRST_TIME !== 'undefined' ? AVERAGE_FIRST_TIME : {hour:5, minute:4});
+    const AVERAGE_LAST_ARRIVAL = window.AVERAGE_LAST_ARRIVAL || (typeof AVERAGE_LAST_ARRIVAL !== 'undefined' ? AVERAGE_LAST_ARRIVAL : {hour:0, minute:58});
+
+    // safe references to existing helper functions if present
+    const computeStationSchedule = window.computeStationSchedule;
+    const computePathTravelSeconds = window.computePathTravelSeconds;
+    const makeEpochSecFromDateAndHM = (window._timeModeHelpers && window._timeModeHelpers.makeEpochSecFromDateAndHM) ? window._timeModeHelpers.makeEpochSecFromDateAndHM : (window.makeEpochSecFromDateAndHM || null);
+
+    // compute distance of a path using global graph
+    function distanceOfPath(p){
+      if(!p || p.length < 2) return 0;
+      let d = 0;
+      for(let i=0;i<p.length-1;i++){
+        const a = p[i], b = p[i+1];
+        if(typeof graph !== 'undefined' && graph && graph[a] && typeof graph[a][b] === 'number') d += graph[a][b];
+        else if(typeof graph !== 'undefined' && graph && graph[b] && typeof graph[b][a] === 'number') d += graph[b][a];
+      }
+      return d;
+    }
+
+    function makeBoundsForDate(dateVal){
+      try{
+        if(!makeEpochSecFromDateAndHM) return {first:null, last:null};
+        const first = makeEpochSecFromDateAndHM(dateVal, AVERAGE_FIRST_TIME.hour, AVERAGE_FIRST_TIME.minute);
+        let last = makeEpochSecFromDateAndHM(dateVal, AVERAGE_LAST_ARRIVAL.hour, AVERAGE_LAST_ARRIVAL.minute);
+        if(AVERAGE_LAST_ARRIVAL.hour === 0) last += 24*3600;
+        return {first, last};
+      }catch(e){
+        return {first:null, last:null};
+      }
+    }
+
+    // split a single part by first/last bounds; returns array of parts (may be 1)
+    function splitPartByBounds(pt, firstBoundSec, lastBoundSec){
+      if(!pt || !pt.path || pt.path.length < 2) return [pt];
+      if(typeof computeStationSchedule !== 'function' || typeof computePathTravelSeconds !== 'function') {
+        return [pt]; // cannot compute schedule -> no split
+      }
+      const schedule = computeStationSchedule(pt.path, pt.baseDepartureSec);
+      for(let i=0;i<schedule.length;i++){
+        const arr = schedule[i] && typeof schedule[i].arrival === 'number' ? schedule[i].arrival : null;
+        const dep = schedule[i] && typeof schedule[i].departure === 'number' ? schedule[i].departure : null;
+        if((arr !== null && lastBoundSec !== null && arr > lastBoundSec) || (dep !== null && firstBoundSec !== null && dep < firstBoundSec)){
+          // need to split. follow existing convention: overlap one station (split index = max(1, i-1))
+          const splitIdx = Math.max(1, i-1);
+          const pA_path = pt.path.slice(0, splitIdx+1); // includes station at splitIdx
+          const pB_path = pt.path.slice(splitIdx); // overlap at splitIdx
+          const pA = {
+            path: pA_path,
+            distance: distanceOfPath(pA_path),
+            baseDepartureSec: pt.baseDepartureSec
+          };
+          // compute travel seconds for A to set base for B
+          const travelA = computePathTravelSeconds(pA_path);
+          const pB_base = (typeof pt.baseDepartureSec === 'number' ? pt.baseDepartureSec : 0) + travelA;
+          const pB = {
+            path: pB_path,
+            distance: distanceOfPath(pB_path),
+            baseDepartureSec: pB_base
+          };
+          // recursively split B in case further boundaries exist
+          const outA = [pA];
+          const outB = splitPartByBounds(pB, firstBoundSec, lastBoundSec);
+          return outA.concat(outB);
+        }
+      }
+      return [pt];
+    }
+
+    function splitPartsByFirstLast(parts){
+      if(!Array.isArray(parts)) return parts;
+      const dateVal = (document.getElementById('timeDate') && document.getElementById('timeDate').value) ? document.getElementById('timeDate').value : '';
+      const bounds = makeBoundsForDate(dateVal);
+      if(bounds.first == null && bounds.last == null) return parts;
+      const out = [];
+      for(const p of parts){
+        const split = splitPartByBounds(p, bounds.first, bounds.last);
+        for(const s of split) {
+          // ensure distance property exists
+          if(typeof s.distance !== 'number') s.distance = distanceOfPath(s.path);
+          out.push(s);
+        }
+      }
+      return out;
+    }
+
+    // Wrap the existing renderRoutesIntoContainer so we split parts before rendering.
+    if(typeof window.renderRoutesIntoContainer === 'function'){
+      const orig = window.renderRoutesIntoContainer;
+      window.renderRoutesIntoContainer = function(parts, containerId){
+        try{
+          const splitted = splitPartsByFirstLast(parts || []);
+          return orig.call(this, splitted, containerId);
+        }catch(e){
+          console.warn('split-before-render failed', e);
+          return orig.call(this, parts, containerId);
+        }
+      };
+    }
+  }catch(e){ console.warn('time-bound-split patch failed', e); }
+})();
+</script>
 
 </body>
 </html>
