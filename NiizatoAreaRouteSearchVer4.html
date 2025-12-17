@@ -191,7 +191,7 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 </div>
 
 <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;">
-  <label style="font-weight:700;margin-bottom:4px">時刻モード</label>
+  <label style="font-weight:700;margin-bottom:4px">時刻モード（実装中のため、正確な乗換案内が表示されるとは限りません）label>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
     <button type="button" class="tabBtn" id="modeDeparture" data-mode="departure">出発時刻</button>
     <button type="button" class="tabBtn" id="modeArrival" data-mode="arrival">到着時刻</button>
@@ -201,10 +201,9 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
     <div style="margin-left:8px;display:flex;gap:6px;align-items:center;">
       <input type="date" id="timeDate" style="height:34px"/>
       <input type="time" id="timeTime" style="height:34px"/>
-      <label style="font-size:12px;margin-left:6px;"><input type="checkbox" id="useNow" /> 現在時刻 (出発時刻モードのみ)</label>
+      <label style="font-size:12px;margin-left:6px;"><input type="checkbox" id="useNow" /> 現在時刻</label>
     </div>
   </div>
-  <div id="timeNote" style="font-size:12px;color:#666">※ 任意時刻は始発〜終電の範囲に制限されます。始発/終電を使う場合は日付のみ指定してください。</div>
 </div>
 <div style="display:flex;align-items:flex-end;">
 <button class="primary" id="searchBtn">検索</button>
