@@ -188,8 +188,15 @@ button.primary{cursor:pointer;background:#0b5fff;color:#fff;border:none}
 <select class="stationSelect" id="toStation"></select>
 </div>
 </div>
-<div style="display:flex;align-items:flex-end;">
-<button class="primary" id="searchBtn">検索</button>
+<div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start;">
+  <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
+    <label style="font-size:13px;color:var(--muted);margin:0">出発時刻</label>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <input type="time" id="departureTime" step="60" placeholder="hh:mm" style="padding:6px 8px;border-radius:4px;border:1px solid #d1d5db;background:#fff;font-size:14px" />
+      <button type="button" id="setNowBtn" title="現在時刻をセット" style="padding:6px 8px;border-radius:4px;border:1px solid #d1d5db;background:#fff;font-size:13px">現在時刻</button>
+    </div>
+  </div>
+  <button class="primary" id="searchBtn">検索</button>
 </div>
 </div>
 </div>
@@ -1408,6 +1415,18 @@ const toStationSel = document.getElementById('toStation');
 const addViaBtn = document.getElementById('addViaBtn');
 const viaListDiv = document.getElementById('viaList');
 const searchBtn = document.getElementById('searchBtn');
+const departureTimeInput = document.getElementById('departureTime');
+const setNowBtn = document.getElementById('setNowBtn');
+
+if(setNowBtn){
+  setNowBtn.addEventListener('click', ()=>{
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    if(departureTimeInput) departureTimeInput.value = hh + ':' + mm;
+  });
+}
+
 const resultArea = document.getElementById('resultArea');
 const resultTabs = document.getElementById('resultTabs');
 let tabButtons = resultTabs ? Array.from(resultTabs.querySelectorAll('.tabBtn')) : [];
@@ -1520,7 +1539,8 @@ function saveSelections(){
       fromStation: fromStationSel.value || null,
       toLine: toLineSel.value || null,
       toStation: toStationSel.value || null,
-      via
+      via,
+      departureTime: (departureTimeInput ? departureTimeInput.value : null)
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }catch(e){
@@ -1599,6 +1619,7 @@ function loadSelections(){
         }
       }
     }
+    if(obj.departureTime && typeof departureTimeInput !== 'undefined' && departureTimeInput){ departureTimeInput.value = obj.departureTime; }
   }catch(e){
     // on error fallback to defaults
     if(stationLines['新里鉄道湯の浜線'] && stationLines['新里鉄道湯の浜線'].indexOf('新里')!==-1){
@@ -3215,6 +3236,27 @@ searchBtn.addEventListener('click', ()=>{
   const partsShortest = buildRoutePartsNoOverlap(from, viaStations, to);
   // 乗換少なめ（主要駅数を最優先で最小化；接続駅は主要駅カウントから除外）
   const partsFewest = buildRoutePartsNoOverlapMinTransfers(from, viaStations, to);
+
+  // --- 出発時刻を取得（hh:mm のみ。秒は 0 として扱う）
+  let baseDepartureSec = null;
+  if(typeof departureTimeInput !== 'undefined' && departureTimeInput && departureTimeInput.value){
+    const v = departureTimeInput.value;
+    const m = v.match(/^(\d{1,2}):(\d{2})$/);
+    if(m){
+      const hh = parseInt(m[1],10), mm = parseInt(m[2],10);
+      const d = new Date();
+      d.setHours(hh, mm, 0, 0);
+      baseDepartureSec = Math.floor(d.getTime()/1000);
+    }
+  }
+  if(baseDepartureSec === null){
+    baseDepartureSec = Math.floor(Date.now()/1000);
+  }
+  // assign baseDepartureSec to each part so computeStationSchedule uses it for 発駅出発時刻を決定します
+  try{
+    if(Array.isArray(partsShortest)) partsShortest.forEach(p => { p.baseDepartureSec = baseDepartureSec; });
+    if(Array.isArray(partsFewest)) partsFewest.forEach(p => { p.baseDepartureSec = baseDepartureSec; });
+  }catch(e){ /* ignore */ }
 
   if((!partsShortest || partsShortest.length === 0) && (!partsFewest || partsFewest.length === 0)){
     document.getElementById('result-shortest').innerHTML = '<div class="card">経路が見つかりませんでした。</div>';
