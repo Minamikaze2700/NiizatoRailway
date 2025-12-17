@@ -2376,7 +2376,8 @@ function computeWalkSeconds(distance_km){
 function pad2(n){ return (n<10? '0'+n : ''+n); }
 function formatHHMMFromEpochSec(epochSec){
   const d = new Date(epochSec*1000);
-  return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  // Show hours without leading zero for 0-9 (e.g. '9:05'); minutes stay zero-padded.
+  return String(d.getHours()) + ':' + pad2(d.getMinutes());
 }
 function hhmmEquals(t1sec, t2sec){
   if(t1sec==null || t2sec==null) return false;
